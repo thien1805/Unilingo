@@ -1,0 +1,37 @@
+# Core
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+python-multipart==0.0.20
+pydantic[email]==2.11.3
+pydantic-settings==2.9.1
+
+# Database
+sqlalchemy==2.0.40
+asyncpg==0.30.0
+alembic==1.15.2
+
+# Authentication
+python-jose[cryptography]==3.4.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+firebase-admin==6.8.0
+
+# Redis
+redis==5.3.0
+
+# Celery
+celery[redis]==5.5.2
+
+# AI Services
+openai==1.82.0
+google-genai==1.19.0
+azure-cognitiveservices-speech==1.44.0
+httpx==0.28.1
+
+# Storage
+boto3==1.38.14
+
+# Utils
+python-dotenv==1.1.0
+Pillow==11.2.1
+aiofiles==24.1.0
