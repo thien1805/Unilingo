@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+venv/
+env/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Expo/React Native
+.expo/
+dist/
+web-build/
+ios/
+android/
+expo-env.d.ts
+
+# Environment/Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+
+# Debug/Logs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# System
+.DS_Store
+Thumbs.db
+.kotlin/
+*.orig.*
+
+# IDEs
+.vscode/
+.idea/
