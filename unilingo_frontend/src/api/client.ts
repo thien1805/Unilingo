@@ -4,8 +4,8 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
-// LƯU Ý: Đã cập nhật theo IP Hotspot của bạn: 10.97.72.111
-const BASE_URL = 'http://10.97.72.111:8000/api/v1'; 
+// LƯU Ý: Đã cập nhật theo IP Hotspot của bạn: 10.0.0.249
+const BASE_URL = 'http://10.0.0.249:8000/api/v1'; 
 
 const apiClient = axios.create({
   baseURL: BASE_URL,

@@ -48,12 +48,26 @@ export interface ScoringResult {
       grammar_band: number;
       pronunciation_band: number;
       overall_band: number;
-      feedback: any;
+      feedback: {
+        summary: string;
+        detailed: string;
+      } | null;
       strengths: string[];
       weaknesses: string[];
       suggested_improvements: string[];
-      grammar_errors: any;
-      vocabulary_suggestions: any;
+      sample_better_answer: {
+        text: string;
+        explanation: string;
+      } | null;
+      grammar_errors: {
+        original: string;
+        corrected: string;
+        rule: string;
+      }[];
+      vocabulary_suggestions: {
+        basic_word: string;
+        better_alternatives: string[];
+      }[];
     } | null;
   }[];
 }

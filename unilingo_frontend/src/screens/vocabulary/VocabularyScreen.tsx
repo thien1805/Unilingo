@@ -21,12 +21,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { vocabularyAPI, VocabularyItem, DictionaryResult } from '../../api/vocabulary';
 import { Gradients } from '../../theme';
 
-const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'new', label: 'New' },
-  { key: 'learning', label: 'Learning' },
-  { key: 'mastered', label: 'Mastered' },
-];
+const FILTER_KEYS = ['all', 'new', 'learning', 'mastered'] as const;
 
 const MASTERY_COLORS: Record<string, string> = {
   new: '#0EA5E9',
@@ -41,6 +36,7 @@ export default function VocabularyScreen({ navigation }: any) {
   const [activeFilter, setActiveFilter] = useState('all');
   const [words, setWords] = useState<VocabularyItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState<Record<string, number>>({ all: 0, new: 0, learning: 0, mastered: 0 });
   const [loading, setLoading] = useState(true);
 
   // Dictionary
@@ -60,6 +56,22 @@ export default function VocabularyScreen({ navigation }: any) {
       });
       setWords(result.items);
       setTotal(result.total);
+      // Update count for current filter
+      setCounts(prev => ({ ...prev, [activeFilter]: result.total }));
+      // Load counts for all filters in background
+      if (activeFilter === 'all' && !search) {
+        const [newC, learningC, masteredC] = await Promise.allSettled([
+          vocabularyAPI.list({ mastery_level: 'new', per_page: 1 }),
+          vocabularyAPI.list({ mastery_level: 'learning', per_page: 1 }),
+          vocabularyAPI.list({ mastery_level: 'mastered', per_page: 1 }),
+        ]);
+        setCounts({
+          all: result.total,
+          new: newC.status === 'fulfilled' ? newC.value.total : 0,
+          learning: learningC.status === 'fulfilled' ? learningC.value.total : 0,
+          mastered: masteredC.status === 'fulfilled' ? masteredC.value.total : 0,
+        });
+      }
     } catch {
       setWords([]);
       setTotal(0);
@@ -189,28 +201,33 @@ export default function VocabularyScreen({ navigation }: any) {
         )}
       </View>
 
-      {/* Filter Tabs - FIXED */}
+      {/* Filter Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
-        {FILTERS.map(f => (
-          <TouchableOpacity
-            key={f.key}
-            style={[
-              styles.filterTab,
-              {
-                backgroundColor: activeFilter === f.key ? colors.accent : colors.bgCard,
-                borderColor: activeFilter === f.key ? colors.accent : colors.border,
-              },
-            ]}
-            onPress={() => setActiveFilter(f.key)}
-          >
-            <Text style={[
-              styles.filterText,
-              { color: activeFilter === f.key ? '#fff' : colors.textSecondary },
-            ]}>
-              {f.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {FILTER_KEYS.map(key => {
+          const label = key === 'all' ? 'All' : key.charAt(0).toUpperCase() + key.slice(1);
+          const count = counts[key] || 0;
+          const isActive = activeFilter === key;
+          return (
+            <TouchableOpacity
+              key={key}
+              style={[
+                styles.filterTab,
+                {
+                  backgroundColor: isActive ? colors.accent : colors.bgCard,
+                  borderColor: isActive ? colors.accent : colors.border,
+                },
+              ]}
+              onPress={() => setActiveFilter(key)}
+            >
+              <Text style={[
+                styles.filterText,
+                { color: isActive ? '#fff' : colors.textSecondary },
+              ]}>
+                {label}{count > 0 ? ` ${count}` : ''}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       {/* Word List */}
@@ -329,9 +346,9 @@ const styles = StyleSheet.create({
   dictBtnText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 13, color: '#fff' },
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, paddingHorizontal: 14, borderWidth: 1, marginHorizontal: 20, marginBottom: 14 },
   searchInput: { flex: 1, paddingVertical: 12, fontFamily: 'PlusJakartaSans-Regular', fontSize: 14 },
-  filterRow: { gap: 8, paddingHorizontal: 20, marginBottom: 14 },
-  filterTab: { paddingVertical: 8, paddingHorizontal: 18, borderRadius: 999, borderWidth: 1 },
-  filterText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 13 },
+  filterRow: { gap: 6, paddingHorizontal: 20, marginBottom: 12, alignItems: 'center' },
+  filterTab: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1 },
+  filterText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 12 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   vocabItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, borderWidth: 1 },
   masteryBar: { width: 5, height: 38, borderRadius: 3 },
