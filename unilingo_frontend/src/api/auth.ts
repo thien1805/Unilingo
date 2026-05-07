@@ -2,7 +2,7 @@
  * Auth API service
  */
 import apiClient from './client';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore, type UserProfile } from '../store/authStore';
 
 export interface RegisterPayload {
   email: string;
@@ -22,13 +22,17 @@ interface TokenResponse {
   token_type: string;
 }
 
+export interface AuthResponse extends TokenResponse {
+  user?: UserProfile;
+}
+
 export const authAPI = {
-  register: async (payload: RegisterPayload): Promise<TokenResponse> => {
+  register: async (payload: RegisterPayload): Promise<AuthResponse> => {
     const { data } = await apiClient.post('/auth/register', payload);
     return data;
   },
 
-  login: async (payload: LoginPayload): Promise<TokenResponse> => {
+  login: async (payload: LoginPayload): Promise<AuthResponse> => {
     const { data } = await apiClient.post('/auth/login', payload);
     return data;
   },

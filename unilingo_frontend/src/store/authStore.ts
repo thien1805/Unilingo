@@ -45,12 +45,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true, // Start true for hydration
 
   setTokens: (access, refresh) => {
-    set({ accessToken: access, refreshToken: refresh, isAuthenticated: true });
+    set({ accessToken: access, refreshToken: refresh });
     // Persist tokens securely
     SecureStore.setItemAsync(TOKEN_KEY, JSON.stringify({ access, refresh })).catch(() => {});
   },
 
-  setUser: (user) => set({ user }),
+  setUser: (user) => set({ user, isAuthenticated: true }),
 
   logout: () => {
     set({
@@ -70,16 +70,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (stored) {
         const { access, refresh } = JSON.parse(stored);
         if (access && refresh) {
-          set({ accessToken: access, refreshToken: refresh, isAuthenticated: true });
-          // Try to fetch user profile
-          try {
-            const { usersAPI } = await import('../api/users');
+          set({ accessToken: access, refreshToken: refresh });
+
+          const { usersAPI } = await import('../api/users');
+          const { authAPI } = await import('../api/auth');
+
+          const loadUser = async () => {
             const user = await usersAPI.getMe();
-            set({ user });
+            set({ user, isAuthenticated: true });
+          };
+
+          try {
+            await loadUser();
           } catch {
-            // Token expired or invalid — clear
-            set({ accessToken: null, refreshToken: null, isAuthenticated: false });
-            await SecureStore.deleteItemAsync(TOKEN_KEY);
+            try {
+              const refreshed = await authAPI.refreshToken(refresh);
+              set({ accessToken: refreshed.access_token, refreshToken: refreshed.refresh_token });
+              await SecureStore.setItemAsync(
+                TOKEN_KEY,
+                JSON.stringify({ access: refreshed.access_token, refresh: refreshed.refresh_token })
+              );
+              await loadUser();
+            } catch {
+              await get().logout();
+            }
           }
         }
       }

@@ -19,11 +19,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
 import { authAPI } from '../../api/auth';
-import { usersAPI } from '../../api/users';
 
 export default function RegisterScreen({ navigation }: any) {
   const { colors } = useThemeStore();
-  const { setTokens, setUser } = useAuthStore();
+  const { logout } = useAuthStore();
 
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
@@ -33,6 +32,21 @@ export default function RegisterScreen({ navigation }: any) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  const getErrorMessage = (error: any, fallback: string) => {
+    const detail = error?.response?.data?.detail;
+    const message = error?.response?.data?.message;
+
+    if (typeof detail === 'string') return detail;
+    if (typeof message === 'string') return message;
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item) => item?.msg || item?.message || JSON.stringify(item))
+        .join(', ');
+    }
+
+    return fallback;
+  };
 
   const handleRegister = async () => {
     if (!email || !fullName || !password || !confirmPassword) {
@@ -50,12 +64,16 @@ export default function RegisterScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      const tokens = await authAPI.register({ email, password, full_name: fullName });
-      setTokens(tokens.access_token, tokens.refresh_token);
-      const user = await usersAPI.getMe();
-      setUser(user);
+      await authAPI.register({ email, password, full_name: fullName });
+      logout();
+      Alert.alert('Đăng ký thành công', 'Vui lòng đăng nhập để tiếp tục.', [
+        {
+          text: 'OK',
+          onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }),
+        },
+      ]);
     } catch (error: any) {
-      Alert.alert('Registration Failed', error.response?.data?.detail || 'Something went wrong');
+      Alert.alert('Registration Failed', getErrorMessage(error, 'Something went wrong'));
     } finally {
       setLoading(false);
     }

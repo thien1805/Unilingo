@@ -24,7 +24,7 @@ import { Typography, FontFamily } from '../../theme/typography';
 
 export default function LoginScreen({ navigation }: any) {
   const { colors } = useThemeStore();
-  const { setTokens, setUser } = useAuthStore();
+  const { setTokens, setUser, logout } = useAuthStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,6 +33,21 @@ export default function LoginScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  const getErrorMessage = (error: any, fallback: string) => {
+    const detail = error?.response?.data?.detail;
+    const message = error?.response?.data?.message;
+
+    if (typeof detail === 'string') return detail;
+    if (typeof message === 'string') return message;
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item) => item?.msg || item?.message || JSON.stringify(item))
+        .join(', ');
+    }
+
+    return fallback;
+  };
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
@@ -40,13 +55,19 @@ export default function LoginScreen({ navigation }: any) {
     }
     setLoading(true);
     try {
-      const tokens = await authAPI.login({ email, password });
-      setTokens(tokens.access_token, tokens.refresh_token);
+      const response = await authAPI.login({ email, password });
+      setTokens(response.access_token, response.refresh_token);
+
+      if (response.user) {
+        setUser(response.user);
+        return;
+      }
+
       const user = await usersAPI.getMe();
       setUser(user);
     } catch (error: any) {
-      const msg = error.response?.data?.detail || 'Invalid email or password';
-      Alert.alert('Login Failed', typeof msg === 'string' ? msg : JSON.stringify(msg));
+      logout();
+      Alert.alert('Login Failed', getErrorMessage(error, 'Invalid email or password'));
     } finally {
       setLoading(false);
     }
