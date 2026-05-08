@@ -2,8 +2,10 @@
 Unilingo Backend - FastAPI Application Entry Point
 """
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 
 from app.config import get_settings
 from app.database import init_db
@@ -61,6 +63,42 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ──────────────────────────────── Exception Handlers ────────────────────────
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Convert HTTPException to standard error response."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": exc.detail,
+            "status_code": exc.status_code,
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Convert Pydantic validation errors to readable error response."""
+    errors = exc.errors()
+    if errors:
+        first_error = errors[0]
+        field = " → ".join(str(loc) for loc in first_error.get("loc", []) if loc != "body")
+        msg = first_error.get("msg", "Validation error")
+        detail = f"{field}: {msg}" if field else msg
+    else:
+        detail = "Validation error"
+    
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": detail,
+            "status_code": 422,
+        },
+    )
+
 
 # Include API router
 app.include_router(v1_router)
