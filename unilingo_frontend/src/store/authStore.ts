@@ -47,10 +47,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setTokens: (access, refresh) => {
     set({ accessToken: access, refreshToken: refresh });
     // Persist tokens securely
-    SecureStore.setItemAsync(TOKEN_KEY, JSON.stringify({ access, refresh })).catch(() => {});
+    SecureStore.setItemAsync(TOKEN_KEY, JSON.stringify({ access, refresh })).catch(() => { });
   },
 
-  setUser: (user) => set({ user, isAuthenticated: true }),
+  setUser: (user) => set({ user, isAuthenticated: true }), 
 
   logout: () => {
     set({
@@ -59,7 +59,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       user: null,
       isAuthenticated: false,
     });
-    SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
+    SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => { });
   },
 
   setLoading: (loading) => set({ isLoading: loading }),
