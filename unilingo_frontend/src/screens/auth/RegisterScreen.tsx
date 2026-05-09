@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +33,17 @@ export default function RegisterScreen({ navigation }: any) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorModalTitle, setErrorModalTitle] = useState('');
+  const [errorModalMessage, setErrorModalMessage] = useState('');
+
+  const showError = (title: string, message: string) => {
+    setErrorModalTitle(title);
+    setErrorModalMessage(message);
+    setErrorModalVisible(true);
+  };
 
   const getErrorMessage = (error: any, fallback: string) => {
     const detail = error?.response?.data?.detail;
@@ -50,15 +62,15 @@ export default function RegisterScreen({ navigation }: any) {
 
   const handleRegister = async () => {
     if (!email || !fullName || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showError('Lỗi', 'Vui lòng điền đầy đủ thông tin');
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showError('Lỗi', 'Mật khẩu xác nhận không khớp');
       return;
     }
     if (password.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters');
+      showError('Lỗi', 'Mật khẩu phải có ít nhất 8 ký tự');
       return;
     }
 
@@ -66,14 +78,9 @@ export default function RegisterScreen({ navigation }: any) {
     try {
       await authAPI.register({ email, password, full_name: fullName });
       logout();
-      Alert.alert('Đăng ký thành công', 'Vui lòng đăng nhập để tiếp tục.', [
-        {
-          text: 'OK',
-          onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }),
-        },
-      ]);
+      setShowSuccessModal(true);
     } catch (error: any) {
-      Alert.alert('Registration Failed', getErrorMessage(error, 'Something went wrong'));
+      showError('Đăng ký thất bại', getErrorMessage(error, 'Đã xảy ra lỗi, vui lòng thử lại'));
     } finally {
       setLoading(false);
     }
@@ -105,10 +112,10 @@ export default function RegisterScreen({ navigation }: any) {
           {/* Subtitle */}
           <View style={styles.subtitleRow}>
             <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>
-              If you already have an account register{'\n'}You can{' '}
+              If you already have an account,
             </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={[styles.subtitleLink, { color: colors.accent }]}>Login here !</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} style={{ marginTop: 4 }}>
+              <Text style={[styles.subtitleLink, { color: colors.accent }]}>Login here!</Text>
             </TouchableOpacity>
           </View>
 
@@ -213,6 +220,66 @@ export default function RegisterScreen({ navigation }: any) {
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.bgPrimary }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.success + '20' }]}>
+              <Ionicons name="checkmark-circle" size={48} color={colors.success || '#10B981'} />
+            </View>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+              Đăng ký thành công!
+            </Text>
+            <Text style={[styles.modalText, { color: colors.textSecondary }]}>
+              Tài khoản của bạn đã được tạo thành công. Vui lòng đăng nhập để bắt đầu trải nghiệm Unilingo.
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: colors.accent }]}
+              onPress={() => {
+                setShowSuccessModal(false);
+                navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalBtnText}>Đăng nhập ngay</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        visible={errorModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setErrorModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.bgPrimary }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.error + '20' }]}>
+              <Ionicons name="close-circle" size={48} color={colors.error || '#EF4444'} />
+            </View>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+              {errorModalTitle}
+            </Text>
+            <Text style={[styles.modalText, { color: colors.textSecondary }]}>
+              {errorModalMessage}
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: colors.error, shadowColor: colors.error }]}
+              onPress={() => setErrorModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalBtnText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -239,6 +306,9 @@ const styles = StyleSheet.create({
   logoText: {
     fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 18,
+    lineHeight: 24,
+    includeFontPadding: false,
+    paddingRight: 4,
   },
   heading: {
     fontFamily: 'PlusJakartaSans-ExtraBold',
@@ -247,9 +317,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   subtitleRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'flex-end',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     marginBottom: 36,
   },
   subtitleText: {
@@ -302,12 +371,70 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 16,
     color: '#fff',
-    letterSpacing: 0.5,
+    lineHeight: 24,
+    includeFontPadding: false,
+    paddingRight: 4,
   },
   termsText: {
     fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: 22,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontFamily: 'PlusJakartaSans-Regular',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  modalBtn: {
+    width: '100%',
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#0D9488',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  modalBtnText: {
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: '#fff',
+    fontSize: 16,
   },
 });

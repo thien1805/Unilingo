@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +34,16 @@ export default function LoginScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const [errorModalTitle, setErrorModalTitle] = useState('');
+  const [errorModalMessage, setErrorModalMessage] = useState('');
+
+  const showError = (title: string, message: string) => {
+    setErrorModalTitle(title);
+    setErrorModalMessage(message);
+    setErrorModalVisible(true);
+  };
+
   const getErrorMessage = (error: any, fallback: string) => {
     const detail = error?.response?.data?.detail;
     const message = error?.response?.data?.message;
@@ -50,7 +61,7 @@ export default function LoginScreen({ navigation }: any) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      showError('Lỗi', 'Vui lòng điền đầy đủ thông tin');
       return;
     }
     setLoading(true);
@@ -67,7 +78,7 @@ export default function LoginScreen({ navigation }: any) {
       setUser(user);
     } catch (error: any) {
       logout();
-      Alert.alert('Login Failed', getErrorMessage(error, 'Invalid email or password'));
+      showError('Đăng nhập thất bại', getErrorMessage(error, 'Email hoặc mật khẩu không hợp lệ'));
     } finally {
       setLoading(false);
     }
@@ -99,10 +110,10 @@ export default function LoginScreen({ navigation }: any) {
           {/* Subtitle */}
           <View style={styles.subtitleRow}>
             <Text style={[styles.subtitleText, { color: colors.textSecondary }]}>
-              If you don't have an account register{'\n'}You can{' '}
+              If you don't have an account. Please register new account!
             </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={[styles.subtitleLink, { color: colors.accent }]}>Register here !</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')} style={{ marginTop: 4 }}>
+              <Text style={[styles.subtitleLink, { color: colors.accent }]}>Register here </Text>
             </TouchableOpacity>
           </View>
 
@@ -205,6 +216,35 @@ export default function LoginScreen({ navigation }: any) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Error Modal */}
+      <Modal
+        visible={errorModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setErrorModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.bgPrimary }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.error + '20' }]}>
+              <Ionicons name="close-circle" size={48} color={colors.error || '#EF4444'} />
+            </View>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+              {errorModalTitle}
+            </Text>
+            <Text style={[styles.modalText, { color: colors.textSecondary }]}>
+              {errorModalMessage}
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: colors.error }]}
+              onPress={() => setErrorModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalBtnText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -231,6 +271,9 @@ const styles = StyleSheet.create({
   logoText: {
     fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 18,
+    lineHeight: 24,
+    includeFontPadding: false,
+    paddingRight: 4,
   },
   heading: {
     fontFamily: 'PlusJakartaSans-ExtraBold',
@@ -239,9 +282,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   subtitleRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'flex-end',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     marginBottom: 40,
   },
   subtitleText: {
@@ -303,6 +345,8 @@ const styles = StyleSheet.create({
   forgotText: {
     fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 13,
+    lineHeight: 18,
+    includeFontPadding: false,
   },
   mainBtn: {
     height: 56,
@@ -320,7 +364,9 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 16,
     color: '#fff',
-    letterSpacing: 0.5,
+    lineHeight: 24,
+    includeFontPadding: false,
+    paddingRight: 4,
   },
   dividerRow: {
     alignItems: 'center',
@@ -346,5 +392,61 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: 'PlusJakartaSans-Bold',
     color: '#4285F4',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: 22,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontFamily: 'PlusJakartaSans-Regular',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  modalBtn: {
+    width: '100%',
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  modalBtnText: {
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: '#fff',
+    fontSize: 16,
   },
 });
