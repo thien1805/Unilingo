@@ -9,6 +9,14 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     full_name: str = Field(..., min_length=2, max_length=255)
     username: str | None = Field(None, min_length=3, max_length=50, pattern=r"^[a-zA-Z0-9_]+$")
+    otp: str = Field(..., min_length=6, max_length=6)
+
+class SendOTPRequest(BaseModel):
+    email: EmailStr
+
+class VerifyOTPRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6)
 
 
 class LoginRequest(BaseModel):
@@ -36,7 +44,8 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ResetPasswordRequest(BaseModel):
-    token: str
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6)
     new_password: str = Field(..., min_length=8, max_length=128)
 
 

@@ -9,6 +9,7 @@ from app.schemas.auth import (
     RegisterRequest, LoginRequest, SocialLoginRequest,
     TokenResponse, RefreshTokenRequest,
     ForgotPasswordRequest, ResetPasswordRequest,
+    SendOTPRequest, VerifyOTPRequest
 )
 from app.services.auth_service import (
     register_user, authenticate_user, social_login,
@@ -18,9 +19,28 @@ from app.services.auth_service import (
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+from app.services.otp_service import generate_and_send_otp, verify_otp, verify_otp_only
+from sqlalchemy import select
+from app.models.user import User
+
+@router.post("/register-send-otp", status_code=status.HTTP_200_OK)
+async def register_send_otp(request: SendOTPRequest, db: AsyncSession = Depends(get_db)):
+    """Send OTP for registration."""
+    # Check if user already exists
+    result = await db.execute(select(User).where(User.email == request.email))
+    if result.scalars().first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    generate_and_send_otp(request.email, prefix="register")
+    return {"message": "OTP sent to your email."}
+
+
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    """Register a new user with email and password."""
+    """Register a new user with email, password, and OTP."""
+    if not verify_otp(request.email, request.otp, prefix="register"):
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+        
     user = await register_user(
         db=db,
         email=request.email,
@@ -103,16 +123,46 @@ async def refresh_token(request: RefreshTokenRequest):
 
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
-async def forgot_password(request: ForgotPasswordRequest):
-    """Send password reset email."""
-    # TODO: Implement email sending with reset token
-    return {"message": "If the email exists, a reset link has been sent."}
+async def forgot_password(request: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Send password reset OTP email."""
+    result = await db.execute(select(User).where(User.email == request.email))
+    user = result.scalars().first()
+    
+    if user:
+        generate_and_send_otp(request.email, prefix="reset")
+        
+    # Always return success to prevent email enumeration
+    return {"message": "If the email exists, an OTP has been sent."}
+
+
+@router.post("/verify-reset-otp", status_code=status.HTTP_200_OK)
+async def verify_reset_otp_endpoint(request: VerifyOTPRequest):
+    """Verify OTP without consuming it (step 2 of forgot password)."""
+    if not verify_otp_only(request.email, request.otp, prefix="reset"):
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+    return {"message": "OTP verified successfully."}
 
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
-async def reset_password(request: ResetPasswordRequest):
-    """Reset password using a reset token."""
-    # TODO: Implement password reset logic
+async def reset_password(request: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Reset password using OTP (step 3 of forgot password)."""
+    if not verify_otp(request.email, request.otp, prefix="reset"):
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+        
+    result = await db.execute(select(User).where(User.email == request.email))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    from app.services.auth_service import hash_password, verify_password
+    
+    # Check if new password is the same as current password
+    if user.hashed_password and verify_password(request.new_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Mật khẩu mới không được trùng với mật khẩu hiện tại")
+    
+    user.hashed_password = hash_password(request.new_password)
+    await db.flush()
+    
     return {"message": "Password has been reset successfully."}
 
 

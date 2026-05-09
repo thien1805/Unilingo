@@ -13,7 +13,7 @@ from app.models.vocabulary import VocabularyNote
 from app.schemas.user import (
     UserProfileResponse, UpdateProfileRequest, DashboardResponse,
     TodayStats, BandTrendPoint, SkillBreakdown, VocabularyStats,
-    ChangePasswordRequest,
+    ChangePasswordRequest, StreakGoalRequest,
 )
 
 from datetime import date, timedelta
@@ -173,6 +173,67 @@ async def get_streak_info(
         "total_xp": current_user.total_xp,
     }
 
+
+@router.get("/me/streak-history")
+async def get_streak_history(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the last 365 days of daily streaks for the commit graph."""
+    from datetime import date, timedelta
+    year_ago = date.today() - timedelta(days=365)
+    
+    result = await db.execute(
+        select(DailyStreak.streak_date, DailyStreak.xp_earned, DailyStreak.tests_completed)
+        .where(DailyStreak.user_id == current_user.id, DailyStreak.streak_date >= year_ago)
+        .order_by(DailyStreak.streak_date)
+    )
+    
+    history = [
+        {
+            "date": row.streak_date.isoformat(),
+            "xp": row.xp_earned,
+            "tests": row.tests_completed,
+        }
+        for row in result.all()
+    ]
+    
+    return {"history": history, "current_streak": current_user.current_streak}
+
+
+@router.post("/me/streak-goal")
+async def set_streak_goal(
+    request: StreakGoalRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Set a commitment streak goal and earn immediate bonus XP."""
+    from datetime import date
+    
+    current_user.goal_target = request.days
+    current_user.goal_start_date = date.today()
+    
+    # Calculate bonus XP
+    bonus_xp = 0
+    if request.days == 7:
+        bonus_xp = 20
+    elif request.days == 14:
+        bonus_xp = 50
+    elif request.days == 30:
+        bonus_xp = 120
+    else:
+        bonus_xp = request.days * 2 # Fallback
+        
+    current_user.total_xp += bonus_xp
+    
+    await db.flush()
+    await db.refresh(current_user)
+    
+    return {
+        "message": f"Goal set for {request.days} days! You earned {bonus_xp} bonus XP.",
+        "goal_target": current_user.goal_target,
+        "total_xp": current_user.total_xp
+    }
 
 @router.post("/me/change-password")
 async def change_password(

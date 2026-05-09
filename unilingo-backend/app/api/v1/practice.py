@@ -144,6 +144,52 @@ async def submit_practice(
 
     # Update status to "scoring"
     attempt.status = "scoring"
+    
+    # Calculate XP (50 for part 1, 100 for part 2, 150 for part 3)
+    xp = 50 if attempt.ielts_part == "part1" else 100 if attempt.ielts_part == "part2" else 150
+    attempt.xp_earned = xp
+    
+    # Update user XP
+    current_user.total_xp += xp
+    
+    # Update Daily Streak
+    from app.models.user import DailyStreak
+    from datetime import date, timedelta
+    today = date.today()
+    
+    streak_result = await db.execute(
+        select(DailyStreak).where(DailyStreak.user_id == current_user.id, DailyStreak.streak_date == today)
+    )
+    today_streak = streak_result.scalar_one_or_none()
+    
+    if not today_streak:
+        today_streak = DailyStreak(
+            user_id=current_user.id,
+            streak_date=today,
+            xp_earned=xp,
+            tests_completed=1,
+            study_minutes=int(attempt.duration_seconds / 60) if attempt.duration_seconds else 5
+        )
+        db.add(today_streak)
+        
+        # Check if yesterday had a streak
+        yesterday = today - timedelta(days=1)
+        yesterday_streak_result = await db.execute(
+            select(DailyStreak).where(DailyStreak.user_id == current_user.id, DailyStreak.streak_date == yesterday)
+        )
+        if yesterday_streak_result.scalar_one_or_none():
+            current_user.current_streak += 1
+        else:
+            current_user.current_streak = 1
+            
+        if current_user.current_streak > current_user.longest_streak:
+            current_user.longest_streak = current_user.current_streak
+    else:
+        today_streak.xp_earned += xp
+        today_streak.tests_completed += 1
+        if attempt.duration_seconds:
+            today_streak.study_minutes += int(attempt.duration_seconds / 60)
+
     await db.flush()
 
     # TODO: Enqueue Celery task for AI scoring
@@ -153,7 +199,7 @@ async def submit_practice(
     return SubmitPracticeResponse(
         attempt_id=attempt.id,
         status="scoring",
-        message="Your practice is being scored by AI. This usually takes 15-30 seconds.",
+        message=f"You earned {xp} XP! Your practice is being scored by AI.",
     )
 
 

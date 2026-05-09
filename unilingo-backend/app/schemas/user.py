@@ -19,6 +19,8 @@ class UserProfileResponse(BaseModel):
     total_xp: int
     current_streak: int
     longest_streak: int
+    goal_target: int | None = None
+    goal_start_date: date | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -83,3 +85,6 @@ class VocabularyStats(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8, max_length=128)
+
+class StreakGoalRequest(BaseModel):
+    days: int = Field(..., ge=1, le=365)
