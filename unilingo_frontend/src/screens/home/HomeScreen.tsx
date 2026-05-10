@@ -21,6 +21,8 @@ import { usersAPI, DashboardData } from '../../api/users';
 import { practiceAPI, PracticeHistoryItem } from '../../api/practice';
 import { vocabularyAPI } from '../../api/vocabulary';
 import { Gradients } from '../../theme';
+import { StreakModal } from '../../components/common/StreakModal';
+import * as SecureStore from 'expo-secure-store';
 
 export default function HomeScreen({ navigation }: any) {
   const { colors } = useThemeStore();
@@ -31,6 +33,14 @@ export default function HomeScreen({ navigation }: any) {
   const [reviewDue, setReviewDue] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showStreakModal, setShowStreakModal] = useState(false);
+
+  const checkStreakModal = (currentUserData: any) => {
+    // Show onboarding modal if user hasn't set a goal target
+    if (currentUserData && currentUserData.goal_target == null) {
+      setShowStreakModal(true);
+    }
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -39,10 +49,14 @@ export default function HomeScreen({ navigation }: any) {
         practiceAPI.getHistory({ per_page: 5 }),
         vocabularyAPI.getReviewDue(),
       ]);
-      if (dash.status === 'fulfilled') setDashboard(dash.value);
-      if (history.status === 'fulfilled') setRecentActivity(history.value.items);
+      if (dash.status === 'fulfilled') {
+        setDashboard(dash.value);
+        checkStreakModal(dash.value.user);
+      }
+      if (history.status === 'fulfilled') setRecentActivity(history.value?.items || []);
       if (reviewWords.status === 'fulfilled') {
-        setReviewDue(Array.isArray(reviewWords.value) ? reviewWords.value.length : 0);
+        const val = reviewWords.value;
+        setReviewDue(Array.isArray(val) ? val.length : 0);
       }
     } catch {
       // Silently fail, use whatever data we got
@@ -254,6 +268,12 @@ export default function HomeScreen({ navigation }: any) {
           </View>
         )}
       </ScrollView>
+
+      <StreakModal 
+        visible={showStreakModal} 
+        onClose={() => setShowStreakModal(false)} 
+        currentStreak={streak} 
+      />
     </SafeAreaView>
   );
 }

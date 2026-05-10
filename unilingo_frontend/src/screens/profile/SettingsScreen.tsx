@@ -21,6 +21,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
 import { usersAPI } from '../../api/users';
 import { authAPI } from '../../api/auth';
+import apiClient from '../../api/client';
 import { Gradients } from '../../theme';
 
 export default function SettingsScreen({ navigation }: any) {
@@ -32,6 +33,7 @@ export default function SettingsScreen({ navigation }: any) {
   const [username, setUsername] = useState(user?.username || '');
   const [targetBand, setTargetBand] = useState(user?.target_band_score || 7.0);
   const [currentLevel, setCurrentLevel] = useState(user?.current_level || 'intermediate');
+  const [streakGoal, setStreakGoal] = useState(user?.goal_target || 7);
   const [saving, setSaving] = useState(false);
 
   // Password fields
@@ -60,7 +62,15 @@ export default function SettingsScreen({ navigation }: any) {
         target_band_score: targetBand,
         current_level: currentLevel,
       });
-      setUser(updated);
+      
+      if (streakGoal !== user?.goal_target) {
+        await apiClient.post('/users/me/streak-goal', { days: streakGoal });
+        const finalUser = await usersAPI.getMe();
+        setUser(finalUser);
+      } else {
+        setUser(updated);
+      }
+      
       Alert.alert('Success', 'Profile updated!');
     } catch (error: any) {
       const msg = error.response?.data?.detail || 'Failed to update profile';
@@ -180,6 +190,27 @@ export default function SettingsScreen({ navigation }: any) {
                   ))}
                 </View>
               </ScrollView>
+            </FieldRow>
+            <FieldRow label={`Commit Streak: ${streakGoal} Days`} icon="flame-outline" colors={colors}>
+              <View style={styles.levelRow}>
+                {[7, 14, 30].map(days => (
+                  <TouchableOpacity
+                    key={days}
+                    style={[
+                      styles.levelChip,
+                      {
+                        backgroundColor: streakGoal === days ? colors.accent : colors.bgInput,
+                        borderColor: streakGoal === days ? colors.accent : colors.border,
+                      },
+                    ]}
+                    onPress={() => setStreakGoal(days)}
+                  >
+                    <Text style={[styles.levelText, { color: streakGoal === days ? '#fff' : colors.textSecondary }]}>
+                      {days} Days
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </FieldRow>
             <FieldRow label="Level" icon="school-outline" colors={colors}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>

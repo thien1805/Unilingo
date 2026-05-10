@@ -69,6 +69,11 @@ export const vocabularyAPI = {
     return data;
   },
 
+  updateMastery: async (id: string, mastery_level: 'new' | 'learning' | 'reviewing' | 'mastered'): Promise<VocabularyItem> => {
+    const { data } = await apiClient.patch(`/vocabulary/${id}`, { mastery_level });
+    return data;
+  },
+
   delete: async (id: string) => {
     await apiClient.delete(`/vocabulary/${id}`);
   },

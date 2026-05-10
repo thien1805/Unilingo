@@ -29,6 +29,7 @@ import SettingsScreen from '../screens/profile/SettingsScreen';
 
 // Flashcard Screens
 import FlashcardDecksScreen from '../screens/flashcards/FlashcardDecksScreen';
+import FlashcardDeckDetailScreen from '../screens/flashcards/FlashcardDeckDetailScreen';
 import FlashcardStudyScreen from '../screens/flashcards/FlashcardStudyScreen';
 
 const Stack = createNativeStackNavigator();
@@ -66,6 +67,7 @@ function VocabStackNavigator() {
     <VocabStack.Navigator screenOptions={{ headerShown: false }}>
       <VocabStack.Screen name="VocabMain" component={VocabularyScreen} />
       <VocabStack.Screen name="FlashcardDecks" component={FlashcardDecksScreen} />
+      <VocabStack.Screen name="FlashcardDeckDetail" component={FlashcardDeckDetailScreen} />
       <VocabStack.Screen name="FlashcardStudy" component={FlashcardStudyScreen} />
     </VocabStack.Navigator>
   );

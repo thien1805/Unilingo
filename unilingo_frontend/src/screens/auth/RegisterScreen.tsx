@@ -33,6 +33,8 @@ export default function RegisterScreen({ navigation }: any) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [step, setStep] = useState<'details' | 'otp'>('details');
+  const [otp, setOtp] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [errorModalVisible, setErrorModalVisible] = useState(false);
@@ -60,7 +62,7 @@ export default function RegisterScreen({ navigation }: any) {
     return fallback;
   };
 
-  const handleRegister = async () => {
+  const handleSendOtp = async () => {
     if (!email || !fullName || !password || !confirmPassword) {
       showError('Lỗi', 'Vui lòng điền đầy đủ thông tin');
       return;
@@ -76,11 +78,28 @@ export default function RegisterScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      await authAPI.register({ email, password, full_name: fullName });
+      await authAPI.registerSendOtp(email);
+      setStep('otp');
+    } catch (error: any) {
+      showError('Lỗi', getErrorMessage(error, 'Không thể gửi mã xác thực. Vui lòng thử lại.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    if (otp.length !== 6) {
+      showError('Lỗi', 'Mã xác thực phải gồm 6 chữ số');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await authAPI.register({ email, password, full_name: fullName, otp });
       logout();
       setShowSuccessModal(true);
     } catch (error: any) {
-      showError('Đăng ký thất bại', getErrorMessage(error, 'Đã xảy ra lỗi, vui lòng thử lại'));
+      showError('Đăng ký thất bại', getErrorMessage(error, 'Mã xác thực không đúng hoặc đã hết hạn'));
     } finally {
       setLoading(false);
     }
@@ -119,97 +138,147 @@ export default function RegisterScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
 
-          {/* Email Field */}
-          <View style={styles.fieldGroup}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Email</Text>
-            <View style={[styles.inputRow, { borderBottomColor: underlineColor('email') }]}>
-              <Ionicons name="mail-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { color: colors.textPrimary }]}
-                placeholder="Enter your email address"
-                placeholderTextColor={colors.textMuted}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField(null)}
-              />
-            </View>
-          </View>
+          {step === 'details' ? (
+            <>
+              {/* Email Field */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Email</Text>
+                <View style={[styles.inputRow, { borderBottomColor: underlineColor('email') }]}>
+                  <Ionicons name="mail-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.textPrimary }]}
+                    placeholder="Enter your email address"
+                    placeholderTextColor={colors.textMuted}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    onFocus={() => setFocusedField('email')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </View>
+              </View>
 
-          {/* Username / Full Name */}
-          <View style={styles.fieldGroup}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Full Name</Text>
-            <View style={[styles.inputRow, { borderBottomColor: underlineColor('name') }]}>
-              <Ionicons name="person-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { color: colors.textPrimary }]}
-                placeholder="Enter your Full Name"
-                placeholderTextColor={colors.textMuted}
-                value={fullName}
-                onChangeText={setFullName}
-                onFocus={() => setFocusedField('name')}
-                onBlur={() => setFocusedField(null)}
-              />
-            </View>
-          </View>
+              {/* Username / Full Name */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Full Name</Text>
+                <View style={[styles.inputRow, { borderBottomColor: underlineColor('name') }]}>
+                  <Ionicons name="person-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.textPrimary }]}
+                    placeholder="Enter your Full Name"
+                    placeholderTextColor={colors.textMuted}
+                    value={fullName}
+                    onChangeText={setFullName}
+                    onFocus={() => setFocusedField('name')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </View>
+              </View>
 
-          {/* Password Field */}
-          <View style={styles.fieldGroup}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Password</Text>
-            <View style={[styles.inputRow, { borderBottomColor: underlineColor('password') }]}>
-              <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { color: colors.textPrimary }]}
-                placeholder="Enter your Password"
-                placeholderTextColor={colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                onFocus={() => setFocusedField('password')}
-                onBlur={() => setFocusedField(null)}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Ionicons name="eye-off-outline" size={20} color={colors.textMuted} />
+              {/* Password Field */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Password</Text>
+                <View style={[styles.inputRow, { borderBottomColor: underlineColor('password') }]}>
+                  <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.textPrimary }]}
+                    placeholder="Enter your Password"
+                    placeholderTextColor={colors.textMuted}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    onFocus={() => setFocusedField('password')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <Ionicons name="eye-off-outline" size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Confirm Password */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Confirm Password</Text>
+                <View style={[styles.inputRow, { borderBottomColor: underlineColor('confirm') }]}>
+                  <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.textPrimary }]}
+                    placeholder="Confirm your Password"
+                    placeholderTextColor={colors.textMuted}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirm}
+                    onFocus={() => setFocusedField('confirm')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                  <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
+                    <Ionicons name="eye-off-outline" size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Register Button */}
+              <TouchableOpacity
+                style={[styles.mainBtn, { backgroundColor: colors.accent }]}
+                onPress={handleSendOtp}
+                activeOpacity={0.85}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.mainBtnText}>Register</Text>
+                )}
               </TouchableOpacity>
-            </View>
-          </View>
+            </>
+          ) : (
+            <>
+              {/* OTP Field */}
+              <View style={styles.fieldGroup}>
+                <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Mã Xác Thực (OTP)</Text>
+                <Text style={[styles.subtitleText, { color: colors.textSecondary, marginBottom: 12 }]}>
+                  Mã gồm 6 chữ số đã được gửi đến email {email}
+                </Text>
+                <View style={[styles.inputRow, { borderBottomColor: underlineColor('otp') }]}>
+                  <Ionicons name="keypad-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.textPrimary, fontSize: 18, letterSpacing: 4 }]}
+                    placeholder="000000"
+                    placeholderTextColor={colors.textMuted}
+                    value={otp}
+                    onChangeText={setOtp}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    onFocus={() => setFocusedField('otp')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </View>
+              </View>
 
-          {/* Confirm Password */}
-          <View style={styles.fieldGroup}>
-            <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Confirm Password</Text>
-            <View style={[styles.inputRow, { borderBottomColor: underlineColor('confirm') }]}>
-              <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
-              <TextInput
-                style={[styles.input, { color: colors.textPrimary }]}
-                placeholder="Confirm your Password"
-                placeholderTextColor={colors.textMuted}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirm}
-                onFocus={() => setFocusedField('confirm')}
-                onBlur={() => setFocusedField(null)}
-              />
-              <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)}>
-                <Ionicons name="eye-off-outline" size={20} color={colors.textMuted} />
+              <TouchableOpacity
+                style={[styles.mainBtn, { backgroundColor: colors.accent }]}
+                onPress={handleRegister}
+                activeOpacity={0.85}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.mainBtnText}>Hoàn tất đăng ký</Text>
+                )}
               </TouchableOpacity>
-            </View>
-          </View>
 
-          {/* Register Button */}
-          <TouchableOpacity
-            style={[styles.mainBtn, { backgroundColor: colors.accent }]}
-            onPress={handleRegister}
-            activeOpacity={0.85}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.mainBtnText}>Register</Text>
-            )}
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={{ alignItems: 'center', marginTop: 12 }}
+                onPress={() => setStep('details')}
+              >
+                <Text style={{ color: colors.textSecondary, fontFamily: 'PlusJakartaSans-Medium' }}>
+                  Quay lại chỉnh sửa thông tin
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
 
           {/* Terms */}
           <Text style={[styles.termsText, { color: colors.textMuted }]}>
@@ -225,7 +294,7 @@ export default function RegisterScreen({ navigation }: any) {
         visible={showSuccessModal}
         transparent
         animationType="fade"
-        onRequestClose={() => {}}
+        onRequestClose={() => { }}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.bgPrimary }]}>
@@ -325,11 +394,15 @@ const styles = StyleSheet.create({
     fontFamily: 'PlusJakartaSans-Regular',
     fontSize: 14,
     lineHeight: 22,
+    includeFontPadding: false,
+    paddingRight: 4,
   },
   subtitleLink: {
     fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 14,
     lineHeight: 22,
+    includeFontPadding: false,
+    paddingRight: 4,
   },
   fieldGroup: {
     marginBottom: 24,
@@ -380,6 +453,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
+    includeFontPadding: false,
+    paddingRight: 4,
   },
   modalOverlay: {
     flex: 1,

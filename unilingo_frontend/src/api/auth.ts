@@ -9,6 +9,7 @@ export interface RegisterPayload {
   password: string;
   full_name: string;
   username?: string;
+  otp: string;
 }
 
 export interface LoginPayload {
@@ -27,6 +28,11 @@ export interface AuthResponse extends TokenResponse {
 }
 
 export const authAPI = {
+  registerSendOtp: async (email: string) => {
+    const { data } = await apiClient.post('/auth/register-send-otp', { email });
+    return data;
+  },
+
   register: async (payload: RegisterPayload): Promise<AuthResponse> => {
     const { data } = await apiClient.post('/auth/register', payload);
     return data;
@@ -54,6 +60,17 @@ export const authAPI = {
 
   forgotPassword: async (email: string) => {
     const { data } = await apiClient.post('/auth/forgot-password', { email });
+    return data;
+  },
+  
+  verifyResetOtp: async (email: string, otp: string) => {
+    const { data } = await apiClient.post('/auth/verify-reset-otp', { email, otp });
+    return data;
+  },
+  
+  resetPassword: async (resetData: any) => {
+    // resetData should contain { email, otp, new_password }
+    const { data } = await apiClient.post('/auth/reset-password', resetData);
     return data;
   },
 

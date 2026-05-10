@@ -9,7 +9,6 @@ import {
   StyleSheet,
   Dimensions,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -36,6 +35,7 @@ const hapticImpact = (style: Haptics.ImpactFeedbackStyle) => {
 import { useThemeStore } from '../../store/themeStore';
 import { flashcardsAPI, FlashcardCard, FlashcardDeck } from '../../api/flashcards';
 import { Gradients } from '../../theme';
+import { AppModal, useAppModal } from '../../components/common/AppModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
@@ -61,13 +61,16 @@ const QUALITY_BUTTONS = [
 export default function FlashcardStudyScreen({ navigation, route }: any) {
   const { deckId, deckTitle } = route.params;
   const { colors } = useThemeStore();
+  const { modal, hideModal, showConfirm } = useAppModal();
 
-  const [cards, setCards] = useState<FlashcardCard[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [allCards, setAllCards] = useState<FlashcardCard[]>([]);
+  const [queue, setQueue] = useState<FlashcardCard[]>([]);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [completed, setCompleted] = useState(false);
   const [stats, setStats] = useState({ easy: 0, hard: 0, again: 0 });
+  const [totalCards, setTotalCards] = useState(0);
+  const [masteredCount, setMasteredCount] = useState(0);
 
   // Animated values
   const flipProgress = useSharedValue(0);
@@ -82,15 +85,20 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
   const loadCards = async () => {
     try {
       const session = await flashcardsAPI.getStudySession(deckId);
-      setCards(session.cards_to_study);
+      const fetchedCards = session.cards_to_study;
+      setAllCards(fetchedCards);
+      setQueue([...fetchedCards]);
+      setTotalCards(fetchedCards.length);
     } catch {
-      setCards(MOCK_CARDS);
+      setAllCards(MOCK_CARDS);
+      setQueue([...MOCK_CARDS]);
+      setTotalCards(MOCK_CARDS.length);
     } finally {
       setLoading(false);
     }
   };
 
-  const currentCard = cards[currentIndex];
+  const currentCard = queue[0] || null;
 
   const flipCard = useCallback(() => {
     hapticImpact(Haptics.ImpactFeedbackStyle.Light);
@@ -103,38 +111,48 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
   }, [isFlipped]);
 
   const goToNext = useCallback((quality: number) => {
-    // Record review
+    // Record review to backend
     if (currentCard && !currentCard.id.startsWith('c')) {
       flashcardsAPI.reviewCard(currentCard.id, quality).catch(() => {});
     }
 
     // Update stats
     setStats(prev => ({
-      easy: prev.easy + (quality === 5 ? 1 : 0),
+      easy: prev.easy + (quality >= 4 ? 1 : 0),
       hard: prev.hard + (quality === 3 ? 1 : 0),
-      again: prev.again + (quality === 1 ? 1 : 0),
+      again: prev.again + (quality <= 2 ? 1 : 0),
     }));
 
     hapticImpact(
-      quality === 5 ? Haptics.ImpactFeedbackStyle.Light :
-      quality === 1 ? Haptics.ImpactFeedbackStyle.Heavy :
+      quality >= 4 ? Haptics.ImpactFeedbackStyle.Light :
+      quality <= 2 ? Haptics.ImpactFeedbackStyle.Heavy :
       Haptics.ImpactFeedbackStyle.Medium
     );
 
-    if (currentIndex >= cards.length - 1) {
-      setCompleted(true);
-      return;
-    }
-
-    // Animate card out
-    const direction = quality === 5 ? 1 : quality === 1 ? -1 : 0;
+    // Animate card out, then process queue
+    const direction = quality >= 4 ? 1 : -1;
     translateX.value = withTiming(direction * SCREEN_WIDTH * 1.5, { duration: 300 }, () => {
-      runOnJS(resetAndAdvance)();
+      runOnJS(processQueue)(quality);
     });
-  }, [currentIndex, cards.length, currentCard]);
+  }, [queue, currentCard]);
 
-  const resetAndAdvance = () => {
-    setCurrentIndex(prev => prev + 1);
+  const processQueue = (quality: number) => {
+    setQueue(prev => {
+      const [current, ...rest] = prev;
+      if (quality <= 2 && current) {
+        // Don't know / Again → push card back to end of queue
+        return [...rest, current];
+      }
+      // Know it / Easy → remove from queue
+      if (quality >= 4) {
+        setMasteredCount(m => m + 1);
+      }
+      if (rest.length === 0) {
+        setCompleted(true);
+      }
+      return rest;
+    });
+    // Reset card visuals
     setIsFlipped(false);
     flipProgress.value = 0;
     translateX.value = 0;
@@ -208,7 +226,7 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
     opacity: interpolate(translateX.value, [0, -SWIPE_THRESHOLD], [0, 1]),
   }));
 
-  const progress = cards.length > 0 ? (currentIndex / cards.length) : 0;
+  const progress = totalCards > 0 ? (masteredCount / totalCards) : 0;
 
   if (loading) {
     return (
@@ -220,19 +238,19 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
     );
   }
 
-  if (completed || cards.length === 0) {
+  if (completed || allCards.length === 0) {
     const total = stats.easy + stats.hard + stats.again;
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgPrimary }]}>
         <View style={styles.completedContainer}>
           <Text style={{ fontSize: 64, marginBottom: 16 }}>🎉</Text>
           <Text style={[styles.completedTitle, { color: colors.textPrimary }]}>
-            {cards.length === 0 ? 'No cards to study!' : 'Session Complete!'}
+            {allCards.length === 0 ? 'No cards to study!' : 'All Cards Mastered!'}
           </Text>
           <Text style={[styles.completedSubtitle, { color: colors.textSecondary }]}>
-            {cards.length === 0
-              ? 'Add some vocabulary words first, then come back.'
-              : `You studied ${total} card${total !== 1 ? 's' : ''} today.`}
+            {allCards.length === 0
+              ? 'Add some cards to this deck first, then come back.'
+              : `Great job! You mastered all ${totalCards} cards.`}
           </Text>
 
           {total > 0 && (
@@ -270,11 +288,13 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
         <TouchableOpacity
           style={[styles.backBtn, { borderColor: colors.border }]}
           onPress={() => {
-            if (currentIndex > 0) {
-              Alert.alert('Exit Study?', 'Your progress will be saved.', [
-                { text: 'Continue', style: 'cancel' },
-                { text: 'Exit', onPress: () => navigation.goBack() },
-              ]);
+            if (masteredCount > 0) {
+              showConfirm(
+                'Exit Study?',
+                `You've mastered ${masteredCount}/${totalCards} cards. Exit now?`,
+                () => navigation.goBack(),
+                { confirmText: 'Exit', cancelText: 'Continue' }
+              );
             } else {
               navigation.goBack();
             }
@@ -286,7 +306,7 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
           {deckTitle || 'Study'}
         </Text>
         <Text style={[styles.counter, { color: colors.textMuted }]}>
-          {currentIndex + 1}/{cards.length}
+          {masteredCount}/{totalCards} ✔
         </Text>
       </View>
 
@@ -357,7 +377,8 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
 
       {/* Swipe Hint */}
       <Text style={[styles.swipeHint, { color: colors.textMuted }]}>
-        ← Swipe left: Don't know  ·  Swipe right: Know it! →
+        {queue.length > 1 ? `${queue.length - 1} cards remaining` : 'Last card!'} {'\n'}
+        {'← Don\'t know  ·  Know it! →'}
       </Text>
 
       {/* Quality Rating Buttons */}
@@ -374,6 +395,9 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* App Modal */}
+      <AppModal config={modal} onDismiss={hideModal} />
     </SafeAreaView>
   );
 }

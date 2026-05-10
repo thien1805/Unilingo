@@ -1,7 +1,7 @@
 /**
  * VocabularyScreen — Word list + Dictionary search + filter
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   Modal,
   ScrollView,
@@ -17,9 +16,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useThemeStore } from '../../store/themeStore';
 import { vocabularyAPI, VocabularyItem, DictionaryResult } from '../../api/vocabulary';
+import { flashcardsAPI, FlashcardDeck } from '../../api/flashcards';
 import { Gradients } from '../../theme';
+import { AppModal, useAppModal } from '../../components/common/AppModal';
 
 const FILTER_KEYS = ['all', 'new', 'learning', 'mastered'] as const;
 
@@ -32,6 +34,7 @@ const MASTERY_COLORS: Record<string, string> = {
 
 export default function VocabularyScreen({ navigation }: any) {
   const { colors } = useThemeStore();
+  const { modal, hideModal, showError, showSuccess, showInfo } = useAppModal();
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [words, setWords] = useState<VocabularyItem[]>([]);
@@ -45,6 +48,16 @@ export default function VocabularyScreen({ navigation }: any) {
   const [dictLoading, setDictLoading] = useState(false);
   const [showDict, setShowDict] = useState(false);
   const [addingWord, setAddingWord] = useState(false);
+
+  // Add to Flashcard Deck
+  const [showDeckPicker, setShowDeckPicker] = useState(false);
+  const [decks, setDecks] = useState<FlashcardDeck[]>([]);
+  const [decksLoading, setDecksLoading] = useState(false);
+  const [pendingWord, setPendingWord] = useState<DictionaryResult | null>(null);
+  const [pendingVocabItem, setPendingVocabItem] = useState<VocabularyItem | null>(null);
+  const [addingToDeck, setAddingToDeck] = useState<string | null>(null);
+
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   const loadWords = useCallback(async () => {
     try {
@@ -89,7 +102,7 @@ export default function VocabularyScreen({ navigation }: any) {
       const result = await vocabularyAPI.lookupDictionary(dictSearch.trim());
       setDictResult(result);
     } catch {
-      Alert.alert('Not Found', `Could not find "${dictSearch}" in the dictionary.`);
+      showInfo('Not Found', `Could not find "${dictSearch}" in the dictionary.`);
       setDictResult(null);
     } finally {
       setDictLoading(false);
@@ -111,37 +124,153 @@ export default function VocabularyScreen({ navigation }: any) {
         ),
         examples: firstDef?.example ? [firstDef.example] : undefined,
       });
-      Alert.alert('Added!', `"${dictResult.word}" added to your vocabulary.`);
+      showSuccess('Added!', `"${dictResult.word}" added to your vocabulary.`);
       setShowDict(false);
       setDictResult(null);
       setDictSearch('');
       loadWords();
     } catch (error: any) {
       const msg = error.response?.data?.detail || 'Failed to add word';
-      Alert.alert('Error', typeof msg === 'string' ? msg : JSON.stringify(msg));
+      showError('Error', typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setAddingWord(false);
     }
   };
 
+  const openDeckPicker = (word: DictionaryResult) => {
+    setPendingWord(word);
+    setShowDeckPicker(true);
+    loadDecks();
+  };
+
+  const loadDecks = async () => {
+    setDecksLoading(true);
+    try {
+      const result = await flashcardsAPI.listDecks();
+      setDecks(result.items);
+    } catch {
+      setDecks([]);
+    } finally {
+      setDecksLoading(false);
+    }
+  };
+
+  const addWordToDeck = async (deckId: string) => {
+    const word = pendingWord || pendingVocabItem;
+    if (!word) return;
+    setAddingToDeck(deckId);
+    try {
+      let frontContent: string;
+      let backContent: string;
+
+      if ('meanings' in word) {
+        // DictionaryResult
+        frontContent = word.word;
+        const meanings = word.meanings?.map(m =>
+          `(${m.part_of_speech}) ${m.definitions.map(d => d.definition).join('; ')}`
+        ).join('\n') || '';
+        backContent = word.phonetic
+          ? `${meanings}\n\n${word.phonetic}`
+          : meanings;
+      } else {
+        // VocabularyItem
+        frontContent = word.word;
+        const defs = typeof word.definitions === 'string'
+          ? word.definitions
+          : Array.isArray(word.definitions)
+            ? word.definitions.map((d: any) => `(${d.part_of_speech || ''}) ${d.definition}`).join('\n')
+            : '';
+        backContent = word.phonetic ? `${defs}\n\n${word.phonetic}` : defs;
+      }
+
+      await flashcardsAPI.addCard(deckId, {
+        front_content: frontContent,
+        back_content: backContent,
+      });
+      setShowDeckPicker(false);
+      setPendingWord(null);
+      setPendingVocabItem(null);
+      showSuccess('Added to Deck!', `"${frontContent}" has been added to the flashcard deck.`);
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'Failed to add card';
+      showError('Error', typeof msg === 'string' ? msg : JSON.stringify(msg));
+    } finally {
+      setAddingToDeck(null);
+    }
+  };
+
+  const handleChangeMastery = async (item: VocabularyItem, newLevel: 'new' | 'learning' | 'reviewing' | 'mastered') => {
+    try {
+      await vocabularyAPI.updateMastery(item.id, newLevel);
+      setWords(prev => prev.map(w => w.id === item.id ? { ...w, mastery_level: newLevel } : w));
+      // Close swipeable
+      swipeableRefs.current.get(item.id)?.close();
+    } catch {
+      showError('Error', 'Failed to update mastery level');
+    }
+  };
+
+  const handleAddVocabToDeck = (item: VocabularyItem) => {
+    setPendingVocabItem(item);
+    setShowDeckPicker(true);
+    loadDecks();
+    swipeableRefs.current.get(item.id)?.close();
+  };
+
+  const MASTERY_OPTIONS: { level: 'new' | 'learning' | 'mastered'; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { level: 'new', label: 'New', icon: 'sparkles-outline' },
+    { level: 'learning', label: 'Learning', icon: 'school-outline' },
+    { level: 'mastered', label: 'Mastered', icon: 'checkmark-done-outline' },
+  ];
+
+  const renderRightActions = (item: VocabularyItem) => {
+    return (
+      <View style={styles.swipeActions}>
+        {MASTERY_OPTIONS.filter(o => o.level !== item.mastery_level).map(opt => (
+          <TouchableOpacity
+            key={opt.level}
+            style={[styles.swipeAction, { backgroundColor: MASTERY_COLORS[opt.level] }]}
+            onPress={() => handleChangeMastery(item, opt.level)}
+          >
+            <Ionicons name={opt.icon} size={16} color="#fff" />
+            <Text style={styles.swipeActionText}>{opt.label}</Text>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity
+          style={[styles.swipeAction, { backgroundColor: colors.accent }]}
+          onPress={() => handleAddVocabToDeck(item)}
+        >
+          <Ionicons name="layers-outline" size={16} color="#fff" />
+          <Text style={styles.swipeActionText}>Deck</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   const renderWord = ({ item }: { item: VocabularyItem }) => (
-    <View style={[styles.vocabItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-      <View style={[styles.masteryBar, { backgroundColor: MASTERY_COLORS[item.mastery_level] || colors.sky }]} />
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.wordText, { color: colors.textPrimary }]}>{item.word}</Text>
-        {item.phonetic && <Text style={[styles.phonetic, { color: colors.textMuted }]}>{item.phonetic}</Text>}
-        <Text style={[styles.definition, { color: colors.textSecondary }]} numberOfLines={1}>
-          {typeof item.definitions === 'string'
-            ? item.definitions
-            : Array.isArray(item.definitions)
-              ? item.definitions[0]?.definition || ''
-              : ''}
-        </Text>
+    <Swipeable
+      ref={ref => { if (ref) swipeableRefs.current.set(item.id, ref); }}
+      renderRightActions={() => renderRightActions(item)}
+      overshootRight={false}
+    >
+      <View style={[styles.vocabItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+        <View style={[styles.masteryBar, { backgroundColor: MASTERY_COLORS[item.mastery_level] || colors.sky }]} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.wordText, { color: colors.textPrimary }]}>{item.word}</Text>
+          {item.phonetic && <Text style={[styles.phonetic, { color: colors.textMuted }]}>{item.phonetic}</Text>}
+          <Text style={[styles.definition, { color: colors.textSecondary }]} numberOfLines={1}>
+            {typeof item.definitions === 'string'
+              ? item.definitions
+              : Array.isArray(item.definitions)
+                ? item.definitions[0]?.definition || ''
+                : ''}
+          </Text>
+        </View>
+        <View style={[styles.masteryChip, { backgroundColor: MASTERY_COLORS[item.mastery_level] + '20' }]}>
+          <Text style={[styles.masteryText, { color: MASTERY_COLORS[item.mastery_level] }]}>{item.mastery_level}</Text>
+        </View>
       </View>
-      <View style={[styles.masteryChip, { backgroundColor: MASTERY_COLORS[item.mastery_level] + '20' }]}>
-        <Text style={[styles.masteryText, { color: MASTERY_COLORS[item.mastery_level] }]}>{item.mastery_level}</Text>
-      </View>
-    </View>
+    </Swipeable>
   );
 
   return (
@@ -202,7 +331,7 @@ export default function VocabularyScreen({ navigation }: any) {
       </View>
 
       {/* Filter Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+      <View style={styles.filterRow}>
         {FILTER_KEYS.map(key => {
           const label = key === 'all' ? 'All' : key.charAt(0).toUpperCase() + key.slice(1);
           const count = counts[key] || 0;
@@ -228,7 +357,7 @@ export default function VocabularyScreen({ navigation }: any) {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
 
       {/* Word List */}
       {loading ? (
@@ -323,11 +452,78 @@ export default function VocabularyScreen({ navigation }: any) {
                     </>
                   )}
                 </TouchableOpacity>
+
+                {/* Add to Flashcard Deck Button */}
+                <TouchableOpacity
+                  style={[styles.addToDeckBtn, { borderColor: colors.accent }]}
+                  onPress={() => openDeckPicker(dictResult)}
+                >
+                  <Ionicons name="layers-outline" size={18} color={colors.accent} />
+                  <Text style={[styles.addToDeckBtnText, { color: colors.accent }]}>Add to Flashcard Deck</Text>
+                </TouchableOpacity>
               </View>
             )}
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* Deck Picker Modal */}
+      <Modal visible={showDeckPicker} animationType="slide" transparent>
+        <View style={styles.deckPickerOverlay}>
+          <View style={[styles.deckPickerCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            <View style={styles.deckPickerHeader}>
+              <Text style={[styles.deckPickerTitle, { color: colors.textPrimary }]}>Choose a Deck</Text>
+              <TouchableOpacity onPress={() => { setShowDeckPicker(false); setPendingWord(null); }}>
+                <Ionicons name="close" size={24} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {pendingWord && (
+              <Text style={[styles.deckPickerSubtitle, { color: colors.textSecondary }]}>
+                Adding "{pendingWord.word}" to a flashcard deck
+              </Text>
+            )}
+            {decksLoading ? (
+              <ActivityIndicator size="large" color={colors.accent} style={{ marginVertical: 40 }} />
+            ) : decks.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                <Text style={{ fontSize: 36, marginBottom: 12 }}>📝</Text>
+                <Text style={[{ color: colors.textSecondary, fontFamily: 'PlusJakartaSans-Regular', fontSize: 14, textAlign: 'center' }]}>
+                  No decks yet. Create a deck first in Flashcards.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={decks}
+                keyExtractor={item => item.id}
+                style={{ maxHeight: 300 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.deckPickerItem, { borderColor: colors.border }]}
+                    onPress={() => addWordToDeck(item.id)}
+                    disabled={addingToDeck !== null}
+                  >
+                    <View style={[styles.deckPickerItemIcon, { backgroundColor: colors.accentBg }]}>
+                      <Ionicons name="layers" size={20} color={colors.accent} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.deckPickerItemTitle, { color: colors.textPrimary }]}>{item.title}</Text>
+                      <Text style={[styles.deckPickerItemCount, { color: colors.textMuted }]}>{item.card_count} cards</Text>
+                    </View>
+                    {addingToDeck === item.id ? (
+                      <ActivityIndicator size="small" color={colors.accent} />
+                    ) : (
+                      <Ionicons name="add-circle-outline" size={22} color={colors.accent} />
+                    )}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* App Modal */}
+      <AppModal config={modal} onDismiss={hideModal} />
     </SafeAreaView>
   );
 }
@@ -346,11 +542,26 @@ const styles = StyleSheet.create({
   dictBtnText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 13, color: '#fff' },
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, paddingHorizontal: 14, borderWidth: 1, marginHorizontal: 20, marginBottom: 14 },
   searchInput: { flex: 1, paddingVertical: 12, fontFamily: 'PlusJakartaSans-Regular', fontSize: 14 },
-  filterRow: { gap: 6, paddingHorizontal: 20, marginBottom: 12, alignItems: 'center' },
-  filterTab: { paddingVertical: 5, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1 },
-  filterText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 12 },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 20,
+    marginBottom: 14,
+    height: 38,
+    alignItems: 'center',
+  },
+  filterTab: {
+    paddingVertical: 0,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 12, includeFontPadding: false },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  vocabItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, borderWidth: 1 },
+  vocabItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 17, borderRadius: 12, borderWidth: 1 },
   masteryBar: { width: 5, height: 38, borderRadius: 3 },
   wordText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 15 },
   phonetic: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 12, marginTop: 1 },
@@ -376,4 +587,26 @@ const styles = StyleSheet.create({
   exampleText: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 13, fontStyle: 'italic', marginTop: 4, lineHeight: 18 },
   addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 48, borderRadius: 24, marginTop: 16 },
   addBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15, color: '#fff' },
+  addToDeckBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 48, borderRadius: 24, marginTop: 10, borderWidth: 1.5 },
+  addToDeckBtnText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 15 },
+  // Deck Picker
+  deckPickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  deckPickerCard: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, padding: 24, paddingBottom: 40 },
+  deckPickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  deckPickerTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 20 },
+  deckPickerSubtitle: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 13, marginBottom: 20 },
+  deckPickerItem: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14, borderBottomWidth: 1 },
+  deckPickerItemIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  deckPickerItemTitle: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 15 },
+  deckPickerItemCount: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 12, marginTop: 2 },
+  // Swipe Actions
+  swipeActions: { flexDirection: 'row', alignItems: 'stretch' },
+  swipeAction: {
+    justifyContent: 'center', alignItems: 'center',
+    width: 64, paddingHorizontal: 4,
+  },
+  swipeActionText: {
+    fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 9,
+    color: '#fff', marginTop: 4, textAlign: 'center',
+  },
 });
