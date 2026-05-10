@@ -198,13 +198,30 @@ export default function ResultsScreen({ navigation, route }: any) {
             <ScoreBar label="Pronunciation" value={pronunciation} gradient={Gradients.rose} />
           </View>
 
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-            <Badge label={`+${r.xp_earned || 65} XP`} variant="success" />
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
             {r.duration_seconds && (
               <Badge label={`⏱ ${Math.floor(r.duration_seconds / 60)}:${(r.duration_seconds % 60).toString().padStart(2, '0')}`} variant="accent" />
             )}
           </View>
         </Card>
+
+        {/* XP Prominent Display */}
+        {r.xp_earned > 0 && (
+          <LinearGradient 
+            colors={['rgba(245, 158, 11, 0.1)', 'rgba(245, 158, 11, 0.05)']} 
+            style={{ borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(245, 158, 11, 0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 24 }}>⭐</Text>
+              </View>
+              <View>
+                <Text style={[Typography.h4, { color: '#D97706' }]}>+{r.xp_earned} XP Earned!</Text>
+                <Text style={[Typography.caption, { color: colors.textSecondary }]}>Keep practicing to climb the leaderboard</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        )}
 
         {/* Tabs */}
         <View style={[styles.tabs, { backgroundColor: colors.bgInput }]}>

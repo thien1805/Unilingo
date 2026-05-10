@@ -10,6 +10,7 @@ import {
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +21,7 @@ import { useAuthStore } from '../../store/authStore';
 import { usersAPI, DashboardData } from '../../api/users';
 import { practiceAPI, PracticeHistoryItem } from '../../api/practice';
 import { vocabularyAPI } from '../../api/vocabulary';
+import { blogAPI, BlogPostSummary } from '../../api/blog';
 import { Gradients } from '../../theme';
 import { StreakModal } from '../../components/common/StreakModal';
 import * as SecureStore from 'expo-secure-store';
@@ -34,6 +36,7 @@ export default function HomeScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showStreakModal, setShowStreakModal] = useState(false);
+  const [featuredBlogs, setFeaturedBlogs] = useState<BlogPostSummary[]>([]);
 
   const checkStreakModal = (currentUserData: any) => {
     // Show onboarding modal if user hasn't set a goal target
@@ -44,10 +47,11 @@ export default function HomeScreen({ navigation }: any) {
 
   const loadData = useCallback(async () => {
     try {
-      const [dash, history, reviewWords] = await Promise.allSettled([
+      const [dash, history, reviewWords, blogs] = await Promise.allSettled([
         usersAPI.getDashboard(),
         practiceAPI.getHistory({ per_page: 5 }),
         vocabularyAPI.getReviewDue(),
+        blogAPI.getFeatured(3),
       ]);
       if (dash.status === 'fulfilled') {
         setDashboard(dash.value);
@@ -57,6 +61,9 @@ export default function HomeScreen({ navigation }: any) {
       if (reviewWords.status === 'fulfilled') {
         const val = reviewWords.value;
         setReviewDue(Array.isArray(val) ? val.length : 0);
+      }
+      if (blogs.status === 'fulfilled') {
+        setFeaturedBlogs(blogs.value || []);
       }
     } catch {
       // Silently fail, use whatever data we got
@@ -308,6 +315,42 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No activity yet. Start your first practice!</Text>
           </View>
         )}
+
+        {/* Blog Posts */}
+        {featuredBlogs.length > 0 && (
+          <View style={{ marginTop: 24 }}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>Tips & Insights</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.blogScroll}>
+              {featuredBlogs.map(blog => (
+                <TouchableOpacity
+                  key={blog.id}
+                  style={[styles.blogCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('BlogDetail', { slug: blog.slug })}
+                >
+                  <View style={[styles.blogImagePlaceholder, { backgroundColor: colors.bgInput }]}>
+                    {blog.cover_image_url ? (
+                      <Image source={{ uri: blog.cover_image_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    ) : (
+                      <Text style={{ fontSize: 24 }}>📰</Text>
+                    )}
+                  </View>
+                  <View style={styles.blogContent}>
+                    <Text style={[styles.blogCategory, { color: colors.primary }]}>{blog.category.toUpperCase()}</Text>
+                    <Text style={[styles.blogTitle, { color: colors.textPrimary }]} numberOfLines={2}>
+                      {blog.title}
+                    </Text>
+                    <Text style={[styles.blogMeta, { color: colors.textMuted }]}>
+                      {blog.read_time_minutes} min read • {blog.view_count} views
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </ScrollView>
 
       <StreakModal 
@@ -380,4 +423,11 @@ const styles = StyleSheet.create({
   activityTime: { fontFamily: 'PlusJakartaSans-Medium', fontSize: 11 },
   emptyCard: { alignItems: 'center', padding: 32, borderRadius: 16, borderWidth: 1 },
   emptyText: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 14, textAlign: 'center' },
+  blogScroll: { gap: 16, paddingBottom: 8, paddingTop: 4 },
+  blogCard: { width: 240, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  blogImagePlaceholder: { height: 120, alignItems: 'center', justifyContent: 'center' },
+  blogContent: { padding: 14 },
+  blogCategory: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 10, letterSpacing: 0.5, marginBottom: 6 },
+  blogTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 14, lineHeight: 20, marginBottom: 8 },
+  blogMeta: { fontFamily: 'PlusJakartaSans-Medium', fontSize: 11 },
 });

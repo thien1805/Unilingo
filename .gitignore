@@ -42,3 +42,6 @@ Thumbs.db
 # IDEs
 .vscode/
 .idea/
+
+# Backend Uploads
+unilingo-backend/app/uploads/

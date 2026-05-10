@@ -7,6 +7,7 @@ from app.models.practice import TestAttempt, AttemptPart, AIScoringResult
 from app.models.vocabulary import VocabularyNote, VocabularyTag
 from app.models.flashcard import FlashcardDeck, Flashcard, FlashcardReview
 from app.models.leaderboard import LeaderboardCache
+from app.models.blog import BlogPost
 
 __all__ = [
     "User", "UserDevice", "NotificationSetting", "DailyStreak",
@@ -15,4 +16,6 @@ __all__ = [
     "VocabularyNote", "VocabularyTag",
     "FlashcardDeck", "Flashcard", "FlashcardReview",
     "LeaderboardCache",
+    "BlogPost",
 ]
+

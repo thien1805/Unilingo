@@ -17,6 +17,7 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 
 // Main Screens
 import HomeScreen from '../screens/home/HomeScreen';
+import BlogDetailScreen from '../screens/home/BlogDetailScreen';
 import PracticeScreen from '../screens/practice/PracticeScreen';
 import VirtualRoomScreen from '../screens/practice/VirtualRoomScreen';
 import RecordingScreen from '../screens/practice/RecordingScreen';
@@ -34,9 +35,20 @@ import FlashcardStudyScreen from '../screens/flashcards/FlashcardStudyScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+const HomeStack = createNativeStackNavigator();
 const PracticeStack = createNativeStackNavigator();
 const ProfileStack = createNativeStackNavigator();
 const VocabStack = createNativeStackNavigator();
+
+// ─── Home Stack Navigator ───
+function HomeStackNavigator() {
+  return (
+    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+      <HomeStack.Screen name="HomeMain" component={HomeScreen} />
+      <HomeStack.Screen name="BlogDetail" component={BlogDetailScreen} />
+    </HomeStack.Navigator>
+  );
+}
 
 // ─── Practice Stack Navigator ───
 function PracticeStackNavigator() {
@@ -109,7 +121,7 @@ function MainTabNavigator() {
         },
       })}
     >
-      <Tab.Screen name="HomeTab" component={HomeScreen} options={{ tabBarLabel: 'Home' }} />
+      <Tab.Screen name="HomeTab" component={HomeStackNavigator} options={{ tabBarLabel: 'Home' }} />
       <Tab.Screen name="PracticeTab" component={PracticeStackNavigator} options={{ tabBarLabel: 'Practice' }} />
       <Tab.Screen name="VocabTab" component={VocabStackNavigator} options={{ tabBarLabel: 'Vocab' }} />
       <Tab.Screen name="RankTab" component={LeaderboardScreen} options={{ tabBarLabel: 'Rank' }} />

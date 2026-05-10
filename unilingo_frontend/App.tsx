@@ -22,6 +22,7 @@ import {
 import RootNavigator from './src/navigation/RootNavigator';
 import { useThemeStore } from './src/store/themeStore';
 import { useAuthStore } from './src/store/authStore';
+import { setupHourlyReminders } from './src/services/NotificationService';
 
 LogBox.ignoreAllLogs();
 
@@ -46,6 +47,7 @@ export default function App() {
           'PlusJakartaSans-ExtraBold': PlusJakartaSans_800ExtraBold,
         }),
         hydrate(),
+        setupHourlyReminders(),
       ]);
 
       // Hide splash after everything loaded
