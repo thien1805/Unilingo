@@ -242,22 +242,63 @@ export default function HomeScreen({ navigation }: any) {
             {recentActivity.map((item, i) => {
               const pc = getPartColor(item.ielts_part);
               return (
-                <View key={i} style={[styles.activityCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                <TouchableOpacity
+                  key={i}
+                  style={[styles.activityCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    // Navigate to results or practice depending on status
+                    if (item.status === 'completed' && item.attempt_id) {
+                      navigation.navigate('PracticeTab', {
+                        screen: 'Results',
+                        params: {
+                          attemptId: item.attempt_id,
+                          ieltsPart: item.ielts_part,
+                          topicTitle: item.topic_title,
+                          duration: item.duration_seconds || 0,
+                        }
+                      });
+                    }
+                  }}
+                >
                   <View style={styles.activityTop}>
                     <View style={[styles.partBadge, { backgroundColor: pc.bg }]}>
                       <Text style={[styles.partBadgeText, { color: pc.text }]}>
                         {item.ielts_part?.replace('part', 'Part ') || 'Part 2'}
                       </Text>
                     </View>
+                    <View style={[styles.statusBadge, { 
+                      backgroundColor: item.status === 'completed' ? colors.successBg : colors.warningBg,
+                      paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8
+                    }]}>
+                      <Text style={{ 
+                        fontSize: 10, fontFamily: 'PlusJakartaSans-SemiBold',
+                        color: item.status === 'completed' ? colors.success : colors.warning
+                      }}>
+                        {item.status === 'completed' ? 'Done' : 'Scoring'}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <Text style={[styles.activityTitle, { color: colors.textPrimary }]} numberOfLines={2}>{item.topic_title}</Text>
+                  
+                  <View style={styles.activityBottom}>
+                    <View style={styles.activityMeta}>
+                      <Text style={[styles.activityTime, { color: colors.textMuted }]}>
+                        {item.started_at ? timeAgo(item.started_at) : 'Recently'}
+                      </Text>
+                      {item.duration_seconds ? (
+                        <Text style={[styles.activityTime, { color: colors.textMuted }]}>
+                          • {Math.floor(item.duration_seconds / 60)}:{(item.duration_seconds % 60).toString().padStart(2, '0')}
+                        </Text>
+                      ) : null}
+                    </View>
+                    
                     <Text style={[styles.bandScore, { color: colors.accent }]}>
-                      {item.overall_band?.toFixed(1) || '—'}
+                      {item.overall_band ? item.overall_band.toFixed(1) : '—'}
                     </Text>
                   </View>
-                  <Text style={[styles.activityTitle, { color: colors.textPrimary }]} numberOfLines={1}>{item.topic_title}</Text>
-                  <Text style={[styles.activityTime, { color: colors.textMuted }]}>
-                    {item.started_at ? timeAgo(item.started_at) : 'Recently'}
-                  </Text>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </ScrollView>
@@ -333,8 +374,10 @@ const styles = StyleSheet.create({
   partBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   partBadgeText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 11 },
   bandScore: { fontFamily: 'PlusJakartaSans-ExtraBold', fontSize: 22 },
-  activityTitle: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 14, marginBottom: 6 },
-  activityTime: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 11 },
+  activityTitle: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 14, marginBottom: 12 },
+  activityBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  activityMeta: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  activityTime: { fontFamily: 'PlusJakartaSans-Medium', fontSize: 11 },
   emptyCard: { alignItems: 'center', padding: 32, borderRadius: 16, borderWidth: 1 },
   emptyText: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 14, textAlign: 'center' },
 });

@@ -30,11 +30,23 @@ async def start_practice(
     current_user: User = Depends(get_current_user),
 ):
     """Start a new practice session."""
-    # Verify topic exists
-    topic_result = await db.execute(select(Topic).where(Topic.id == request.topic_id))
-    topic = topic_result.scalar_one_or_none()
-    if not topic:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found")
+    from uuid import UUID as UUIDType
+    
+    # Parse topic_id — could be a UUID string or 'mock-id' or None
+    raw_topic_id = request.topic_id
+    parsed_topic_id = None
+    if raw_topic_id and raw_topic_id != "mock-id":
+        try:
+            parsed_topic_id = UUIDType(raw_topic_id)
+        except ValueError:
+            parsed_topic_id = None
+    
+    topic = None
+    if parsed_topic_id:
+        topic_result = await db.execute(select(Topic).where(Topic.id == parsed_topic_id))
+        topic = topic_result.scalar_one_or_none()
+        if not topic:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found")
 
     # Get a question (specific or random)
     if request.question_id:
@@ -42,24 +54,86 @@ async def start_practice(
             select(Question).where(Question.id == request.question_id, Question.is_active == True)
         )
     else:
-        q_result = await db.execute(
-            select(Question)
-            .where(
-                Question.topic_id == request.topic_id,
-                Question.ielts_part == request.ielts_part,
-                Question.is_active == True,
-            )
-            .order_by(func.random())
-            .limit(1)
+        # If no topic specified, pick any active question for the requested part
+        stmt = select(Question).where(
+            Question.ielts_part == request.ielts_part,
+            Question.is_active == True,
         )
+        if parsed_topic_id:
+            stmt = stmt.where(Question.topic_id == parsed_topic_id)
+            
+        q_result = await db.execute(stmt.order_by(func.random()).limit(1))
+        
     question = q_result.scalar_one_or_none()
+    
     if not question:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No questions available for this topic")
+        # DB is empty, use AI to generate a random question!
+        from app.config import get_settings
+        from groq import AsyncGroq
+        import json as json_lib
+        settings = get_settings()
+        if settings.GROQ_API_KEY:
+            client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+            prompt = f"""Generate a random, authentic IELTS Speaking {request.ielts_part} question.
+            Return ONLY a valid JSON object with the following structure:
+            {{
+                "question_text": "The main question here",
+                "cue_card_content": {{"prompt": "You should say:", "points": ["point 1", "point 2"]}}
+            }}
+            If {request.ielts_part} is part1 or part3, set cue_card_content to null.
+            """
+            try:
+                response = await client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model="llama3-70b-8192",
+                    response_format={"type": "json_object"}
+                )
+                ai_data = json_lib.loads(response.choices[0].message.content)
+                
+                # Create a generic "AI Generated" topic if it doesn't exist
+                ai_topic_result = await db.execute(select(Topic).where(Topic.title == "AI Generated Mock Test"))
+                ai_topic = ai_topic_result.scalar_one_or_none()
+                if not ai_topic:
+                    ai_topic = Topic(title="AI Generated Mock Test", description="Questions generated dynamically by Llama 3", is_active=True)
+                    db.add(ai_topic)
+                    await db.flush()
+                
+                topic = ai_topic  # Use AI topic as the topic reference
+                
+                question = Question(
+                    topic_id=ai_topic.id,
+                    ielts_part=request.ielts_part,
+                    question_text=ai_data.get("question_text", "Describe a place you like."),
+                    cue_card_content=json_lib.dumps(ai_data.get("cue_card_content")) if ai_data.get("cue_card_content") else None,
+                    difficulty="medium",
+                    is_active=True
+                )
+                db.add(question)
+                await db.flush()
+            except Exception as e:
+                print(f"Error generating question: {e}")
+                import traceback
+                traceback.print_exc()
+                
+    if not question:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No questions available")
+
+    # Determine topic title
+    final_topic_id = parsed_topic_id or (question.topic_id if question else None)
+    topic_title = "Mock Test"
+    if topic:
+        topic_title = topic.title
+    elif final_topic_id:
+        # Load topic title from question's topic
+        t_result = await db.execute(select(Topic).where(Topic.id == final_topic_id))
+        t = t_result.scalar_one_or_none()
+        if t:
+            topic_title = t.title
 
     # Create test attempt
     attempt = TestAttempt(
         user_id=current_user.id,
-        topic_id=request.topic_id,
+        topic_id=final_topic_id,
         ielts_part=request.ielts_part,
         status="in_progress",
     )
@@ -68,11 +142,160 @@ async def start_practice(
 
     return StartPracticeResponse(
         attempt_id=attempt.id,
-        topic_title=topic.title,
+        topic_title=topic_title,
         ielts_part=request.ielts_part,
         question=QuestionDetail.model_validate(question),
         status="in_progress",
     )
+
+
+@router.post("/generate-questions")
+async def generate_questions(
+    ielts_part: str = Query(..., pattern=r"^(part1|part2|part3)$"),
+    count: int = Query(default=3, ge=1, le=5),
+    topic_id: UUID | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Generate multiple random IELTS questions using AI for a multi-question exam flow."""
+    from app.config import get_settings
+    import json as json_lib
+    settings = get_settings()
+
+    questions = []
+    
+    # Get topic theme if provided
+    theme = ""
+    target_topic = None
+    if topic_id:
+        result = await db.execute(select(Topic).where(Topic.id == topic_id))
+        target_topic = result.scalar_one_or_none()
+        if target_topic:
+            theme = f"The questions MUST ALL relate to the theme: '{target_topic.title}'. "
+
+    # Try DB first
+    query = select(Question).where(Question.ielts_part == ielts_part, Question.is_active == True)
+    if topic_id:
+        query = query.where(Question.topic_id == topic_id)
+    
+    db_result = await db.execute(query.order_by(func.random()).limit(count))
+    db_questions = db_result.scalars().all()
+    
+    for q in db_questions:
+        questions.append({
+            "id": str(q.id),
+            "question_text": q.question_text,
+            "ielts_part": q.ielts_part,
+            "cue_card_content": q.cue_card_content,
+            "difficulty": q.difficulty,
+        })
+
+    # If not enough questions in DB, generate the rest with AI
+    remaining = count - len(questions)
+    if remaining > 0 and settings.GROQ_API_KEY:
+        from groq import AsyncGroq
+        client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+        
+        part_desc = {
+            "part1": "simple personal questions about everyday topics (hobbies, work, hometown, family, food, etc). Each should be a single direct question.",
+            "part2": "a cue card topic with a main prompt and 3-4 bullet points of things to discuss. Include cue_card_content as JSON.",
+            "part3": "abstract discussion questions that require the candidate to analyze, compare, or give opinions on societal topics.",
+        }
+        
+        prompt = f"""Generate exactly {remaining} unique IELTS Speaking {ielts_part} questions.
+{theme}{part_desc.get(ielts_part, '')}
+
+Return ONLY a JSON object with this structure:
+{{
+    "questions": [
+        {{
+            "question_text": "The question text",
+            "cue_card_content": null
+        }}
+    ]
+}}
+
+For part2, cue_card_content should be: {{"prompt": "You should say:", "points": ["point 1", "point 2", "point 3"]}}
+For part1 and part3, cue_card_content must be null.
+Make questions diverse and authentic. Do NOT repeat similar questions."""
+
+        try:
+            response = await client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.3-70b-versatile",
+                response_format={"type": "json_object"},
+            )
+            ai_data = json_lib.loads(response.choices[0].message.content)
+            ai_questions = ai_data.get("questions", [])
+            
+            # Ensure AI topic exists
+            ai_topic_result = await db.execute(select(Topic).where(Topic.title == "AI Generated Mock Test"))
+            ai_topic = ai_topic_result.scalar_one_or_none()
+            if not ai_topic:
+                ai_topic = Topic(title="AI Generated Mock Test", description="AI-generated", is_active=True)
+                db.add(ai_topic)
+                await db.flush()
+            
+            for aq in ai_questions[:remaining]:
+                cue = aq.get("cue_card_content")
+                new_q = Question(
+                    topic_id=target_topic.id if target_topic else ai_topic.id,
+                    ielts_part=ielts_part,
+                    question_text=aq.get("question_text", "Tell me about yourself."),
+                    cue_card_content=json_lib.dumps(cue) if cue else None,
+                    difficulty="medium",
+                    is_active=True,
+                )
+                db.add(new_q)
+                await db.flush()
+                
+                questions.append({
+                    "id": str(new_q.id),
+                    "question_text": new_q.question_text,
+                    "ielts_part": ielts_part,
+                    "cue_card_content": new_q.cue_card_content,
+                    "difficulty": "medium",
+                })
+        except Exception as e:
+            print(f"Error generating questions: {e}")
+            import traceback
+            traceback.print_exc()
+
+    return {"questions": questions, "count": len(questions)}
+
+
+@router.get("/tts")
+async def get_tts(text: str = Query(...)):
+    """Generate high-quality Text-to-Speech using Azure Neural TTS."""
+    from fastapi.responses import StreamingResponse
+    from app.config import get_settings
+    import httpx
+    import io
+    
+    settings = get_settings()
+    if not settings.AZURE_SPEECH_KEY:
+        raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Azure Speech key not configured")
+        
+    url = f"https://{settings.AZURE_SPEECH_REGION}.tts.speech.microsoft.com/cognitiveservices/v1"
+    headers = {
+        "Ocp-Apim-Subscription-Key": settings.AZURE_SPEECH_KEY,
+        "Content-Type": "application/ssml+xml",
+        "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
+        "User-Agent": "UnilingoBackend"
+    }
+    
+    # Use a highly expressive neural voice (Jenny is excellent for US English examiner)
+    ssml = f"""<speak version='1.0' xml:lang='en-US'><voice xml:lang='en-US' xml:gender='Female' name='en-US-JennyNeural'><prosody rate="-5%">{text}</prosody></voice></speak>"""
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, headers=headers, content=ssml)
+        if response.status_code != 200:
+            print(f"Azure TTS Error: {response.text}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="TTS generation failed")
+            
+        audio_data = io.BytesIO(response.content)
+        return StreamingResponse(audio_data, media_type="audio/mpeg")
+
 
 
 @router.post("/{attempt_id}/upload-audio", response_model=UploadAudioResponse)
@@ -99,9 +322,18 @@ async def upload_audio(
     if attempt.status not in ("in_progress",):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Attempt is not in progress")
 
-    # TODO: Upload audio file to S3/MinIO
-    # For now, simulate the upload
-    audio_url = f"/audio/{current_user.id}/{attempt_id}/part{part_number}.webm"
+    import os
+    import shutil
+    upload_dir = os.path.join(os.getcwd(), "app", "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    audio_filename = f"{attempt_id}_part{part_number}.m4a"
+    audio_path = os.path.join(upload_dir, audio_filename)
+    
+    with open(audio_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    audio_url = audio_path
 
     # Create attempt part
     attempt_part = AttemptPart(
@@ -192,9 +424,9 @@ async def submit_practice(
 
     await db.flush()
 
-    # TODO: Enqueue Celery task for AI scoring
-    # from app.workers.scoring_tasks import score_practice_attempt
-    # score_practice_attempt.delay(str(attempt_id))
+    # Enqueue Celery task for AI scoring
+    from app.workers.scoring_tasks import score_practice_attempt
+    score_practice_attempt.delay(str(attempt_id))
 
     return SubmitPracticeResponse(
         attempt_id=attempt.id,
@@ -213,7 +445,8 @@ async def get_practice_result(
     result = await db.execute(
         select(TestAttempt)
         .options(
-            selectinload(TestAttempt.parts).selectinload(AttemptPart.scoring_result)
+            selectinload(TestAttempt.parts).selectinload(AttemptPart.scoring_result),
+            selectinload(TestAttempt.parts).selectinload(AttemptPart.question)
         )
         .where(
             TestAttempt.id == attempt_id,
@@ -232,6 +465,7 @@ async def get_practice_result(
         parts_response.append(PartResultResponse(
             part_id=part.id,
             part_number=part.part_number,
+            question_text=part.question.question_text if part.question else None,
             transcript=part.transcript,
             duration_seconds=part.duration_seconds,
             scoring=scoring,

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class StartPracticeRequest(BaseModel):
-    topic_id: uuid.UUID
+    topic_id: str | None = None
     ielts_part: str = Field(..., pattern=r"^(part1|part2|part3)$")
     question_id: uuid.UUID | None = None
 
@@ -64,6 +64,7 @@ class ScoringResultResponse(BaseModel):
 class PartResultResponse(BaseModel):
     part_id: uuid.UUID
     part_number: int
+    question_text: str | None = None
     transcript: str | None
     duration_seconds: int | None
     scoring: "AIScoringResponse | None"

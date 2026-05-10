@@ -20,7 +20,7 @@ import { Card } from '../../components/common';
 import { Typography, Gradients } from '../../theme';
 
 export default function RecordingScreen({ navigation, route }: any) {
-  const { attemptId, question, ieltsPart, topicTitle } = route.params;
+  const { attemptId, question, ieltsPart, topicTitle, isFullTest } = route.params;
   const { colors } = useThemeStore();
 
   const [seconds, setSeconds] = useState(0);
@@ -31,14 +31,103 @@ export default function RecordingScreen({ navigation, route }: any) {
 
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const isStoppingRef = useRef(false);
 
   // Animated recording pulse
   const pulseScale = useSharedValue(1);
 
   useEffect(() => {
-    startRecording();
+    let isMounted = true;
+
+    const init = async () => {
+      // Clean up any lingering recording state globally
+      try {
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      } catch {}
+      
+      // Small delay to let the audio system settle
+      await new Promise(r => setTimeout(r, 300));
+      
+      if (!isMounted) return;
+      
+      try {
+        const { granted } = await Audio.requestPermissionsAsync();
+        if (!granted) {
+          Alert.alert('Permission Required', 'Microphone access is needed.', [
+            { text: 'OK', onPress: () => navigation.goBack() },
+          ]);
+          return;
+        }
+
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+
+        const { recording } = await Audio.Recording.createAsync(
+          {
+            android: {
+              extension: '.m4a',
+              outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+              audioEncoder: Audio.AndroidAudioEncoder.AAC,
+              sampleRate: 44100,
+              numberOfChannels: 1,
+              bitRate: 128000,
+            },
+            ios: {
+              extension: '.m4a',
+              outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
+              audioQuality: Audio.IOSAudioQuality.HIGH,
+              sampleRate: 44100,
+              numberOfChannels: 1,
+              bitRate: 128000,
+            },
+            web: {
+              mimeType: 'audio/webm',
+              bitsPerSecond: 128000,
+            },
+          },
+          (status) => {
+            if (status.isRecording && status.metering !== undefined) {
+              setMetering(status.metering);
+            }
+          },
+          100
+        );
+
+        if (!isMounted) {
+          try { await recording.stopAndUnloadAsync(); } catch {}
+          return;
+        }
+        
+        recordingRef.current = recording;
+        setIsRecording(true);
+      } catch (error) {
+        console.error('Failed to start recording:', error);
+        if (isMounted) {
+          // Don't crash, just go back
+          Alert.alert('Recording Error', 'Could not start microphone. Please try again.', [
+            { text: 'OK', onPress: () => navigation.goBack() },
+          ]);
+        }
+      }
+    };
+
+    init();
+
     return () => {
-      stopAndCleanup();
+      isMounted = false;
+      if (timerRef.current) clearInterval(timerRef.current);
+      // Cleanup recording on unmount
+      const rec = recordingRef.current;
+      if (rec) {
+        rec.getStatusAsync().then(status => {
+          if (status.isRecording) {
+            rec.stopAndUnloadAsync().catch(() => {});
+          }
+        }).catch(() => {});
+      }
+      Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(() => {});
     };
   }, []);
 
@@ -81,81 +170,6 @@ export default function RecordingScreen({ navigation, route }: any) {
     transform: [{ scale: pulseScale.value }],
   }));
 
-  const startRecording = async () => {
-    try {
-      // Request permissions
-      const { granted } = await Audio.requestPermissionsAsync();
-      if (!granted) {
-        Alert.alert(
-          'Permission Required',
-          'Microphone access is needed to record your speaking practice.',
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
-        return;
-      }
-
-      // Configure audio mode
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      // Start recording
-      const { recording } = await Audio.Recording.createAsync(
-        {
-          android: {
-            extension: '.m4a',
-            outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-            audioEncoder: Audio.AndroidAudioEncoder.AAC,
-            sampleRate: 44100,
-            numberOfChannels: 1,
-            bitRate: 128000,
-          },
-          ios: {
-            extension: '.m4a',
-            outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-            audioQuality: Audio.IOSAudioQuality.HIGH,
-            sampleRate: 44100,
-            numberOfChannels: 1,
-            bitRate: 128000,
-          },
-          web: {
-            mimeType: 'audio/webm',
-            bitsPerSecond: 128000,
-          },
-        },
-        (status) => {
-          // Metering callback for waveform visualization
-          if (status.isRecording && status.metering !== undefined) {
-            setMetering(status.metering);
-          }
-        },
-        100 // Update every 100ms
-      );
-
-      recordingRef.current = recording;
-      setIsRecording(true);
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-      Alert.alert('Recording Error', 'Failed to start recording. Please try again.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
-    }
-  };
-
-  const stopAndCleanup = async () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    try {
-      if (recordingRef.current) {
-        const status = await recordingRef.current.getStatusAsync();
-        if (status.isRecording) {
-          await recordingRef.current.stopAndUnloadAsync();
-        }
-      }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-    } catch {}
-  };
-
   const handlePauseResume = async () => {
     if (!recordingRef.current) return;
     try {
@@ -167,28 +181,32 @@ export default function RecordingScreen({ navigation, route }: any) {
         setIsPaused(true);
       }
     } catch {
-      // Pause/resume may not be supported on all platforms
       setIsPaused(!isPaused);
     }
   };
 
   const handleStop = useCallback(async () => {
+    // Prevent double-stop
+    if (isStoppingRef.current) return;
+    isStoppingRef.current = true;
+    
+    setIsRecording(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+
     if (!recordingRef.current) {
-      // No recording — navigate with mock
+      // No recording — navigate with whatever we have
       navigation.replace('Results', { attemptId, ieltsPart, topicTitle, duration: seconds });
       return;
     }
-
-    setIsRecording(false);
-    if (timerRef.current) clearInterval(timerRef.current);
 
     try {
       await recordingRef.current.stopAndUnloadAsync();
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
 
       const uri = recordingRef.current.getURI();
+      recordingRef.current = null;
 
-      if (uri && attemptId) {
+      if (uri && attemptId && attemptId !== 'mock-1') {
         // Upload audio to backend
         try {
           const formData = new FormData();
@@ -199,21 +217,35 @@ export default function RecordingScreen({ navigation, route }: any) {
           } as any);
 
           await practiceAPI.uploadAudio(attemptId, formData);
-          await practiceAPI.submit(attemptId);
+          
+          if (!isFullTest || ieltsPart === 'part3') {
+            await practiceAPI.submit(attemptId);
+          }
         } catch (uploadError) {
-          console.log('Upload failed, showing mock results:', uploadError);
+          console.log('Upload failed:', uploadError);
         }
       }
 
-      navigation.replace('Results', {
-        attemptId,
-        ieltsPart,
-        topicTitle,
-        duration: seconds,
-        audioUri: uri,
-      });
+      if (isFullTest && ieltsPart !== 'part3') {
+        const nextPart = ieltsPart === 'part1' ? 'part2' : 'part3';
+        navigation.replace('VirtualRoom', {
+          topicId: 'mock-id',
+          topicTitle,
+          ieltsPart: nextPart,
+          isFullTest: true,
+        });
+      } else {
+        navigation.replace('Results', {
+          attemptId,
+          ieltsPart,
+          topicTitle,
+          duration: seconds,
+          audioUri: uri,
+        });
+      }
     } catch (error) {
       console.error('Stop recording error:', error);
+      recordingRef.current = null;
       navigation.replace('Results', { attemptId, ieltsPart, topicTitle, duration: seconds });
     }
   }, [seconds, attemptId, ieltsPart, topicTitle]);
@@ -249,7 +281,13 @@ export default function RecordingScreen({ navigation, route }: any) {
                 text: 'Stop',
                 style: 'destructive',
                 onPress: async () => {
-                  await stopAndCleanup();
+                  if (recordingRef.current) {
+                    try {
+                      await recordingRef.current.stopAndUnloadAsync();
+                    } catch {}
+                    recordingRef.current = null;
+                  }
+                  await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(() => {});
                   navigation.goBack();
                 },
               },

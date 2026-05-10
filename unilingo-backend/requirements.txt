@@ -8,6 +8,7 @@ pydantic-settings==2.9.1
 # Database
 sqlalchemy==2.0.40
 asyncpg==0.30.0
+psycopg2-binary==2.9.10
 alembic==1.15.2
 
 # Authentication
@@ -25,6 +26,7 @@ celery[redis]==5.5.2
 # AI Services
 openai==1.82.0
 google-genai==1.19.0
+groq==1.2.0
 azure-cognitiveservices-speech==1.44.0
 httpx==0.28.1
 

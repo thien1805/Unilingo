@@ -3,11 +3,12 @@
  * Fully integrated with backend scoring pipeline
  */
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, SafeAreaView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { practiceAPI, ScoringResult } from '../../api/practice';
+import { vocabularyAPI, DictionaryResult } from '../../api/vocabulary';
 import { Card, PrimaryButton, OutlineButton, Badge, ScoreBar } from '../../components/common';
 import { Gradients, Typography, BorderRadius } from '../../theme';
 
@@ -20,6 +21,32 @@ export default function ResultsScreen({ navigation, route }: any) {
   const [result, setResult] = useState<ScoringResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
+
+  // Dictionary Lookup State
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [dictResult, setDictResult] = useState<DictionaryResult | null>(null);
+  const [dictLoading, setDictLoading] = useState(false);
+
+  const handleLookup = async (word: string) => {
+    // Clean punctuation from word
+    const cleanWord = word.replace(/[^a-zA-Z]/g, '').toLowerCase();
+    if (!cleanWord) return;
+    
+    setSelectedWord(cleanWord);
+    setDictLoading(true);
+    setDictResult(null);
+    try {
+      const res = await vocabularyAPI.lookupWord(cleanWord);
+      setDictResult(res);
+    } catch {
+      setDictResult({
+        word: cleanWord,
+        meanings: [{ partOfSpeech: 'unknown', definitions: [{ definition: 'Definition not found in dictionary.' }] }]
+      });
+    } finally {
+      setDictLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadResult();
@@ -40,10 +67,12 @@ export default function ResultsScreen({ navigation, route }: any) {
         setPolling(false);
         setLoading(false);
       }
-    } catch {
-      // Use mock data for demo/offline
-      setResult(MOCK_RESULT);
+    } catch (err) {
+      console.log('[Results] Error loading result:', err);
+      // Don't use mock — start polling in case it's still being created
+      setPolling(true);
       setLoading(false);
+      pollForResult();
     }
   };
 
@@ -68,33 +97,58 @@ export default function ResultsScreen({ navigation, route }: any) {
     }, 3000);
   };
 
-  // Extract scoring data from parts or top-level
-  const r = result || MOCK_RESULT;
-  const partScoring = r.parts?.[0]?.scoring;
-  const overall = r.overall_band || partScoring?.overall_band || 6.5;
-  const fluency = r.fluency_score || partScoring?.fluency_band || 6.5;
-  const lexical = r.lexical_score || partScoring?.lexical_band || 7.0;
-  const grammar = r.grammar_score || partScoring?.grammar_band || 6.0;
-  const pronunciation = r.pronunciation_score || partScoring?.pronunciation_band || 6.5;
+  // Extract scoring data — prefer top-level (aggregated by backend), fallback to first part
+  const r = result || { status: 'scoring', parts: [] } as any;
+  const parts = r.parts || [];
+  const firstScoring = parts[0]?.scoring;
 
-  // AI-generated content
-  const feedback = partScoring?.feedback;
-  const strengths = partScoring?.strengths || MOCK_STRENGTHS;
-  const weaknesses = partScoring?.weaknesses || MOCK_WEAKNESSES;
-  const suggestions = partScoring?.suggested_improvements || MOCK_SUGGESTIONS;
-  const grammarErrors = partScoring?.grammar_errors || MOCK_GRAMMAR_ERRORS;
-  const vocabSuggestions = partScoring?.vocabulary_suggestions || MOCK_VOCAB_SUGGESTIONS;
-  const transcript = r.parts?.[0]?.transcript || MOCK_TRANSCRIPT;
+  // Top-level scores are already averaged by the backend across all parts
+  const overall = r.overall_band ?? firstScoring?.overall_band ?? 0;
+  const fluency = r.fluency_score ?? firstScoring?.fluency_band ?? 0;
+  const lexical = r.lexical_score ?? firstScoring?.lexical_band ?? 0;
+  const grammar = r.grammar_score ?? firstScoring?.grammar_band ?? 0;
+  const pronunciation = r.pronunciation_score ?? firstScoring?.pronunciation_band ?? 0;
+
+  // Aggregate AI-generated content from all parts
+  const allScoringParts = parts.filter((p: any) => p.scoring);
+  const feedback = firstScoring?.feedback;
+  const strengths = allScoringParts.flatMap((p: any) => p.scoring?.strengths || []).filter(Boolean);
+  const weaknesses = allScoringParts.flatMap((p: any) => p.scoring?.weaknesses || []).filter(Boolean);
+  const suggestions = allScoringParts.flatMap((p: any) => p.scoring?.suggested_improvements || []).filter(Boolean);
+  const grammarErrors = allScoringParts.flatMap((p: any) => p.scoring?.grammar_errors || []).filter(Boolean);
+  const vocabSuggestions = allScoringParts.flatMap((p: any) => p.scoring?.vocabulary_suggestions || []).filter(Boolean);
 
   const comment = overall >= 7 ? 'Excellent! 🎉' : overall >= 6 ? 'Good job! 👏' : overall >= 5 ? 'Keep Going! 💪' : 'Practice more! 📚';
 
-  if (loading) {
+  if (loading || polling) {
     return (
       <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={[Typography.bodyMedium, { color: colors.textSecondary, marginTop: 16 }]}>
-            Loading results...
+        {/* Header */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+            onPress={() => navigation.popToTop()}
+          >
+            <Ionicons name="arrow-back" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <Text style={[Typography.bodyMedium, { color: colors.textPrimary }]}>Practice Result</Text>
+          <View style={{ width: 38 }} />
+        </View>
+
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}>
+          <View style={{
+            width: 80, height: 80, borderRadius: 40,
+            backgroundColor: colors.accentBg,
+            alignItems: 'center', justifyContent: 'center',
+            marginBottom: 24,
+          }}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+          <Text style={[Typography.h2, { color: colors.textPrimary, textAlign: 'center', marginBottom: 12 }]}>
+            AI is grading...
+          </Text>
+          <Text style={[Typography.bodyMedium, { color: colors.textSecondary, textAlign: 'center', lineHeight: 24 }]}>
+            Please wait a moment while our AI examiner analyzes your pronunciation, vocabulary, and grammar.
           </Text>
         </View>
       </View>
@@ -121,16 +175,6 @@ export default function ResultsScreen({ navigation, route }: any) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Scoring In Progress Banner */}
-        {polling && (
-          <View style={[styles.pollingBanner, { backgroundColor: colors.warningBg, borderColor: colors.warning + '30' }]}>
-            <ActivityIndicator size="small" color={colors.warning} />
-            <Text style={[Typography.bodySm, { color: colors.warning, flex: 1 }]}>
-              AI is analyzing your response... Results will update automatically.
-            </Text>
-          </View>
-        )}
-
         {/* Band Score Circle */}
         <View style={styles.bandDisplay}>
           <LinearGradient colors={Gradients.primary} style={styles.bandCircle}>
@@ -182,17 +226,31 @@ export default function ResultsScreen({ navigation, route }: any) {
 
         {/* Tab Content — Transcript */}
         {activeTab === 0 && (
-          <Card>
+          <View style={{ gap: 12 }}>
             <View style={styles.transcriptHint}>
               <Ionicons name="information-circle" size={14} color={colors.textMuted} />
               <Text style={[Typography.caption, { color: colors.textMuted }]}>
-                AI-generated transcript from your recording
+                Tap any word to look up its meaning
               </Text>
             </View>
-            <Text style={[Typography.body, { color: colors.textSecondary, lineHeight: 26 }]}>
-              {transcript}
-            </Text>
-          </Card>
+            
+            {(r.parts && r.parts.length > 0 ? r.parts : [{ question_text: 'Sample Question?', transcript: MOCK_TRANSCRIPT }]).map((p: any, index: number) => (
+              <Card key={index} style={{ marginBottom: 8 }}>
+                <Text style={[Typography.h4, { color: colors.primary, marginBottom: 8 }]}>
+                  Q{index + 1}: {p.question_text || 'Topic Question'}
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                  {(p.transcript || 'No speech recorded.').split(' ').map((word: string, i: number) => (
+                    <TouchableOpacity key={i} onPress={() => handleLookup(word)}>
+                      <Text style={[Typography.body, { color: colors.textSecondary, lineHeight: 26, marginRight: 4 }]}>
+                        {word}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </Card>
+            ))}
+          </View>
         )}
 
         {/* Tab Content — AI Feedback */}
@@ -282,15 +340,15 @@ export default function ResultsScreen({ navigation, route }: any) {
               📝 Sample Better Answer (Band 7.5+)
             </Text>
             <Text style={[Typography.bodySm, { color: colors.textSecondary, lineHeight: 22 }]}>
-              {partScoring?.sample_better_answer?.text || MOCK_SAMPLE_ANSWER}
+              {firstScoring?.sample_better_answer?.text || MOCK_SAMPLE_ANSWER}
             </Text>
-            {partScoring?.sample_better_answer?.explanation && (
+            {firstScoring?.sample_better_answer?.explanation && (
               <View style={[styles.sampleExplanation, { backgroundColor: colors.accentBg }]}>
                 <Text style={[Typography.captionSm, { color: colors.accent, fontWeight: '600', marginBottom: 4 }]}>
                   Why this scores higher:
                 </Text>
                 <Text style={[Typography.captionSm, { color: colors.accent }]}>
-                  {partScoring.sample_better_answer.explanation}
+                  {firstScoring.sample_better_answer.explanation}
                 </Text>
               </View>
             )}
@@ -342,6 +400,63 @@ export default function ResultsScreen({ navigation, route }: any) {
           <PrimaryButton title="Done" icon="checkmark" onPress={() => navigation.popToTop()} style={{ flex: 1 }} />
         </View>
       </ScrollView>
+
+      {/* Dictionary Modal */}
+      <Modal visible={!!selectedWord} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView style={[{ flex: 1, backgroundColor: colors.bgBody }]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Dictionary</Text>
+            <TouchableOpacity onPress={() => setSelectedWord(null)}>
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 20 }}>
+            {dictLoading ? (
+              <ActivityIndicator size="large" color={colors.accent} style={{ marginTop: 40 }} />
+            ) : dictResult ? (
+              <View style={[styles.dictCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                <View style={styles.dictWordRow}>
+                  <Text style={[styles.dictWord, { color: colors.textPrimary }]}>{dictResult.word}</Text>
+                  {dictResult.phonetic && (
+                    <Text style={[styles.dictPhonetic, { color: colors.accent }]}>{dictResult.phonetic}</Text>
+                  )}
+                </View>
+
+                {dictResult.meanings?.map((meaning, mIdx) => (
+                  <View key={mIdx} style={{ marginBottom: 16 }}>
+                    <Text style={[styles.pos, { color: colors.accent }]}>{meaning.partOfSpeech}</Text>
+                    {meaning.definitions?.map((def, dIdx) => (
+                      <View key={dIdx} style={{ marginBottom: 8 }}>
+                        <View style={styles.defRow}>
+                          <Text style={[styles.defNum, { color: colors.textMuted }]}>{dIdx + 1}.</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.defText, { color: colors.textPrimary }]}>{def.definition}</Text>
+                          </View>
+                        </View>
+                        {def.example && (
+                          <Text style={[styles.exampleText, { color: colors.textSecondary }]}>"{def.example}"</Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                ))}
+
+                <PrimaryButton 
+                  title="Add to Flashcards" 
+                  icon="add"
+                  onPress={() => {
+                    setSelectedWord(null);
+                    navigation.navigate('Vocabulary', { screen: 'VocabularyHub', params: { searchWord: dictResult.word } });
+                  }} 
+                  style={{ marginTop: 10 }}
+                />
+              </View>
+            ) : null}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
     </View>
   );
 }
@@ -423,7 +538,7 @@ const styles = StyleSheet.create({
     width: 36, height: 36, borderRadius: 18, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
-  content: { paddingHorizontal: 20, paddingBottom: 30 },
+  content: { paddingHorizontal: 20, paddingBottom: 100 },
   pollingBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 10,
@@ -453,4 +568,15 @@ const styles = StyleSheet.create({
   grammarRow: { gap: 6 },
   grammarOriginal: { padding: 10, borderRadius: 8 },
   grammarCorrected: { padding: 10, borderRadius: 8 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 30, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  modalTitle: { fontSize: 20, fontWeight: '700' },
+  dictCard: { borderRadius: 12, padding: 16, borderWidth: 1 },
+  dictWordRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  dictWord: { fontSize: 24, fontWeight: '700' },
+  dictPhonetic: { fontSize: 16 },
+  pos: { fontSize: 14, fontStyle: 'italic', marginBottom: 8, fontWeight: '600' },
+  defRow: { flexDirection: 'row', gap: 8 },
+  defNum: { fontSize: 14, width: 14 },
+  defText: { fontSize: 15, lineHeight: 22 },
+  exampleText: { fontSize: 14, fontStyle: 'italic', marginTop: 4, marginLeft: 22 },
 });

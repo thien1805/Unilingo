@@ -57,6 +57,9 @@ export default function VocabularyScreen({ navigation }: any) {
   const [pendingVocabItem, setPendingVocabItem] = useState<VocabularyItem | null>(null);
   const [addingToDeck, setAddingToDeck] = useState<string | null>(null);
 
+  // Word Detail
+  const [selectedWord, setSelectedWord] = useState<VocabularyItem | null>(null);
+
   // Debounce search to prevent spamming the API on every keystroke
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -278,7 +281,11 @@ export default function VocabularyScreen({ navigation }: any) {
       renderRightActions={() => renderRightActions(item)}
       overshootRight={false}
     >
-      <View style={[styles.vocabItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+      <TouchableOpacity
+        style={[styles.vocabItem, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+        activeOpacity={0.7}
+        onPress={() => setSelectedWord(item)}
+      >
         <View style={[styles.masteryBar, { backgroundColor: MASTERY_COLORS[item.mastery_level] || colors.sky }]} />
         <View style={{ flex: 1 }}>
           <Text style={[styles.wordText, { color: colors.textPrimary }]}>{item.word}</Text>
@@ -294,7 +301,7 @@ export default function VocabularyScreen({ navigation }: any) {
         <View style={[styles.masteryChip, { backgroundColor: MASTERY_COLORS[item.mastery_level] + '20' }]}>
           <Text style={[styles.masteryText, { color: MASTERY_COLORS[item.mastery_level] }]}>{item.mastery_level}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     </Swipeable>
   );
 
@@ -545,6 +552,67 @@ export default function VocabularyScreen({ navigation }: any) {
             )}
           </View>
         </View>
+      </Modal>
+
+      {/* Word Detail Modal */}
+      <Modal visible={!!selectedWord} animationType="slide" presentationStyle="pageSheet">
+        <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Word Details</Text>
+            <TouchableOpacity onPress={() => setSelectedWord(null)}>
+              <Ionicons name="close" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+            {selectedWord && (
+              <View style={[styles.dictCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                <View style={styles.dictWordRow}>
+                  <Text style={[styles.dictWord, { color: colors.textPrimary }]}>{selectedWord.word}</Text>
+                  {selectedWord.phonetic && (
+                    <Text style={[styles.dictPhonetic, { color: colors.accent }]}>{selectedWord.phonetic}</Text>
+                  )}
+                </View>
+
+                <View style={styles.meaningBlock}>
+                  {typeof selectedWord.definitions === 'string' ? (
+                    <Text style={[styles.defText, { color: colors.textPrimary, marginBottom: 8 }]}>{selectedWord.definitions}</Text>
+                  ) : Array.isArray(selectedWord.definitions) ? (
+                    selectedWord.definitions.map((def: any, idx: number) => (
+                      <View key={idx} style={{ marginBottom: 12 }}>
+                        {def.part_of_speech && (
+                          <Text style={[styles.pos, { color: colors.accent }]}>{def.part_of_speech}</Text>
+                        )}
+                        <View style={styles.defRow}>
+                          <Text style={[styles.defNum, { color: colors.textMuted }]}>{idx + 1}.</Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.defText, { color: colors.textPrimary }]}>{def.definition}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    ))
+                  ) : null}
+
+                  {selectedWord.examples && selectedWord.examples.length > 0 && (
+                    <View style={{ marginTop: 10 }}>
+                      <Text style={[styles.pos, { color: colors.textSecondary, marginBottom: 4, fontStyle: 'normal' }]}>Examples:</Text>
+                      {selectedWord.examples.map((ex: string, idx: number) => (
+                        <Text key={idx} style={[styles.exampleText, { color: colors.textSecondary, marginBottom: 4 }]}>• "{ex}"</Text>
+                      ))}
+                    </View>
+                  )}
+                  
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 8 }}>
+                    <Text style={[styles.pos, { color: colors.textSecondary, marginBottom: 0, fontStyle: 'normal' }]}>Mastery:</Text>
+                    <View style={[styles.masteryChip, { backgroundColor: MASTERY_COLORS[selectedWord.mastery_level] + '20', alignSelf: 'flex-start' }]}>
+                      <Text style={[styles.masteryText, { color: MASTERY_COLORS[selectedWord.mastery_level] }]}>{selectedWord.mastery_level}</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+          </ScrollView>
+        </SafeAreaView>
       </Modal>
 
       {/* App Modal */}

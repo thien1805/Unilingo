@@ -101,11 +101,28 @@ export const practiceAPI = {
     return data;
   },
 
-  uploadAudio: async (attemptId: string, audioFile: FormData) => {
+  generateQuestions: async (ieltsPart: string, count: number = 3, topicId?: string): Promise<{ questions: any[]; count: number }> => {
+    let url = `/practice/generate-questions?ielts_part=${ieltsPart}&count=${count}`;
+    if (topicId && topicId !== 'mock-id') {
+      url += `&topic_id=${topicId}`;
+    }
+    const { data } = await apiClient.post(url);
+    return data;
+  },
+
+  uploadAudio: async (attemptId: string, audioFile: FormData, partNumber: number = 1, questionId?: string) => {
+    let url = `/practice/${attemptId}/upload-audio?part_number=${partNumber}`;
+    if (questionId && !questionId.startsWith('mock')) {
+      url += `&question_id=${questionId}`;
+    }
     const { data } = await apiClient.post(
-      `/practice/${attemptId}/upload-audio`,
+      url,
       audioFile,
-      { headers: { 'Content-Type': 'multipart/form-data' } }
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000, // 120s for audio upload
+        transformRequest: (data) => data, // Prevent Axios from transforming FormData
+      }
     );
     return data;
   },
@@ -132,5 +149,11 @@ export const practiceAPI = {
   getStats: async (): Promise<PracticeStats> => {
     const { data } = await apiClient.get('/practice/stats');
     return data;
+  },
+
+  getTTSUrl: (text: string): string => {
+    // Assuming apiClient.defaults.baseURL is something like 'http://localhost:8000/api/v1'
+    const baseURL = apiClient.defaults.baseURL || 'http://localhost:8000/api/v1';
+    return `${baseURL}/practice/tts?text=${encodeURIComponent(text)}`;
   },
 };

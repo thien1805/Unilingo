@@ -66,26 +66,29 @@ async def transcribe_audio(audio_url: str) -> str:
     Returns:
         Transcribed text
     """
-    if not settings.OPENAI_API_KEY:
+    if not settings.AZURE_SPEECH_KEY:
         # Mock response for development
         return "[Mock transcript] I would like to talk about a place I visited recently. It was a beautiful beach in Da Nang, Vietnam. I went there last summer with my family. We spent three days there and it was really wonderful."
 
-    from openai import AsyncOpenAI
+    import azure.cognitiveservices.speech as speechsdk
 
-    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-
-    # Download audio file from storage
+    speech_config = speechsdk.SpeechConfig(
+        subscription=settings.AZURE_SPEECH_KEY, 
+        region=settings.AZURE_SPEECH_REGION
+    )
     # TODO: Implement actual file download from S3/MinIO
     # For now, assume local file path
-    with open(audio_url, "rb") as audio_file:
-        response = await client.audio.transcriptions.create(
-            model="whisper-1",
-            file=audio_file,
-            language="en",
-            response_format="text",
-        )
-
-    return response
+    audio_config = speechsdk.audio.AudioConfig(filename=audio_url)
+    speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
+    
+    result = speech_recognizer.recognize_once_async().get()
+    
+    if result.reason == speechsdk.ResultReason.RecognizedSpeech:
+        return result.text
+    elif result.reason == speechsdk.ResultReason.NoMatch:
+        return "No speech could be recognized."
+    else:
+        return f"Speech recognition canceled/failed: {result.reason}"
 
 
 async def assess_pronunciation(audio_url: str, reference_text: str = "") -> dict:
@@ -172,7 +175,7 @@ async def score_with_llm(
         pronunciation_data=json.dumps(pronunciation_data),
     )
 
-    if not settings.GOOGLE_GEMINI_API_KEY:
+    if not settings.GROQ_API_KEY:
         # Mock response for development
         return {
             "fluency_band": 6.5,
@@ -211,24 +214,23 @@ async def score_with_llm(
             ],
         }
 
-    from google import genai
+    from groq import AsyncGroq
 
-    client = genai.Client(api_key=settings.GOOGLE_GEMINI_API_KEY)
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=prompt,
-        config={
-            "response_mime_type": "application/json",
-            "temperature": 0.3,
-        },
+    client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+    
+    response = await client.chat.completions.create(
+        messages=[{"role": "user", "content": prompt}],
+        model="llama-3.3-70b-versatile",
+        response_format={"type": "json_object"}
     )
 
     try:
-        result = json.loads(response.text)
+        text = response.choices[0].message.content
+        result = json.loads(text)
         return result
     except json.JSONDecodeError:
         # Try to extract JSON from the response
-        text = response.text
+        text = response.choices[0].message.content
         start = text.find("{")
         end = text.rfind("}") + 1
         if start != -1 and end > start:

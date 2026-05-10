@@ -9,6 +9,8 @@ import { topicsAPI, Topic } from '../../api/topics';
 import { Card, Badge, SectionTitle } from '../../components/common';
 import { Typography, Spacing, BorderRadius } from '../../theme';
 
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 const PARTS = [
   { key: 'part1', label: 'Part 1 — Interview', desc: 'Familiar topics about yourself, work, studies, and interests', emoji: '💬', time: '4-5 mins', bgKey: 'accentBg', colorKey: 'accent' },
   { key: 'part2', label: 'Part 2 — Long Turn', desc: 'Speak for 1-2 minutes on a given cue card topic', emoji: '🎤', time: '3-4 mins', bgKey: 'roseBg', colorKey: 'rose' },
@@ -50,16 +52,39 @@ export default function PracticeScreen({ navigation, route }: any) {
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: colors.bgBody }]}
-      contentContainerStyle={{ paddingBottom: 100 }}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.topBar}>
-        <Text style={[Typography.h2, { color: colors.textPrimary }]}>Practice</Text>
-      </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgBody }}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: colors.bgBody }]}
+        contentContainerStyle={{ paddingBottom: 100 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.topBar}>
+          <Text style={[Typography.h2, { color: colors.textPrimary }]}>Practice</Text>
+        </View>
 
-      <SectionTitle title="Choose a Part" />
+        {/* Virtual Room - Full Test */}
+        <SectionTitle title="Mock Test (Virtual Room)" />
+        <TouchableOpacity
+          style={[
+            styles.partCard,
+            { backgroundColor: colors.bgCard, borderColor: colors.border, marginBottom: 20 },
+          ]}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('VirtualRoom', { isFullTest: true })}
+        >
+          <View style={[styles.partIcon, { backgroundColor: colors.purple + '20' }]}>
+            <Text style={{ fontSize: 24 }}>🎓</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[Typography.h4, { color: colors.textPrimary, marginBottom: 3 }]}>Full IELTS Speaking Test</Text>
+            <Text style={[Typography.caption, { color: colors.textSecondary, lineHeight: 18 }]}>Practice all 3 parts consecutively in a simulated exam environment.</Text>
+            <View style={styles.partMeta}>
+              <Text style={[Typography.captionSm, { color: colors.textMuted }]}>⏱️ 11-14 mins</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <SectionTitle title="Choose a Part" />
       <View style={styles.partCards}>
         {PARTS.map((part) => (
           <TouchableOpacity
@@ -142,7 +167,8 @@ export default function PracticeScreen({ navigation, route }: any) {
           </View>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

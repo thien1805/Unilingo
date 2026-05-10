@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     GOOGLE_GEMINI_API_KEY: str = ""
     AZURE_SPEECH_KEY: str = ""
     AZURE_SPEECH_REGION: str = "eastus"
+    GROQ_API_KEY: str = ""
 
     # ─── Storage (S3/MinIO) ───
     S3_ENDPOINT_URL: str = "http://localhost:9000"
