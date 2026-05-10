@@ -57,6 +57,14 @@ export default function VocabularyScreen({ navigation }: any) {
   const [pendingVocabItem, setPendingVocabItem] = useState<VocabularyItem | null>(null);
   const [addingToDeck, setAddingToDeck] = useState<string | null>(null);
 
+  // Debounce search to prevent spamming the API on every keystroke
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   const loadWords = useCallback(async () => {
@@ -64,7 +72,7 @@ export default function VocabularyScreen({ navigation }: any) {
       const mastery = activeFilter === 'all' ? undefined : activeFilter;
       const result = await vocabularyAPI.list({
         mastery_level: mastery,
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         per_page: 50,
       });
       setWords(result.items);
@@ -72,7 +80,7 @@ export default function VocabularyScreen({ navigation }: any) {
       // Update count for current filter
       setCounts(prev => ({ ...prev, [activeFilter]: result.total }));
       // Load counts for all filters in background
-      if (activeFilter === 'all' && !search) {
+      if (activeFilter === 'all' && !debouncedSearch) {
         const [newC, learningC, masteredC] = await Promise.allSettled([
           vocabularyAPI.list({ mastery_level: 'new', per_page: 1 }),
           vocabularyAPI.list({ mastery_level: 'learning', per_page: 1 }),
@@ -91,7 +99,7 @@ export default function VocabularyScreen({ navigation }: any) {
     } finally {
       setLoading(false);
     }
-  }, [activeFilter, search]);
+  }, [activeFilter, debouncedSearch]);
 
   useEffect(() => { loadWords(); }, [loadWords]);
 
@@ -200,13 +208,30 @@ export default function VocabularyScreen({ navigation }: any) {
   };
 
   const handleChangeMastery = async (item: VocabularyItem, newLevel: 'new' | 'learning' | 'reviewing' | 'mastered') => {
+    const oldLevel = item.mastery_level;
+    
+    // Optimistic UI update
+    setWords(prev => {
+      // If currently viewing a specific tab and changing to another, remove it from view
+      if (activeFilter !== 'all' && newLevel !== activeFilter) {
+        return prev.filter(w => w.id !== item.id);
+      }
+      return prev.map(w => w.id === item.id ? { ...w, mastery_level: newLevel } : w);
+    });
+    
+    setCounts(prev => ({
+      ...prev,
+      [oldLevel]: Math.max(0, (prev[oldLevel] || 0) - 1),
+      [newLevel]: (prev[newLevel] || 0) + 1,
+    }));
+
     try {
       await vocabularyAPI.updateMastery(item.id, newLevel);
-      setWords(prev => prev.map(w => w.id === item.id ? { ...w, mastery_level: newLevel } : w));
-      // Close swipeable
       swipeableRefs.current.get(item.id)?.close();
     } catch {
       showError('Error', 'Failed to update mastery level');
+      // Revert optimistic update by reloading words
+      loadWords();
     }
   };
 
