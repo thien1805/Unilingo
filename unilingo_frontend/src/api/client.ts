@@ -5,7 +5,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 // LƯU Ý: Đã cập nhật theo IP mới của Mac
-const BASE_URL = 'http://10.207.51.218:8000/api/v1'; 
+const BASE_URL = 'http://10.0.23.26:8000/api/v1'; 
 
 const apiClient = axios.create({
   baseURL: BASE_URL,

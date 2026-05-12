@@ -14,12 +14,12 @@ export const setupHourlyReminders = async () => {
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
-  
+
   if (existingStatus !== 'granted') {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
-  
+
   if (finalStatus !== 'granted') {
     console.log('Failed to get push token for push notification!');
     return;
@@ -37,10 +37,10 @@ export const setupHourlyReminders = async () => {
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: 1 * 60, // 1 minu
+      seconds: 60 * 60, // 1 hour
       repeats: true,
     },
   });
-  
+
   console.log('Hourly reminders scheduled successfully.');
 };
