@@ -697,7 +697,7 @@ const styles = StyleSheet.create({
     width: 80, height: 80, borderRadius: 40,
     alignSelf: 'center', alignItems: 'center', justifyContent: 'center',
     marginVertical: 10,
-    shadowColor: '#0D9488', shadowOffset: { width: 0, height: 0 },
+    shadowColor: '#3350B2', shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3, shadowRadius: 20, elevation: 8,
   },
   cueCard: { borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1 },

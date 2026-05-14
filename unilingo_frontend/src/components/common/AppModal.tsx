@@ -81,10 +81,10 @@ const MODAL_CONFIG: Record<AppModalType, {
   icon: keyof typeof Ionicons.glyphMap;
   getColor: (colors: any) => string;
 }> = {
-  info: { icon: 'information-circle', getColor: (c) => c.accent || '#0D9488' },
+  info: { icon: 'information-circle', getColor: (c) => c.accent || '#3350B2' },
   error: { icon: 'close-circle', getColor: (c) => c.error || '#EF4444' },
   success: { icon: 'checkmark-circle', getColor: (c) => c.success || '#10B981' },
-  confirm: { icon: 'help-circle', getColor: (c) => c.accent || '#0D9488' },
+  confirm: { icon: 'help-circle', getColor: (c) => c.accent || '#3350B2' },
   destructive: { icon: 'warning', getColor: (c) => c.error || '#EF4444' },
 };
 

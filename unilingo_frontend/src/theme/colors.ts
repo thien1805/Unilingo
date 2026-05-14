@@ -1,5 +1,5 @@
 /**
- * Unilingo Color System — Teal Emerald 🌿
+ * Unilingo Color System — Blue Theme 🔵
  * Matches the demo HTML design tokens exactly
  */
 
@@ -11,11 +11,11 @@ export const LightColors = {
   bgCardHover: '#F0F4F8',
   bgInput: '#F0F4F8',
 
-  accent: '#0D9488',
-  accentLight: '#14B8A6',
-  accentLighter: '#99F6E4',
-  accentBg: 'rgba(13,148,136,0.08)',
-  accentBg2: 'rgba(13,148,136,0.12)',
+  accent: '#3350B2',
+  accentLight: '#4A63CC',
+  accentLighter: '#D4D9F0',
+  accentBg: 'rgba(51,80,178,0.08)',
+  accentBg2: 'rgba(51,80,178,0.12)',
 
   accent2: '#F59E0B',
   accent2Bg: 'rgba(245,158,11,0.10)',
@@ -39,7 +39,7 @@ export const LightColors = {
   textInverse: '#FFFFFF',
 
   border: 'rgba(15,23,42,0.08)',
-  borderAccent: 'rgba(13,148,136,0.25)',
+  borderAccent: 'rgba(51,80,178,0.25)',
 
   tabBarBg: 'rgba(255,255,255,0.92)',
 };
@@ -52,11 +52,11 @@ export const DarkColors = {
   bgCardHover: '#283548',
   bgInput: '#0F172A',
 
-  accent: '#14B8A6',
-  accentLight: '#2DD4BF',
-  accentLighter: '#5EEAD4',
-  accentBg: 'rgba(20,184,166,0.12)',
-  accentBg2: 'rgba(20,184,166,0.18)',
+  accent: '#4A63CC',
+  accentLight: '#6B7FDC',
+  accentLighter: '#9AA5E0',
+  accentBg: 'rgba(74,99,204,0.12)',
+  accentBg2: 'rgba(74,99,204,0.18)',
 
   accent2: '#FBBF24',
   accent2Bg: 'rgba(251,191,36,0.12)',
@@ -80,15 +80,15 @@ export const DarkColors = {
   textInverse: '#0F172A',
 
   border: 'rgba(241,245,249,0.08)',
-  borderAccent: 'rgba(20,184,166,0.30)',
+  borderAccent: 'rgba(74,99,204,0.30)',
 
   tabBarBg: 'rgba(17,24,39,0.92)',
 };
 
 export const Gradients = {
-  primary: ['#0D9488', '#14B8A6', '#2DD4BF'] as const,
+  primary: ['#3350B2', '#4A63CC', '#6B7FDC'] as const,
   accent: ['#F59E0B', '#FBBF24'] as const,
-  hero: ['#0D9488', '#0F766E'] as const,
+  hero: ['#3350B2', '#1C2862'] as const,
   rose: ['#F43F5E', '#E11D48'] as const,
   indigo: ['#6366F1', '#818CF8'] as const,
   sky: ['#0EA5E9', '#38BDF8'] as const,

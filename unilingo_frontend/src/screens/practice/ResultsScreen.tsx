@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
   bandCircle: {
     width: 116, height: 116, borderRadius: 58,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#0D9488', shadowOffset: { width: 0, height: 0 },
+    shadowColor: '#3350B2', shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3, shadowRadius: 20, elevation: 8,
   },
   tabs: { flexDirection: 'row', borderRadius: 12, padding: 3, marginVertical: 14 },

@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0D9488',
+    shadowColor: '#3350B2',
     shadowOffset: { width: 0, height: 6 }, // Softer, deeper shadow
     shadowOpacity: 0.2, // More subtle
     shadowRadius: 20,

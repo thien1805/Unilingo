@@ -33,6 +33,9 @@ import FlashcardDecksScreen from '../screens/flashcards/FlashcardDecksScreen';
 import FlashcardDeckDetailScreen from '../screens/flashcards/FlashcardDeckDetailScreen';
 import FlashcardStudyScreen from '../screens/flashcards/FlashcardStudyScreen';
 
+// Splash Screen
+import SplashScreen from '../screens/SplashScreen';
+
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
@@ -154,7 +157,11 @@ export default function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator 
+      screenOptions={{ headerShown: false }}
+      initialRouteName="Splash"
+    >
+      <Stack.Screen name="Splash" component={SplashScreen} />
       {isAuthenticated ? (
         <Stack.Screen name="Main" component={MainTabNavigator} />
       ) : (
