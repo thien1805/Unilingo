@@ -11,7 +11,11 @@ import { useThemeStore } from '../store/themeStore';
 import { useAuthStore } from '../store/authStore';
 import { FontFamily } from '../theme';
 
+// Splash Screen
+import SplashScreen from '../screens/SplashScreen';
+
 // Auth Screens
+import AuthChoiceScreen from '../screens/auth/AuthChoiceScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 
@@ -33,10 +37,15 @@ import FlashcardDecksScreen from '../screens/flashcards/FlashcardDecksScreen';
 import FlashcardDeckDetailScreen from '../screens/flashcards/FlashcardDeckDetailScreen';
 import FlashcardStudyScreen from '../screens/flashcards/FlashcardStudyScreen';
 
-// Splash Screen
-import SplashScreen from '../screens/SplashScreen';
+export type RootStackParamList = {
+  Splash: undefined;
+  AuthChoice: undefined;
+  Login: undefined;
+  Register: undefined;
+  Main: undefined;
+};
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
 const PracticeStack = createNativeStackNavigator();
@@ -133,16 +142,6 @@ function MainTabNavigator() {
   );
 }
 
-// ─── Auth Stack ───
-function AuthStack() {
-  return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
-    </Stack.Navigator>
-  );
-}
-
 // ─── Root Navigator ───
 export default function RootNavigator() {
   const { isAuthenticated, isLoading } = useAuthStore();
@@ -157,15 +156,19 @@ export default function RootNavigator() {
   }
 
   return (
-    <Stack.Navigator 
+    <Stack.Navigator
       screenOptions={{ headerShown: false }}
       initialRouteName="Splash"
     >
-      <Stack.Screen name="Splash" component={SplashScreen} />
+      <Stack.Screen name="Splash" component={SplashScreen} options={{ headerShown: false }} />
       {isAuthenticated ? (
-        <Stack.Screen name="Main" component={MainTabNavigator} />
+        <Stack.Screen name="Main" component={MainTabNavigator} options={{ headerShown: false }} />
       ) : (
-        <Stack.Screen name="Auth" component={AuthStack} />
+        <>
+          <Stack.Screen name="AuthChoice" component={AuthChoiceScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+        </>
       )}
     </Stack.Navigator>
   );

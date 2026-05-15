@@ -1,6 +1,7 @@
 /**
- * SplashScreen — Homepage with UNILINGO branding
- * Auto-navigates to Auth/Main after 4 seconds
+ * SplashScreen — App Intro (Homepage)
+ * Displays only the homepage artwork and auto-navigates to AuthChoice after 3 seconds.
+ * No buttons here, and no extra mascot render if the background already contains one.
  */
 import React, { useEffect } from 'react';
 import {
@@ -8,82 +9,72 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
+  StatusBar,
 } from 'react-native';
-import { useAuthStore } from '../store/authStore';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type Props = {
   navigation: any;
 };
 
 export default function SplashScreen({ navigation }: Props) {
-  const { isAuthenticated } = useAuthStore();
-  const { width, height } = useWindowDimensions();
-
-  // Responsive font sizing
-  const fontSize = Math.min(width * 0.13, 60);
-  const letterSpacing = Math.min(width * 0.018, 8);
-
   useEffect(() => {
+    console.log('Splash mounted');
     const timer = setTimeout(() => {
-      // Navigate to Auth or Main based on authentication state
-      // Using replace to prevent back navigation to splash screen
-      if (isAuthenticated) {
-        navigation.replace('Main');
-      } else {
-        navigation.replace('Auth');
-      }
-    }, 4000);
+      console.log('Go to AuthChoice');
+      navigation.replace('AuthChoice');
+    }, 3000);
 
     return () => clearTimeout(timer);
-  }, [navigation, isAuthenticated]);
+  }, [navigation]);
 
   return (
-    <ImageBackground
-      source={require('../../homepage.png')}
-      style={styles.background}
-      resizeMode="cover"
-    >
-      <View style={styles.overlay}>
-        <Text
-          style={[
-            styles.logo,
-            {
-              fontSize,
-              letterSpacing,
-            },
-          ]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.6}
-          allowFontScaling={false}
-        >
-          UNILINGO
-        </Text>
-      </View>
-    </ImageBackground>
+    <View style={styles.container}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+      <ImageBackground
+        source={require('../../homepage.png')}
+        style={styles.background}
+        imageStyle={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <SafeAreaView style={styles.content} edges={['top', 'bottom']}>
+          <Text style={styles.mainLogo} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} allowFontScaling={false}>
+            UNILINGO
+          </Text>
+        </SafeAreaView>
+      </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F7FB',
+  },
   background: {
+    ...StyleSheet.absoluteFillObject,
     flex: 1,
     width: '100%',
     height: '100%',
   },
-  overlay: {
+  backgroundImage: {
+    width: '100%',
+    height: '100%',
+  },
+  content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
   },
-  logo: {
-    width: '100%',
-    textAlign: 'center',
+  mainLogo: {
     color: '#3350B2',
-    fontWeight: '700',
-    includeFontPadding: false,
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
+    fontSize: 68,
+    fontWeight: '800',
+    letterSpacing: 4,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
     textShadowOffset: { width: 0, height: 3 },
     textShadowRadius: 4,
   },
