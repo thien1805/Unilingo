@@ -61,3 +61,13 @@ app/
 - `GET /api/v1/leaderboard` - Rankings
 
 See full docs at `/docs` when running.
+
+## Swagger API Documentation
+
+Run the backend and open:
+
+- Swagger UI: http://localhost:8000/docs
+- OpenAPI JSON: http://localhost:8000/openapi.json
+- ReDoc: http://localhost:8000/redoc
+
+Swagger includes detailed endpoint summaries, request examples, auth notes, response schemas, and grouped tags. See [`../docs/BACKEND_API_DOCS.md`](../docs/BACKEND_API_DOCS.md) as an additional written reference.

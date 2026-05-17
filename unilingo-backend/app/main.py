@@ -9,6 +9,12 @@ from fastapi.exceptions import RequestValidationError
 
 from app.config import get_settings
 from app.database import init_db
+from app.api.openapi_docs import (
+    OPENAPI_DESCRIPTION,
+    OPENAPI_TAGS,
+    SWAGGER_UI_PARAMETERS,
+    configure_openapi,
+)
 from app.api.v1.router import router as v1_router
 
 settings = get_settings()
@@ -48,11 +54,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="IELTS Speaking Practice Platform - API",
+    description=OPENAPI_DESCRIPTION,
     version=settings.APP_VERSION,
     lifespan=lifespan,
-    docs_url="/docs" if settings.DEBUG else None,
-    redoc_url="/redoc" if settings.DEBUG else None,
+    openapi_tags=OPENAPI_TAGS,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    swagger_ui_parameters=SWAGGER_UI_PARAMETERS,
 )
 
 # CORS
@@ -111,3 +120,6 @@ async def health_check():
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,
     }
+
+
+configure_openapi(app, title=settings.APP_NAME, version=settings.APP_VERSION)

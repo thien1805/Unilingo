@@ -155,21 +155,23 @@ export default function RootNavigator() {
     );
   }
 
+  if (isAuthenticated) {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Main" component={MainTabNavigator} options={{ headerShown: false }} />
+      </Stack.Navigator>
+    );
+  }
+
   return (
     <Stack.Navigator
       screenOptions={{ headerShown: false }}
       initialRouteName="Splash"
     >
       <Stack.Screen name="Splash" component={SplashScreen} options={{ headerShown: false }} />
-      {isAuthenticated ? (
-        <Stack.Screen name="Main" component={MainTabNavigator} options={{ headerShown: false }} />
-      ) : (
-        <>
-          <Stack.Screen name="AuthChoice" component={AuthChoiceScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
-        </>
-      )}
+      <Stack.Screen name="AuthChoice" component={AuthChoiceScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }
