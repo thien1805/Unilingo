@@ -7,14 +7,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { topicsAPI, Topic } from '../../api/topics';
 import { Card, Badge, SectionTitle } from '../../components/common';
+import AppBackground from '../../components/common/AppBackground';
 import { Typography, Spacing, BorderRadius } from '../../theme';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PARTS = [
-  { key: 'part1', label: 'Part 1 — Interview', desc: 'Familiar topics about yourself, work, studies, and interests', emoji: '💬', time: '4-5 mins', bgKey: 'accentBg', colorKey: 'accent' },
-  { key: 'part2', label: 'Part 2 — Long Turn', desc: 'Speak for 1-2 minutes on a given cue card topic', emoji: '🎤', time: '3-4 mins', bgKey: 'roseBg', colorKey: 'rose' },
-  { key: 'part3', label: 'Part 3 — Discussion', desc: 'Abstract questions linked to Part 2 topic', emoji: '🗣️', time: '4-5 mins', bgKey: 'skyBg', colorKey: 'sky' },
+  { key: 'part1', label: 'Part 1 - Interview', desc: 'Familiar topics about yourself, work, studies, and interests', emoji: '💬', time: '4-5 mins', bgKey: 'accentBg', colorKey: 'accent' },
+  { key: 'part2', label: 'Part 2 - Long Turn', desc: 'Speak for 1-2 minutes on a given cue card topic', emoji: '🎤', time: '3-4 mins', bgKey: 'roseBg', colorKey: 'rose' },
+  { key: 'part3', label: 'Part 3 - Discussion', desc: 'Abstract questions linked to Part 2 topic', emoji: '🗣️', time: '4-5 mins', bgKey: 'skyBg', colorKey: 'sky' },
 ];
 
 const TOPIC_ICONS: Record<string, string> = {
@@ -52,12 +53,13 @@ export default function PracticeScreen({ navigation, route }: any) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bgBody }}>
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.bgBody }]}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-      >
+    <AppBackground>
+      <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }}>
+        <ScrollView
+          style={[styles.container, { backgroundColor: 'transparent' }]}
+          contentContainerStyle={{ paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.topBar}>
           <Text style={[Typography.h2, { color: colors.textPrimary }]}>Practice</Text>
         </View>
@@ -167,8 +169,9 @@ export default function PracticeScreen({ navigation, route }: any) {
           </View>
         </>
       )}
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 

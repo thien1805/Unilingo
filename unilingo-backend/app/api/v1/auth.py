@@ -1,9 +1,12 @@
 """
 Authentication API routes
 """
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import get_settings
 from app.database import get_db
 from app.schemas.auth import (
     RegisterRequest, LoginRequest, SocialLoginRequest,
@@ -23,6 +26,13 @@ from app.services.otp_service import generate_and_send_otp, verify_otp, verify_o
 from sqlalchemy import select
 from app.models.user import User
 
+settings = get_settings()
+
+
+def _is_development_environment() -> bool:
+    env_value = getattr(settings, "ENVIRONMENT", None) or os.getenv("APP_ENV")
+    return str(env_value).lower() == "development"
+
 @router.post("/register-send-otp", status_code=status.HTTP_200_OK)
 async def register_send_otp(request: SendOTPRequest, db: AsyncSession = Depends(get_db)):
     """Send OTP for registration."""
@@ -38,7 +48,10 @@ async def register_send_otp(request: SendOTPRequest, db: AsyncSession = Depends(
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """Register a new user with email, password, and OTP."""
-    if not verify_otp(request.email, request.otp, prefix="register"):
+    # local development only, do not use in production
+    if _is_development_environment() and request.otp == "000000":
+        pass
+    elif not verify_otp(request.email, request.otp, prefix="register"):
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
         
     user = await register_user(

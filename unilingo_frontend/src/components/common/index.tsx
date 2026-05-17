@@ -12,6 +12,7 @@ import {
   TextStyle,
   ActivityIndicator,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
@@ -183,28 +184,43 @@ interface CardProps {
 
 export const Card: React.FC<CardProps> = ({ children, style, onPress }) => {
   const { colors } = useThemeStore();
-  const cardStyle: ViewStyle = {
-    backgroundColor: colors.bgCard,
+  const glassTint = colors.textPrimary === '#F1F5F9'
+    ? 'rgba(15,23,42,0.28)'
+    : 'rgba(255,255,255,0.18)';
+
+  const cardShell: ViewStyle = {
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: Spacing.lg,
+    borderColor: colors.borderAccent,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.10,
+    shadowRadius: 18,
+    elevation: 3,
   };
+
+  const cardContent: ViewStyle = {
+    padding: Spacing.lg,
+    backgroundColor: glassTint,
+  };
+
+  const content = (
+    <>
+      <BlurView intensity={28} tint={colors.textPrimary === '#F1F5F9' ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
+      <View style={[cardContent, style]}>{children}</View>
+    </>
+  );
 
   if (onPress) {
     return (
-      <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={[cardStyle, style]}>
-        {children}
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={cardShell}>
+        {content}
       </TouchableOpacity>
     );
   }
 
-  return <View style={[cardStyle, style]}>{children}</View>;
+  return <View style={cardShell}>{content}</View>;
 };
 
 // ─── Badge ───

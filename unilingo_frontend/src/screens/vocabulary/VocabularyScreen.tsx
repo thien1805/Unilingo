@@ -22,6 +22,7 @@ import { vocabularyAPI, VocabularyItem, DictionaryResult } from '../../api/vocab
 import { flashcardsAPI, FlashcardDeck } from '../../api/flashcards';
 import { Gradients } from '../../theme';
 import { AppModal, useAppModal } from '../../components/common/AppModal';
+import AppBackground from '../../components/common/AppBackground';
 
 const FILTER_KEYS = ['all', 'new', 'learning', 'mastered'] as const;
 
@@ -306,7 +307,8 @@ export default function VocabularyScreen({ navigation }: any) {
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
+    <AppBackground>
+    <SafeAreaView style={[styles.safe, { backgroundColor: 'transparent' }]}> 
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -414,7 +416,7 @@ export default function VocabularyScreen({ navigation }: any) {
 
       {/* Dictionary Modal */}
       <Modal visible={showDict} animationType="slide" presentationStyle="pageSheet">
-        <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
+        <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}> 
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Dictionary</Text>
             <TouchableOpacity onPress={() => { setShowDict(false); setDictResult(null); setDictSearch(''); }}>
@@ -618,6 +620,7 @@ export default function VocabularyScreen({ navigation }: any) {
       {/* App Modal */}
       <AppModal config={modal} onDismiss={hideModal} />
     </SafeAreaView>
+    </AppBackground>
   );
 }
 

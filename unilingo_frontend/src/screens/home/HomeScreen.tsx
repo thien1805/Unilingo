@@ -24,6 +24,7 @@ import { vocabularyAPI } from '../../api/vocabulary';
 import { blogAPI, BlogPostSummary } from '../../api/blog';
 import { Gradients } from '../../theme';
 import { StreakModal } from '../../components/common/StreakModal';
+import AppBackground from '../../components/common/AppBackground';
 import * as SecureStore from 'expo-secure-store';
 
 export default function HomeScreen({ navigation }: any) {
@@ -90,21 +91,23 @@ export default function HomeScreen({ navigation }: any) {
       dashboard.skill_breakdown.grammar + dashboard.skill_breakdown.pronunciation) / 4).toFixed(1)
     : '0.0';
 
-  // Initials for avatar
-  const initials = userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-
-  const getGreeting = () => {
-    const hr = new Date().getHours();
-    if (hr < 12) return 'Good morning! 👋';
-    if (hr < 17) return 'Good afternoon! 👋';
-    return 'Good evening! 👋';
-  };
-
   // Progress ring
   const progressPct = Math.min(todayTests / 3, 1);
   const radius = 32;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference * (1 - progressPct);
+
+  // Initials for avatar
+  const initials = userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+  const getGreeting = () => {
+    const hr = new Date().getHours();
+    if (hr < 12) return 'Good morning! ';
+    if (hr < 17) return 'Good afternoon!';
+    return 'Good evening! 👋';
+  };
+
+  const dailyGoalColors = ['#FFF8D6', '#FFEFA8'] as const;
 
   const parts = [
     { key: 'part1', label: 'Part 1', desc: 'Interview', emoji: '💬' },
@@ -118,23 +121,32 @@ export default function HomeScreen({ navigation }: any) {
     return { bg: colors.roseBg, text: colors.rose };
   };
 
+  const formatBlogCategory = (category?: string | null) => {
+    if (!category?.trim()) return 'GENERAL';
+    return category.trim().replace(/_/g, ' ').toUpperCase();
+  };
+
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.accent} />
-        </View>
-      </SafeAreaView>
+      <AppBackground>
+        <SafeAreaView style={[styles.safe, { backgroundColor: 'transparent' }]}> 
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        </SafeAreaView>
+      </AppBackground>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
-      >
+    <AppBackground>
+      <SafeAreaView style={[styles.safe, { backgroundColor: 'transparent' }]}> 
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          style={{ backgroundColor: 'transparent' }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+        >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -157,14 +169,15 @@ export default function HomeScreen({ navigation }: any) {
         </View>
 
         {/* Daily Goal Card */}
-        <LinearGradient colors={Gradients.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dailyCard}>
+        <LinearGradient colors={dailyGoalColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dailyCard}>
           <View style={styles.dailyTop}>
             <View style={styles.ringContainer}>
               <Svg width={76} height={76}>
-                <Circle cx={38} cy={38} r={radius} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth={6} />
+                <Circle cx={38} cy={38} r={radius} fill="rgba(255,255,255,0.45)" stroke="none" />
+                <Circle cx={38} cy={38} r={radius} fill="none" stroke="rgba(246,216,95,0.38)" strokeWidth={6} />
                 <Circle
                   cx={38} cy={38} r={radius}
-                  fill="none" stroke="#fff" strokeWidth={6}
+                  fill="none" stroke="#F6D85F" strokeWidth={6}
                   strokeLinecap="round"
                   strokeDasharray={`${circumference}`}
                   strokeDashoffset={strokeDashoffset}
@@ -180,15 +193,15 @@ export default function HomeScreen({ navigation }: any) {
           </View>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>🔥 {streak}</Text>
+              <Text style={styles.statValue}>{streak}</Text>
               <Text style={styles.statLabel}>Day Streak</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>⭐ {totalXp}</Text>
+              <Text style={styles.statValue}>{totalXp}</Text>
               <Text style={styles.statLabel}>XP Today</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>📈 {avgBand}</Text>
+              <Text style={styles.statValue}>{avgBand}</Text>
               <Text style={styles.statLabel}>Avg Band</Text>
             </View>
           </View>
@@ -225,7 +238,7 @@ export default function HomeScreen({ navigation }: any) {
           >
             <View style={styles.reviewLeft}>
               <View style={[styles.reviewIcon, { backgroundColor: colors.accent2Bg }]}>
-                <Text style={{ fontSize: 18 }}>📚</Text>
+                <Text style={{ fontSize: 18 }}></Text>
               </View>
               <View>
                 <Text style={[styles.reviewTitle, { color: colors.textPrimary }]}>{reviewDue} words to review</Text>
@@ -311,7 +324,7 @@ export default function HomeScreen({ navigation }: any) {
           </ScrollView>
         ) : (
           <View style={[styles.emptyCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-            <Text style={{ fontSize: 32, marginBottom: 8 }}>📝</Text>
+            <Text style={{ fontSize: 32, marginBottom: 8 }}></Text>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No activity yet. Start your first practice!</Text>
           </View>
         )}
@@ -334,11 +347,11 @@ export default function HomeScreen({ navigation }: any) {
                     {blog.cover_image_url ? (
                       <Image source={{ uri: blog.cover_image_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
-                      <Text style={{ fontSize: 24 }}>📰</Text>
+                      <Text style={{ fontSize: 24 }}></Text>
                     )}
                   </View>
                   <View style={styles.blogContent}>
-                    <Text style={[styles.blogCategory, { color: colors.primary }]}>{blog.category.toUpperCase()}</Text>
+                    <Text style={[styles.blogCategory, { color: colors.accent }]}>{formatBlogCategory(blog.category)}</Text>
                     <Text style={[styles.blogTitle, { color: colors.textPrimary }]} numberOfLines={2}>
                       {blog.title}
                     </Text>
@@ -351,14 +364,14 @@ export default function HomeScreen({ navigation }: any) {
             </ScrollView>
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
 
-      <StreakModal 
-        visible={showStreakModal} 
-        onClose={() => setShowStreakModal(false)} 
-        currentStreak={streak} 
-      />
-    </SafeAreaView>
+        <StreakModal 
+          visible={showStreakModal} 
+          onClose={() => setShowStreakModal(false)} 
+        />
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 
@@ -388,16 +401,25 @@ const styles = StyleSheet.create({
   notifBtn: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   notifBadge: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, backgroundColor: '#EF4444', borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   notifBadgeText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 9, color: '#fff' },
-  dailyCard: { borderRadius: 20, padding: 22, marginBottom: 24 },
+  dailyCard: {
+    borderRadius: 20,
+    padding: 22,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
   dailyTop: { flexDirection: 'row', alignItems: 'center', gap: 18, marginBottom: 16 },
   ringContainer: { width: 76, height: 76, alignItems: 'center', justifyContent: 'center' },
-  ringText: { position: 'absolute', fontFamily: 'PlusJakartaSans-Bold', fontSize: 14, color: '#fff' },
-  dailyTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 18, color: '#fff', marginBottom: 4 },
-  dailySub: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 13, color: 'rgba(255,255,255,0.8)' },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)', paddingTop: 16 },
+  ringText: { position: 'absolute', fontFamily: 'PlusJakartaSans-Bold', fontSize: 14, color: '#111827' },
+  dailyTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 18, color: '#1F2937', marginBottom: 4 },
+  dailySub: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 13, color: '#4B5563' },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#E8DFA8', paddingTop: 16 },
   statItem: { alignItems: 'center' },
-  statValue: { fontFamily: 'PlusJakartaSans-ExtraBold', fontSize: 16, color: '#fff', marginBottom: 2 },
-  statLabel: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 11, color: 'rgba(255,255,255,0.65)' },
+  statValue: { fontFamily: 'PlusJakartaSans-ExtraBold', fontSize: 16, color: '#111827', marginBottom: 2 },
+  statLabel: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 11, color: '#6B7280' },
   sectionTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 18, marginBottom: 14 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   seeAll: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 14 },
@@ -414,6 +436,7 @@ const styles = StyleSheet.create({
   activityScroll: { gap: 12, paddingBottom: 8 },
   activityCard: { width: 185, padding: 16, borderRadius: 16, borderWidth: 1 },
   activityTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  statusBadge: { alignSelf: 'flex-start' },
   partBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   partBadgeText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 11 },
   bandScore: { fontFamily: 'PlusJakartaSans-ExtraBold', fontSize: 22 },

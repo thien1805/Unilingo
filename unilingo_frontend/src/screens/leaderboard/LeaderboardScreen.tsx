@@ -18,6 +18,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
 import { leaderboardAPI, LeaderboardEntry, LeaderboardResponse } from '../../api/users';
 import { Gradients } from '../../theme';
+import AppBackground from '../../components/common/AppBackground';
 
 const PERIODS = [
   { key: 'weekly', label: 'Weekly' },
@@ -102,7 +103,8 @@ export default function LeaderboardScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
+    <AppBackground>
+    <SafeAreaView style={[styles.safe, { backgroundColor: 'transparent' }]}> 
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>Leaderboard</Text>
@@ -169,6 +171,7 @@ export default function LeaderboardScreen() {
         />
       )}
     </SafeAreaView>
+    </AppBackground>
   );
 }
 

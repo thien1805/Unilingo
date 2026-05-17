@@ -1,7 +1,7 @@
 """
 Pydantic schemas for Authentication
 """
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field  # type: ignore[reportMissingImports]
 
 
 class RegisterRequest(BaseModel):

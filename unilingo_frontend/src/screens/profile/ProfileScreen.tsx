@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
 import { Gradients } from '../../theme';
+import AppBackground from '../../components/common/AppBackground';
 
 export default function ProfileScreen({ navigation }: any) {
   const { colors } = useThemeStore();
@@ -17,10 +18,10 @@ export default function ProfileScreen({ navigation }: any) {
   const initials = (user?.full_name || 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
   const stats = [
-    { label: 'Total XP', value: `⭐ ${user?.total_xp || 0}`, icon: 'star' },
-    { label: 'Current Streak', value: `🔥 ${user?.current_streak || 0}`, icon: 'flame' },
-    { label: 'Longest Streak', value: `🏆 ${user?.longest_streak || 0}`, icon: 'trophy' },
-    { label: 'Target Band', value: `🎯 ${user?.target_band_score?.toFixed(1) || '—'}`, icon: 'flag' },
+    { label: 'Total XP', value: `${user?.total_xp || 0}`, icon: 'star' },
+    { label: 'Current Streak', value: `${user?.current_streak || 0}`, icon: 'flame' },
+    { label: 'Longest Streak', value: `${user?.longest_streak || 0}`, icon: 'trophy' },
+    { label: 'Target Band', value: `${user?.target_band_score?.toFixed(1) || '—'}`, icon: 'flag' },
   ];
 
   const menuItems = [
@@ -31,8 +32,9 @@ export default function ProfileScreen({ navigation }: any) {
   ];
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <AppBackground>
+      <SafeAreaView style={[styles.safe, { backgroundColor: 'transparent' }]}> 
+        <ScrollView contentContainerStyle={styles.scroll} style={{ backgroundColor: 'transparent' }} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>Profile</Text>
@@ -86,8 +88,9 @@ export default function ProfileScreen({ navigation }: any) {
             </TouchableOpacity>
           ))}
         </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 
