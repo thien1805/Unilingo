@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Unilingo Admin CMS</title>
+  <link rel="icon" type="image/png" href="/admin-web/uni_icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -131,10 +132,13 @@
   <div id="toastContainer"></div>
 
   <header>
-    <div>
-      <h1>🎓 Unilingo Admin</h1>
-      <div class="status" id="globalStatus">Login with an admin account to get started.</div>
-    </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <img src="/admin-web/uni_icon.png" alt="Unilingo" style="width:36px;height:36px;border-radius:8px;">
+        <div>
+          <h1>Unilingo Admin</h1>
+          <div class="status" id="globalStatus">Login with an admin account to get started.</div>
+        </div>
+      </div>
     <div class="row">
       <button class="secondary" id="refreshBtn">⟳ Refresh All</button>
       <button class="danger" id="logoutBtn" style="padding:10px 20px;">Logout</button>
@@ -144,7 +148,10 @@
   <main>
     <aside>
       <div id="loginBox">
-        <h2>🔐 Admin Login</h2>
+        <div style="text-align:center;margin-bottom:16px;">
+          <img src="/admin-web/uni_icon.png" alt="Unilingo" style="width:64px;height:64px;border-radius:12px;margin-bottom:8px;">
+          <h2>Admin Login</h2>
+        </div>
         <form id="loginForm">
           <div class="field">
             <label>Email</label>

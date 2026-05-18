@@ -137,3 +137,11 @@ configure_openapi(app, title=settings.APP_NAME, version=settings.APP_VERSION)
 admin_web_dir = Path(__file__).resolve().parent / "admin_web"
 if admin_web_dir.exists():
     app.mount("/admin-web", StaticFiles(directory=str(admin_web_dir), html=True), name="admin-web")
+
+    # Serve landing page at root URL
+    from fastapi.responses import HTMLResponse
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    async def landing_page():
+        landing_file = admin_web_dir / "landing.html"
+        return landing_file.read_text(encoding="utf-8")
