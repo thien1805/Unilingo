@@ -1,7 +1,7 @@
 /**
  * HomeScreen — Dashboard with REAL data from API
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Image,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,10 +23,17 @@ import { usersAPI, DashboardData } from '../../api/users';
 import { practiceAPI, PracticeHistoryItem } from '../../api/practice';
 import { vocabularyAPI } from '../../api/vocabulary';
 import { blogAPI, BlogPostSummary } from '../../api/blog';
+import { notificationsAPI } from '../../api/notifications';
 import { Gradients } from '../../theme';
 import { StreakModal } from '../../components/common/StreakModal';
 import AppBackground from '../../components/common/AppBackground';
-import * as SecureStore from 'expo-secure-store';
+
+const BLOG_CATEGORIES = [
+  { key: 'all', label: 'All' },
+  { key: 'forecast', label: 'Forecast' },
+  { key: 'tips', label: 'Tips' },
+  { key: 'news', label: 'News' },
+];
 
 export default function HomeScreen({ navigation }: any) {
   const { colors } = useThemeStore();
@@ -38,6 +46,11 @@ export default function HomeScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [featuredBlogs, setFeaturedBlogs] = useState<BlogPostSummary[]>([]);
+  const [categoryBlogs, setCategoryBlogs] = useState<BlogPostSummary[]>([]);
+  const [selectedBlogCategory, setSelectedBlogCategory] = useState('all');
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(18)).current;
 
   const checkStreakModal = (currentUserData: any) => {
     // Show onboarding modal if user hasn't set a goal target
@@ -48,11 +61,12 @@ export default function HomeScreen({ navigation }: any) {
 
   const loadData = useCallback(async () => {
     try {
-      const [dash, history, reviewWords, blogs] = await Promise.allSettled([
+      const [dash, history, reviewWords, blogs, unread] = await Promise.allSettled([
         usersAPI.getDashboard(),
         practiceAPI.getHistory({ per_page: 5 }),
         vocabularyAPI.getReviewDue(),
         blogAPI.getFeatured(3),
+        notificationsAPI.getUnreadCount(),
       ]);
       if (dash.status === 'fulfilled') {
         setDashboard(dash.value);
@@ -66,6 +80,9 @@ export default function HomeScreen({ navigation }: any) {
       if (blogs.status === 'fulfilled') {
         setFeaturedBlogs(blogs.value || []);
       }
+      if (unread.status === 'fulfilled') {
+        setUnreadNotifications(unread.value || 0);
+      }
     } catch {
       // Silently fail, use whatever data we got
     } finally {
@@ -74,6 +91,28 @@ export default function HomeScreen({ navigation }: any) {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 420,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 420,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, slideAnim]);
+
+  useEffect(() => {
+    const category = selectedBlogCategory === 'all' ? undefined : selectedBlogCategory;
+    blogAPI.getPosts(1, 6, category)
+      .then((data) => setCategoryBlogs(data.items || []))
+      .catch(() => setCategoryBlogs([]));
+  }, [selectedBlogCategory]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -90,6 +129,7 @@ export default function HomeScreen({ navigation }: any) {
     ? ((dashboard.skill_breakdown.fluency + dashboard.skill_breakdown.lexical +
       dashboard.skill_breakdown.grammar + dashboard.skill_breakdown.pronunciation) / 4).toFixed(1)
     : '0.0';
+  const notificationBadge = unreadNotifications + reviewDue;
 
   // Progress ring
   const progressPct = Math.min(todayTests / 3, 1);
@@ -147,6 +187,7 @@ export default function HomeScreen({ navigation }: any) {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         >
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -158,11 +199,15 @@ export default function HomeScreen({ navigation }: any) {
               <Text style={[styles.greetingSub, { color: colors.textSecondary }]}>Let's practice IELTS today</Text>
             </View>
           </View>
-          <TouchableOpacity style={[styles.notifBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <TouchableOpacity
+            style={[styles.notifBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('Notifications')}
+          >
             <Ionicons name="notifications-outline" size={20} color={colors.textSecondary} />
-            {reviewDue > 0 && (
+            {notificationBadge > 0 && (
               <View style={styles.notifBadge}>
-                <Text style={styles.notifBadgeText}>{reviewDue > 9 ? '9+' : reviewDue}</Text>
+                <Text style={styles.notifBadgeText}>{notificationBadge > 9 ? '9+' : notificationBadge}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -330,17 +375,39 @@ export default function HomeScreen({ navigation }: any) {
         )}
 
         {/* Blog Posts */}
-        {featuredBlogs.length > 0 && (
+        {(featuredBlogs.length > 0 || categoryBlogs.length > 0) && (
           <View style={{ marginTop: 24 }}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>Tips & Insights</Text>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>IELTS Updates</Text>
             </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+              {BLOG_CATEGORIES.map((category) => {
+                const selected = selectedBlogCategory === category.key;
+                return (
+                  <TouchableOpacity
+                    key={category.key}
+                    style={[
+                      styles.categoryChip,
+                      {
+                        backgroundColor: selected ? colors.accent : colors.bgCard,
+                        borderColor: selected ? colors.accent : colors.border,
+                      },
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => setSelectedBlogCategory(category.key)}
+                  >
+                    <Text style={[styles.categoryChipText, { color: selected ? '#fff' : colors.textSecondary }]}>
+                      {category.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.blogScroll}>
-              {featuredBlogs.map(blog => (
-                <TouchableOpacity
+              {(categoryBlogs.length > 0 ? categoryBlogs : featuredBlogs).map(blog => (
+                <ScalePressable
                   key={blog.id}
                   style={[styles.blogCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
-                  activeOpacity={0.8}
                   onPress={() => navigation.navigate('BlogDetail', { slug: blog.slug })}
                 >
                   <View style={[styles.blogImagePlaceholder, { backgroundColor: colors.bgInput }]}>
@@ -351,20 +418,21 @@ export default function HomeScreen({ navigation }: any) {
                     )}
                   </View>
                   <View style={styles.blogContent}>
-                    <Text style={[styles.blogCategory, { color: colors.accent }]}>{formatBlogCategory(blog.category)}</Text>
+                    <Text style={[styles.blogCategory, { color: colors.accent }]}>{blog.category.toUpperCase()}</Text>
                     <Text style={[styles.blogTitle, { color: colors.textPrimary }]} numberOfLines={2}>
                       {blog.title}
                     </Text>
                     <Text style={[styles.blogMeta, { color: colors.textMuted }]}>
-                      {blog.read_time_minutes} min read • {blog.view_count} views
+                      {blog.read_time_minutes} min read | {blog.view_count} views
                     </Text>
                   </View>
-                </TouchableOpacity>
+                </ScalePressable>
               ))}
             </ScrollView>
           </View>
         )}
-        </ScrollView>
+        </Animated.View>
+      </ScrollView>
 
         <StreakModal 
           visible={showStreakModal} 
@@ -372,6 +440,32 @@ export default function HomeScreen({ navigation }: any) {
         />
       </SafeAreaView>
     </AppBackground>
+  );
+}
+
+function ScalePressable({ children, style, onPress }: any) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const animate = (toValue: number) => {
+    Animated.spring(scale, {
+      toValue,
+      useNativeDriver: true,
+      speed: 22,
+      bounciness: 6,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={[style, { transform: [{ scale }] }]}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPressIn={() => animate(0.97)}
+        onPressOut={() => animate(1)}
+        onPress={onPress}
+      >
+        {children}
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -439,6 +533,7 @@ const styles = StyleSheet.create({
   statusBadge: { alignSelf: 'flex-start' },
   partBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   partBadgeText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 11 },
+  statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
   bandScore: { fontFamily: 'PlusJakartaSans-ExtraBold', fontSize: 22 },
   activityTitle: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 14, marginBottom: 12 },
   activityBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
@@ -446,6 +541,9 @@ const styles = StyleSheet.create({
   activityTime: { fontFamily: 'PlusJakartaSans-Medium', fontSize: 11 },
   emptyCard: { alignItems: 'center', padding: 32, borderRadius: 16, borderWidth: 1 },
   emptyText: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 14, textAlign: 'center' },
+  categoryScroll: { gap: 8, paddingBottom: 12 },
+  categoryChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, borderWidth: 1 },
+  categoryChipText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 12 },
   blogScroll: { gap: 16, paddingBottom: 8, paddingTop: 4 },
   blogCard: { width: 240, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   blogImagePlaceholder: { height: 120, alignItems: 'center', justifyContent: 'center' },

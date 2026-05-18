@@ -51,7 +51,8 @@ type ExamPhase =
   | 'prep'        // Part 2 only
   | 'recording'
   | 'transition'
-  | 'complete';
+  | 'complete'
+  | 'error';
 
 export default function VirtualRoomScreen({ navigation, route }: any) {
   const { topicId, topicTitle, ieltsPart, isFullTest } = route.params || {};
@@ -66,6 +67,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -154,10 +156,11 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   // ──── Init Exam ────
   const initExam = async () => {
     setPhase('loading');
+    setLoadError(null);
     try {
       // 1. Create attempt
       const attempt = await practiceAPI.start({
-        topic_id: topicId || 'mock-id',
+        topic_id: topicId,
         ielts_part: safeIeltsPart,
       });
       setAttemptId(attempt.attempt_id);
@@ -188,14 +191,10 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       askQuestion(0, allQuestions.slice(0, questionCount));
     } catch (err) {
       console.log('[VirtualRoom] Init failed:', err);
-      // Fallback mock
-      const mockQs = generateMockQuestions(safeIeltsPart, questionCount);
-      setQuestions(mockQs);
-      setAttemptId('mock-1');
-      setPhase('intro');
-      const introText = getIntroText();
-      await speakAndWait(introText);
-      askQuestion(0, mockQs);
+      setQuestions([]);
+      setAttemptId(null);
+      setLoadError('Could not prepare the exam. Please check that the backend has active topics and questions for this part.');
+      setPhase('error');
     }
   };
 
@@ -356,7 +355,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       recordingRef.current = null;
 
       // Upload audio — MUST await so file is on server before scoring
-      if (uri && attemptId && attemptId !== 'mock-1') {
+      if (uri && attemptId) {
         const formData = new FormData();
         formData.append('file', {
           uri,
@@ -402,7 +401,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
     setPhase('complete');
 
     // Submit for scoring
-    if (attemptId && attemptId !== 'mock-1') {
+    if (attemptId) {
       try {
         await practiceAPI.submit(attemptId);
       } catch (e) {
@@ -411,6 +410,12 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
     }
 
     // Navigate to results
+    if (!attemptId) {
+      setLoadError('The practice attempt could not be submitted. Please retry the exam.');
+      setPhase('error');
+      return;
+    }
+
     if (isFullTest && safeIeltsPart !== 'part3') {
       const nextPart = safeIeltsPart === 'part1' ? 'part2' : 'part3';
       const resolvedTopicId = attemptId && questions[0] ? questions[0].topic_id || topicId : topicId;
@@ -422,7 +427,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       });
     } else {
       navigation.replace('Results', {
-        attemptId: attemptId || 'mock-1',
+        attemptId,
         ieltsPart: safeIeltsPart,
         topicTitle,
         duration: recordSeconds,
@@ -458,24 +463,6 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
     return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
   };
 
-  const generateMockQuestions = (part: string, count: number) => {
-    const mocks: Record<string, string[]> = {
-      part1: ['Where are you from?', 'Do you work or are you a student?', 'What do you like to do in your free time?'],
-      part2: ['Describe a memorable trip you have taken.'],
-      part3: [
-        'How has tourism changed in recent years?',
-        'Do you think travel broadens the mind?',
-        'What impact does international tourism have on local cultures?',
-      ],
-    };
-    return (mocks[part] || mocks.part1).slice(0, count).map((q, i) => ({
-      id: `mock-q-${i}`,
-      question_text: q,
-      cue_card_content: part === 'part2' ? JSON.stringify({ prompt: 'You should say:', points: ['where you went', 'who you went with', 'what you did', 'and explain why it was memorable'] }) : null,
-      ielts_part: part,
-    }));
-  };
-
   // ──── Derived ────
   const currentQuestion = questions[currentIdx];
   let cueCard = null;
@@ -498,6 +485,28 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
         <Text style={[Typography.bodyMedium, { color: colors.textSecondary, marginTop: 16 }]}>
           Preparing your exam...
         </Text>
+      </View>
+    );
+  }
+
+  if (phase === 'error') {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.bgPrimary, justifyContent: 'center', padding: 24 }]}>
+        <View style={[styles.errorCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+          <Ionicons name="alert-circle-outline" size={34} color={colors.error} />
+          <Text style={[Typography.h3, { color: colors.textPrimary, textAlign: 'center' }]}>
+            Exam unavailable
+          </Text>
+          <Text style={[Typography.caption, { color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }]}>
+            {loadError}
+          </Text>
+          <View style={styles.errorActions}>
+            <OutlineButton title="Go Back" onPress={() => navigation.goBack()} />
+            <TouchableOpacity style={[styles.retryExamBtn, { backgroundColor: colors.accent }]} onPress={initExam}>
+              <Text style={styles.retryExamText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     );
   }
@@ -533,7 +542,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
             style={[
               styles.progressDot,
               {
-                backgroundColor: i < currentIdx ? colors.accent : i === currentIdx ? colors.primary : colors.bgInput,
+                backgroundColor: i < currentIdx ? colors.accent : i === currentIdx ? colors.accentLight : colors.bgInput,
                 flex: 1,
               },
             ]}
@@ -568,7 +577,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
                 Question {currentIdx + 1} of {questions.length}
               </Text>
               <TouchableOpacity onPress={() => speakAndWait(currentQuestion.question_text)}>
-                <Ionicons name={isSpeaking ? "volume-high" : "volume-medium"} size={20} color={isSpeaking ? colors.primary : colors.textMuted} />
+                <Ionicons name={isSpeaking ? "volume-high" : "volume-medium"} size={20} color={isSpeaking ? colors.accent : colors.textMuted} />
               </TouchableOpacity>
             </View>
             <Text style={[Typography.body, { color: colors.textPrimary, lineHeight: 22 }]}>
@@ -692,6 +701,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', gap: 4, paddingHorizontal: 20, marginBottom: 6,
   },
   progressDot: { height: 4, borderRadius: 2 },
+  errorCard: { borderRadius: 18, borderWidth: 1, padding: 22, alignItems: 'center', gap: 12 },
+  errorActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
+  retryExamBtn: { minWidth: 104, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+  retryExamText: { fontFamily: 'PlusJakartaSans-Bold', color: '#fff', fontSize: 14 },
   content: { padding: 20, paddingTop: 0, paddingBottom: 20 },
   examinerAvatar: {
     width: 80, height: 80, borderRadius: 40,

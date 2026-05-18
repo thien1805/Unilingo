@@ -1,7 +1,7 @@
 /**
  * SettingsScreen — Edit profile, change password, app settings
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +23,8 @@ import { useAuthStore } from '../../store/authStore';
 import { usersAPI } from '../../api/users';
 import { authAPI } from '../../api/auth';
 import apiClient from '../../api/client';
+import { notificationsAPI, NotificationSettings } from '../../api/notifications';
+import { syncNotificationPreferences } from '../../services/NotificationService';
 import { Gradients } from '../../theme';
 
 export default function SettingsScreen({ navigation }: any) {
@@ -42,6 +45,8 @@ export default function SettingsScreen({ navigation }: any) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [changingPwd, setChangingPwd] = useState(false);
   const [showPwdSection, setShowPwdSection] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings | null>(null);
+  const [savingNotifications, setSavingNotifications] = useState(false);
 
   const initials = (user?.full_name || 'U').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
@@ -52,6 +57,39 @@ export default function SettingsScreen({ navigation }: any) {
     { key: 'upper_intermediate', label: 'Upper Inter.' },
     { key: 'advanced', label: 'Advanced' },
   ];
+
+  const reminderTimes = [
+    { label: '08:00', value: '08:00:00' },
+    { label: '09:00', value: '09:00:00' },
+    { label: '18:30', value: '18:30:00' },
+    { label: '20:00', value: '20:00:00' },
+  ];
+
+  useEffect(() => {
+    notificationsAPI.getSettings()
+      .then(setNotificationSettings)
+      .catch(() => {});
+  }, []);
+
+  const updateNotificationDraft = <K extends keyof NotificationSettings>(key: K, value: NotificationSettings[K]) => {
+    setNotificationSettings((current) => current ? { ...current, [key]: value } : current);
+  };
+
+  const handleSaveNotifications = async () => {
+    if (!notificationSettings) return;
+    setSavingNotifications(true);
+    try {
+      const updated = await notificationsAPI.updateSettings(notificationSettings);
+      setNotificationSettings(updated);
+      await syncNotificationPreferences(updated);
+      Alert.alert('Success', 'Notification preferences updated!');
+    } catch (error: any) {
+      const msg = error.response?.data?.detail || 'Failed to update notification settings';
+      Alert.alert('Error', typeof msg === 'string' ? msg : JSON.stringify(msg));
+    } finally {
+      setSavingNotifications(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     setSaving(true);
@@ -282,6 +320,109 @@ export default function SettingsScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
 
+          {/* Notification Settings */}
+          <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>Notifications</Text>
+          <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            {!notificationSettings ? (
+              <ActivityIndicator color={colors.accent} />
+            ) : (
+              <>
+                <SwitchRow
+                  label="Daily practice reminder"
+                  icon="time-outline"
+                  value={notificationSettings.daily_reminder}
+                  onValueChange={(value: boolean) => updateNotificationDraft('daily_reminder', value)}
+                  colors={colors}
+                />
+                <View style={styles.notificationBlock}>
+                  <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: 8 }]}>Reminder time</Text>
+                  <View style={styles.levelRow}>
+                    {reminderTimes.map((item) => (
+                      <TouchableOpacity
+                        key={item.value}
+                        style={[
+                          styles.levelChip,
+                          {
+                            backgroundColor: notificationSettings.reminder_time === item.value ? colors.accent : colors.bgInput,
+                            borderColor: notificationSettings.reminder_time === item.value ? colors.accent : colors.border,
+                          },
+                        ]}
+                        onPress={() => updateNotificationDraft('reminder_time', item.value)}
+                      >
+                        <Text style={[styles.levelText, { color: notificationSettings.reminder_time === item.value ? '#fff' : colors.textSecondary }]}>
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <SwitchRow
+                  label="Vocabulary review"
+                  icon="library-outline"
+                  value={notificationSettings.new_words_reminder}
+                  onValueChange={(value: boolean) => updateNotificationDraft('new_words_reminder', value)}
+                  colors={colors}
+                />
+                <SwitchRow
+                  label="Streak reminders"
+                  icon="flame-outline"
+                  value={notificationSettings.streak_reminder}
+                  onValueChange={(value: boolean) => updateNotificationDraft('streak_reminder', value)}
+                  colors={colors}
+                />
+                <SwitchRow
+                  label="Leaderboard updates"
+                  icon="trophy-outline"
+                  value={notificationSettings.leaderboard_update}
+                  onValueChange={(value: boolean) => updateNotificationDraft('leaderboard_update', value)}
+                  colors={colors}
+                />
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <SwitchRow
+                  label="Events from admin"
+                  icon="megaphone-outline"
+                  value={notificationSettings.event_notifications}
+                  onValueChange={(value: boolean) => updateNotificationDraft('event_notifications', value)}
+                  colors={colors}
+                />
+                <SwitchRow
+                  label="Blog notifications"
+                  icon="newspaper-outline"
+                  value={notificationSettings.blog_notifications}
+                  onValueChange={(value: boolean) => updateNotificationDraft('blog_notifications', value)}
+                  colors={colors}
+                />
+                <View style={styles.blogPreferenceGrid}>
+                  <MiniSwitch
+                    label="Forecast"
+                    value={notificationSettings.forecast_notifications}
+                    onValueChange={(value: boolean) => updateNotificationDraft('forecast_notifications', value)}
+                    colors={colors}
+                  />
+                  <MiniSwitch
+                    label="Tips"
+                    value={notificationSettings.tips_notifications}
+                    onValueChange={(value: boolean) => updateNotificationDraft('tips_notifications', value)}
+                    colors={colors}
+                  />
+                  <MiniSwitch
+                    label="News"
+                    value={notificationSettings.news_notifications}
+                    onValueChange={(value: boolean) => updateNotificationDraft('news_notifications', value)}
+                    colors={colors}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: colors.accent, marginTop: 8, marginBottom: 0 }]}
+                  onPress={handleSaveNotifications}
+                  disabled={savingNotifications}
+                >
+                  {savingNotifications ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Notifications</Text>}
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+
           {/* Logout */}
           <TouchableOpacity style={[styles.logoutBtn, { borderColor: colors.error }]} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color={colors.error} />
@@ -329,6 +470,42 @@ function PwdField({ label, value, onChange, colors }: any) {
   );
 }
 
+function SwitchRow({ label, icon, value, onValueChange, colors }: any) {
+  return (
+    <View style={styles.notificationRow}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+        <Ionicons name={icon} size={20} color={colors.accent} />
+        <Text style={[styles.settingText, { color: colors.textPrimary }]}>{label}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: colors.bgInput, true: colors.accent2Bg }}
+        thumbColor={value ? colors.accent : colors.textMuted}
+      />
+    </View>
+  );
+}
+
+function MiniSwitch({ label, value, onValueChange, colors }: any) {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.miniSwitch,
+        {
+          backgroundColor: value ? colors.accent2Bg : colors.bgInput,
+          borderColor: value ? colors.accent : colors.border,
+        },
+      ]}
+      onPress={() => onValueChange(!value)}
+      activeOpacity={0.8}
+    >
+      <Text style={[styles.miniSwitchText, { color: value ? colors.accent : colors.textSecondary }]}>{label}</Text>
+      <Ionicons name={value ? 'checkmark-circle' : 'ellipse-outline'} size={17} color={value ? colors.accent : colors.textMuted} />
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { paddingHorizontal: 20, paddingBottom: 100 },
@@ -356,6 +533,12 @@ const styles = StyleSheet.create({
   pwdInputRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, paddingBottom: 8 },
   settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
   settingText: { fontFamily: 'PlusJakartaSans-Medium', fontSize: 15 },
+  notificationRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 7 },
+  notificationBlock: { paddingVertical: 8 },
+  blogPreferenceGrid: { flexDirection: 'row', gap: 8, paddingTop: 4, paddingBottom: 8 },
+  miniSwitch: { flex: 1, minHeight: 38, borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', gap: 5, flexDirection: 'row' },
+  miniSwitchText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 12 },
+  divider: { height: 1, marginVertical: 10 },
   toggle: { width: 44, height: 24, borderRadius: 12, borderWidth: 1.5, justifyContent: 'center', paddingHorizontal: 2 },
   toggleOn: {},
   toggleDot: { width: 18, height: 18, borderRadius: 9 },

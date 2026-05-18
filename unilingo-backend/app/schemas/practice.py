@@ -24,6 +24,7 @@ class StartPracticeResponse(BaseModel):
 
 class QuestionDetail(BaseModel):
     id: uuid.UUID
+    topic_id: uuid.UUID
     question_text: str
     question_text_vi: str | None
     ielts_part: str

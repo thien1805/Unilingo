@@ -22,7 +22,7 @@ import {
 import RootNavigator from './src/navigation/RootNavigator';
 import { useThemeStore } from './src/store/themeStore';
 import { useAuthStore } from './src/store/authStore';
-import { setupHourlyReminders } from './src/services/NotificationService';
+import { syncNotificationPreferences } from './src/services/NotificationService';
 
 LogBox.ignoreAllLogs();
 
@@ -34,6 +34,7 @@ const queryClient = new QueryClient();
 export default function App() {
   const { isDark, colors } = useThemeStore();
   const hydrate = useAuthStore((s) => s.hydrate);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   useEffect(() => {
     async function init() {
@@ -47,7 +48,6 @@ export default function App() {
           'PlusJakartaSans-ExtraBold': PlusJakartaSans_800ExtraBold,
         }),
         hydrate(),
-        setupHourlyReminders(),
       ]);
 
       // Hide splash after everything loaded
@@ -56,6 +56,12 @@ export default function App() {
 
     init();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      syncNotificationPreferences().catch(() => {});
+    }
+  }, [isAuthenticated]);
 
   const navTheme = {
     ...DefaultTheme,

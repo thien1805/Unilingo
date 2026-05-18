@@ -104,6 +104,42 @@ async def toggle_user_status(
 
 # ─── Topic Management ───
 
+@router.get("/topics")
+async def list_admin_topics(
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=50, ge=1, le=200),
+    ielts_part: str | None = Query(None, pattern=r"^(part1|part2|part3)$"),
+    include_inactive: bool = True,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user),
+):
+    """List topics for the admin CMS, including inactive topics by default."""
+    query = select(Topic)
+    if ielts_part:
+        query = query.where(Topic.ielts_part == ielts_part)
+    if not include_inactive:
+        query = query.where(Topic.is_active == True)
+
+    total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar() or 0
+    result = await db.execute(
+        query.order_by(Topic.ielts_part, Topic.order_index, Topic.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
+    topics = result.scalars().all()
+
+    items = []
+    for topic in topics:
+        question_count = (await db.execute(
+            select(func.count(Question.id)).where(Question.topic_id == topic.id)
+        )).scalar() or 0
+        topic_response = TopicResponse.model_validate(topic)
+        topic_response.question_count = question_count
+        items.append(topic_response)
+
+    return {"items": items, "total": total, "page": page, "per_page": per_page}
+
+
 @router.post("/topics", response_model=TopicResponse, status_code=status.HTTP_201_CREATED)
 async def create_topic(
     request: CreateTopicRequest,
@@ -151,6 +187,37 @@ async def delete_topic(
 
 # ─── Question Management ───
 
+@router.get("/questions")
+async def list_admin_questions(
+    topic_id: UUID | None = None,
+    ielts_part: str | None = Query(None, pattern=r"^(part1|part2|part3)$"),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user),
+):
+    """List questions for admin review and topic curation."""
+    query = select(Question)
+    if topic_id:
+        query = query.where(Question.topic_id == topic_id)
+    if ielts_part:
+        query = query.where(Question.ielts_part == ielts_part)
+
+    total = (await db.execute(select(func.count()).select_from(query.subquery()))).scalar() or 0
+    result = await db.execute(
+        query.order_by(Question.ielts_part, Question.order_index, Question.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+    )
+    questions = result.scalars().all()
+    return {
+        "items": [QuestionResponse.model_validate(question) for question in questions],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    }
+
+
 @router.post("/questions", response_model=QuestionResponse, status_code=status.HTTP_201_CREATED)
 async def create_question(
     request: CreateQuestionRequest,
@@ -180,6 +247,10 @@ async def update_question(
     question = result.scalar_one_or_none()
     if not question:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
+    if request.topic_id:
+        topic_result = await db.execute(select(Topic).where(Topic.id == request.topic_id))
+        if not topic_result.scalar_one_or_none():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Topic not found")
     for field, value in request.model_dump(exclude_unset=True).items():
         setattr(question, field, value)
     await db.flush()

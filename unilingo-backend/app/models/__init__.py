@@ -8,6 +8,7 @@ from app.models.vocabulary import VocabularyNote, VocabularyTag
 from app.models.flashcard import FlashcardDeck, Flashcard, FlashcardReview
 from app.models.leaderboard import LeaderboardCache
 from app.models.blog import BlogPost
+from app.models.notification import NotificationCampaign, UserNotification
 
 __all__ = [
     "User", "UserDevice", "NotificationSetting", "DailyStreak",
@@ -17,5 +18,5 @@ __all__ = [
     "FlashcardDeck", "Flashcard", "FlashcardReview",
     "LeaderboardCache",
     "BlogPost",
+    "NotificationCampaign", "UserNotification",
 ]
-

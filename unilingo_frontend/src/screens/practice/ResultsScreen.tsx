@@ -36,12 +36,22 @@ export default function ResultsScreen({ navigation, route }: any) {
     setDictLoading(true);
     setDictResult(null);
     try {
-      const res = await vocabularyAPI.lookupWord(cleanWord);
+      const res = await vocabularyAPI.lookupDictionary(cleanWord);
       setDictResult(res);
     } catch {
       setDictResult({
         word: cleanWord,
-        meanings: [{ partOfSpeech: 'unknown', definitions: [{ definition: 'Definition not found in dictionary.' }] }]
+        phonetic: null,
+        audio_url: null,
+        meanings: [{
+          part_of_speech: 'unknown',
+          definitions: [{
+            definition: 'Definition not found in dictionary.',
+            example: null,
+            synonyms: [],
+            antonyms: [],
+          }],
+        }],
       });
     } finally {
       setDictLoading(false);
@@ -251,22 +261,30 @@ export default function ResultsScreen({ navigation, route }: any) {
               </Text>
             </View>
             
-            {(r.parts && r.parts.length > 0 ? r.parts : [{ question_text: 'Sample Question?', transcript: MOCK_TRANSCRIPT }]).map((p: any, index: number) => (
-              <Card key={index} style={{ marginBottom: 8 }}>
-                <Text style={[Typography.h4, { color: colors.primary, marginBottom: 8 }]}>
-                  Q{index + 1}: {p.question_text || 'Topic Question'}
+            {r.parts && r.parts.length > 0 ? (
+              r.parts.map((p: any, index: number) => (
+                <Card key={index} style={{ marginBottom: 8 }}>
+                  <Text style={[Typography.h4, { color: colors.accent, marginBottom: 8 }]}>
+                    Q{index + 1}: {p.question_text || 'Topic Question'}
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                    {(p.transcript || 'No speech recorded.').split(' ').map((word: string, i: number) => (
+                      <TouchableOpacity key={i} onPress={() => handleLookup(word)}>
+                        <Text style={[Typography.body, { color: colors.textSecondary, lineHeight: 26, marginRight: 4 }]}>
+                          {word}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <Text style={[Typography.bodySm, { color: colors.textSecondary }]}>
+                  No transcript is available for this attempt yet.
                 </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                  {(p.transcript || 'No speech recorded.').split(' ').map((word: string, i: number) => (
-                    <TouchableOpacity key={i} onPress={() => handleLookup(word)}>
-                      <Text style={[Typography.body, { color: colors.textSecondary, lineHeight: 26, marginRight: 4 }]}>
-                        {word}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
               </Card>
-            ))}
+            )}
           </View>
         )}
 
@@ -357,7 +375,7 @@ export default function ResultsScreen({ navigation, route }: any) {
               📝 Sample Better Answer (Band 7.5+)
             </Text>
             <Text style={[Typography.bodySm, { color: colors.textSecondary, lineHeight: 22 }]}>
-              {firstScoring?.sample_better_answer?.text || MOCK_SAMPLE_ANSWER}
+              {firstScoring?.sample_better_answer?.text || 'No sample answer was returned for this attempt.'}
             </Text>
             {firstScoring?.sample_better_answer?.explanation && (
               <View style={[styles.sampleExplanation, { backgroundColor: colors.accentBg }]}>
@@ -442,7 +460,7 @@ export default function ResultsScreen({ navigation, route }: any) {
 
                 {dictResult.meanings?.map((meaning, mIdx) => (
                   <View key={mIdx} style={{ marginBottom: 16 }}>
-                    <Text style={[styles.pos, { color: colors.accent }]}>{meaning.partOfSpeech}</Text>
+                    <Text style={[styles.pos, { color: colors.accent }]}>{meaning.part_of_speech}</Text>
                     {meaning.definitions?.map((def, dIdx) => (
                       <View key={dIdx} style={{ marginBottom: 8 }}>
                         <View style={styles.defRow}>
@@ -477,73 +495,6 @@ export default function ResultsScreen({ navigation, route }: any) {
     </View>
   );
 }
-
-// ─── Mock Data (used when backend is unavailable) ───
-const MOCK_TRANSCRIPT = `I would like to talk about Hoi An Ancient Town, which I visited last autumn. It's a UNESCO World Heritage Site located in central Vietnam. I spent four days exploring the narrow streets lined with centuries-old houses painted in vibrant yellow. What captivated me most was how well preserved the architecture was — a harmonious blend of Vietnamese, Chinese, and Japanese influences. I found it particularly fascinating because every corner tell a story of the town's rich trading history.`;
-
-const MOCK_STRENGTHS = [
-  'Excellent descriptive vocabulary (vibrant, harmonious, captivated)',
-  'Good coherence with clear topic development',
-  'Natural speaking pace with appropriate pauses',
-];
-
-const MOCK_WEAKNESSES = [
-  '"tell" should be "told" (past tense consistency)',
-  'Pronunciation of "central" needs practice',
-  'Use more complex sentence structures',
-];
-
-const MOCK_SUGGESTIONS = [
-  'Practice past tense consistency',
-  'Use conditional sentences for hypothetical ideas',
-  'Work on word stress for multi-syllable words',
-];
-
-const MOCK_GRAMMAR_ERRORS = [
-  { original: 'every corner tell a story', corrected: 'every corner told a story', rule: 'Past tense consistency — use past simple for completed actions' },
-  { original: 'It was really wonderful', corrected: 'It was truly remarkable', rule: 'Use varied adverbs and more sophisticated adjectives' },
-];
-
-const MOCK_VOCAB_SUGGESTIONS = [
-  { basic_word: 'beautiful', better_alternatives: ['breathtaking', 'picturesque', 'stunning'] },
-  { basic_word: 'good', better_alternatives: ['exceptional', 'outstanding', 'remarkable'] },
-];
-
-const MOCK_SAMPLE_ANSWER = `I would like to describe Hoi An Ancient Town, a UNESCO World Heritage Site situated in central Vietnam, which I had the pleasure of visiting last autumn. During my four-day stay, I thoroughly explored the narrow, lantern-lit streets lined with centuries-old houses painted in a distinctive vibrant yellow. What captivated me most was the remarkably well-preserved architecture — a harmonious blend of Vietnamese, Chinese, and Japanese architectural influences that tells the story of centuries of international trade and cultural exchange.`;
-
-const MOCK_RESULT: ScoringResult = {
-  attempt_id: 'mock',
-  status: 'completed',
-  overall_band: 6.5,
-  fluency_score: 6.5,
-  lexical_score: 7.0,
-  grammar_score: 6.0,
-  pronunciation_score: 6.5,
-  duration_seconds: 83,
-  xp_earned: 65,
-  parts: [{
-    part_id: 'mock-part',
-    part_number: 1,
-    transcript: MOCK_TRANSCRIPT,
-    duration_seconds: 83,
-    scoring: {
-      fluency_band: 6.5,
-      lexical_band: 7.0,
-      grammar_band: 6.0,
-      pronunciation_band: 6.5,
-      overall_band: 6.5,
-      feedback: {
-        summary: 'Good attempt with clear communication of ideas. Some areas for improvement in vocabulary range and pronunciation.',
-        detailed: 'The candidate demonstrated a reasonable level of fluency with some natural hesitation. Ideas were generally coherent and well-organized. Vocabulary usage was appropriate but could benefit from more sophisticated word choices. Grammar was mostly accurate with occasional errors in tense consistency.',
-      },
-      strengths: MOCK_STRENGTHS,
-      weaknesses: MOCK_WEAKNESSES,
-      suggested_improvements: MOCK_SUGGESTIONS,
-      grammar_errors: MOCK_GRAMMAR_ERRORS,
-      vocabulary_suggestions: MOCK_VOCAB_SUGGESTIONS,
-    },
-  }],
-};
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

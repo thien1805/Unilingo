@@ -48,7 +48,7 @@ export default function BlogDetailScreen({ route, navigation }: any) {
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={colors.accent} />
         </View>
       </SafeAreaView>
     );
@@ -86,8 +86,8 @@ export default function BlogDetailScreen({ route, navigation }: any) {
         
         <View style={styles.contentPadding}>
           <View style={styles.tagsRow}>
-            <View style={[styles.tag, { backgroundColor: colors.primary + '20' }]}>
-              <Text style={[Typography.captionSm, { color: colors.primary, fontWeight: 'bold' }]}>
+            <View style={[styles.tag, { backgroundColor: colors.accentBg }]}>
+              <Text style={[Typography.captionSm, { color: colors.accent, fontWeight: 'bold' }]}>
                 {post.category.toUpperCase()}
               </Text>
             </View>
@@ -125,10 +125,10 @@ export default function BlogDetailScreen({ route, navigation }: any) {
                 paragraph: { marginBottom: 16 },
                 strong: { fontWeight: 'bold', color: colors.textPrimary },
                 em: { fontStyle: 'italic' },
-                link: { color: colors.primary, textDecorationLine: 'underline' },
+                link: { color: colors.accent, textDecorationLine: 'underline' },
                 blockquote: { 
                   borderLeftWidth: 4, 
-                  borderLeftColor: colors.primary, 
+                  borderLeftColor: colors.accent,
                   paddingLeft: 12, 
                   marginVertical: 16,
                   fontStyle: 'italic',

@@ -1,15 +1,31 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { notificationsAPI, NotificationSettings } from '../api/notifications';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
 });
 
-export const setupHourlyReminders = async () => {
+const DEFAULT_SETTINGS: NotificationSettings = {
+  daily_reminder: true,
+  reminder_time: '09:00:00',
+  new_words_reminder: true,
+  streak_reminder: true,
+  leaderboard_update: true,
+  event_notifications: true,
+  blog_notifications: true,
+  forecast_notifications: true,
+  tips_notifications: true,
+  news_notifications: true,
+};
+
+const requestPermissions = async () => {
   if (Platform.OS === 'web') return;
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -22,25 +38,95 @@ export const setupHourlyReminders = async () => {
 
   if (finalStatus !== 'granted') {
     console.log('Failed to get push token for push notification!');
-    return;
+    return false;
   }
 
-  // Clear existing scheduled notifications
+  return true;
+};
+
+const parseReminderTime = (value: string) => {
+  const [hour = '9', minute = '0'] = value.split(':');
+  return {
+    hour: Number(hour) || 9,
+    minute: Number(minute) || 0,
+  };
+};
+
+export const registerDeviceForPush = async () => {
+  if (Platform.OS === 'web') return;
+
+  const hasPermission = await requestPermissions();
+  if (!hasPermission) return;
+
+  try {
+    const token = await Notifications.getDevicePushTokenAsync();
+    if (!token?.data) return;
+    await notificationsAPI.registerDevice({
+      fcm_token: String(token.data),
+      device_type: Platform.OS === 'ios' ? 'ios' : 'android',
+      device_name: `${Platform.OS} device`,
+    });
+  } catch (error) {
+    console.log('Device push token registration skipped', error);
+  }
+};
+
+export const syncNotificationPreferences = async (settings?: NotificationSettings) => {
+  if (Platform.OS === 'web') return;
+
+  const hasPermission = await requestPermissions();
+  if (!hasPermission) return;
+
+  const preferences = settings || await notificationsAPI.getSettings().catch(() => DEFAULT_SETTINGS);
+
   await Notifications.cancelAllScheduledNotificationsAsync();
 
-  // Schedule new hourly notification
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "Time to practice! 🚀",
-      body: "Don't break your streak! Complete a quick 5-minute IELTS practice session to keep your English sharp.",
-      sound: true,
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: 60 * 60, // 1 hour
-      repeats: true,
-    },
-  });
+  if (preferences.daily_reminder) {
+    const { hour, minute } = parseReminderTime(preferences.reminder_time);
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Time to practice',
+        body: 'Complete a short IELTS Speaking session and keep your streak moving.',
+        sound: true,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour,
+        minute,
+      } as Notifications.NotificationTriggerInput,
+    });
+  }
 
-  console.log('Hourly reminders scheduled successfully.');
+  if (preferences.new_words_reminder) {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Vocabulary review',
+        body: 'Review saved words before they fade from memory.',
+        sound: true,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour: 20,
+        minute: 0,
+      } as Notifications.NotificationTriggerInput,
+    });
+  }
+
+  if (preferences.streak_reminder) {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: 'Streak check',
+        body: 'A quick answer is enough to keep today active.',
+        sound: true,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour: 18,
+        minute: 30,
+      } as Notifications.NotificationTriggerInput,
+    });
+  }
+
+  await registerDeviceForPush();
+  console.log('Notification preferences synced successfully.');
 };

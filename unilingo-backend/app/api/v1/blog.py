@@ -16,6 +16,8 @@ from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/blog", tags=["Blog"])
 
+BLOG_CATEGORIES = {"forecast", "tips", "news", "grammar", "vocabulary", "speaking"}
+
 
 # ─── Schemas ───
 
@@ -89,6 +91,14 @@ def generate_slug(title: str) -> str:
     slug = re.sub(r'[^a-zA-Z0-9\s-]', '', title.lower())
     slug = re.sub(r'[\s-]+', '-', slug).strip('-')
     return slug[:200]
+
+
+def validate_blog_category(category: str | None) -> None:
+    if category and category not in BLOG_CATEGORIES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unsupported category. Use one of: {', '.join(sorted(BLOG_CATEGORIES))}",
+        )
 
 
 # ─── Public Endpoints ───
@@ -169,6 +179,7 @@ async def create_blog_post(
     """Create a new blog post (admin only)."""
     if not current_user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    validate_blog_category(payload.category)
     
     slug = generate_slug(payload.title)
     # Ensure unique slug
@@ -207,6 +218,7 @@ async def update_blog_post(
     """Update a blog post (admin only)."""
     if not current_user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    validate_blog_category(payload.category)
     
     result = await db.execute(select(BlogPost).where(BlogPost.id == post_id))
     post = result.scalar_one_or_none()

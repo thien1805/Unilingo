@@ -23,6 +23,31 @@ from app.schemas.practice import (
 router = APIRouter(prefix="/practice", tags=["Practice"])
 
 
+async def get_or_create_ai_topic(db: AsyncSession, ielts_part: str) -> Topic:
+    """Return a valid synthetic topic used only when DB content is missing."""
+    title = f"AI Generated Mock Test - {ielts_part.replace('part', 'Part ')}"
+    ai_topic_result = await db.execute(
+        select(Topic).where(Topic.title == title, Topic.ielts_part == ielts_part)
+    )
+    ai_topic = ai_topic_result.scalar_one_or_none()
+    if ai_topic:
+        return ai_topic
+
+    ai_topic = Topic(
+        title=title,
+        description="Questions generated dynamically when no curated topic is available.",
+        category="ai_generated",
+        ielts_part=ielts_part,
+        difficulty="medium",
+        icon="wand",
+        is_active=True,
+        order_index=999,
+    )
+    db.add(ai_topic)
+    await db.flush()
+    return ai_topic
+
+
 @router.post("/start", response_model=StartPracticeResponse, status_code=status.HTTP_201_CREATED)
 async def start_practice(
     request: StartPracticeRequest,
@@ -90,14 +115,7 @@ async def start_practice(
                 )
                 ai_data = json_lib.loads(response.choices[0].message.content)
                 
-                # Create a generic "AI Generated" topic if it doesn't exist
-                ai_topic_result = await db.execute(select(Topic).where(Topic.title == "AI Generated Mock Test"))
-                ai_topic = ai_topic_result.scalar_one_or_none()
-                if not ai_topic:
-                    ai_topic = Topic(title="AI Generated Mock Test", description="Questions generated dynamically by Llama 3", is_active=True)
-                    db.add(ai_topic)
-                    await db.flush()
-                
+                ai_topic = await get_or_create_ai_topic(db, request.ielts_part)
                 topic = ai_topic  # Use AI topic as the topic reference
                 
                 question = Question(
@@ -228,13 +246,7 @@ Make questions diverse and authentic. Do NOT repeat similar questions."""
             ai_data = json_lib.loads(response.choices[0].message.content)
             ai_questions = ai_data.get("questions", [])
             
-            # Ensure AI topic exists
-            ai_topic_result = await db.execute(select(Topic).where(Topic.title == "AI Generated Mock Test"))
-            ai_topic = ai_topic_result.scalar_one_or_none()
-            if not ai_topic:
-                ai_topic = Topic(title="AI Generated Mock Test", description="AI-generated", is_active=True)
-                db.add(ai_topic)
-                await db.flush()
+            ai_topic = await get_or_create_ai_topic(db, ielts_part)
             
             for aq in ai_questions[:remaining]:
                 cue = aq.get("cue_card_content")

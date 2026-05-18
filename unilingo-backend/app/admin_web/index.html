@@ -1,0 +1,840 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Unilingo Admin CMS</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #fff;
+      --panel-soft: #f9fbff;
+      --text: #142033;
+      --muted: #667085;
+      --line: #dce3ef;
+      --brand: #2563eb;
+      --brand-soft: #eaf1ff;
+      --green: #0f9f87;
+      --red: #c2413b;
+      --amber: #b7791f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 22px;
+      background: rgba(255, 255, 255, 0.94);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(14px);
+    }
+    h1, h2, h3 { margin: 0; letter-spacing: 0; }
+    h1 { font-size: 20px; }
+    h2 { font-size: 17px; margin-bottom: 14px; }
+    h3 { font-size: 14px; margin: 16px 0 10px; }
+    main {
+      display: grid;
+      grid-template-columns: 290px minmax(0, 1fr);
+      gap: 18px;
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+    aside, section, .modal-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    aside { align-self: start; padding: 14px; position: sticky; top: 76px; }
+    section { padding: 18px; margin-bottom: 18px; }
+    label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 12px; font-weight: 750; }
+    input, textarea, select {
+      width: 100%;
+      padding: 10px 11px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+    }
+    textarea { min-height: 104px; resize: vertical; }
+    button {
+      border: 0;
+      border-radius: 7px;
+      padding: 9px 12px;
+      background: var(--brand);
+      color: #fff;
+      font-weight: 750;
+      cursor: pointer;
+    }
+    button.secondary { background: #e9eef7; color: var(--text); }
+    button.success { background: var(--green); }
+    button.danger { background: var(--red); }
+    button.ghost { background: transparent; color: var(--brand); border: 1px solid var(--line); }
+    button:disabled { opacity: 0.55; cursor: wait; }
+    .field { margin-bottom: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .tabs { display: grid; gap: 8px; margin-top: 14px; }
+    .tab { width: 100%; text-align: left; color: var(--text); background: transparent; border: 1px solid transparent; }
+    .tab.active { color: #1d4ed8; background: var(--brand-soft); border-color: #c8d8ff; }
+    .status { min-height: 22px; color: var(--muted); font-size: 13px; }
+    .status.ok { color: var(--green); }
+    .status.err { color: var(--red); }
+    .status.warn { color: var(--amber); }
+    .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .metric { padding: 14px; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 8px; }
+    .metric strong { display: block; margin-bottom: 4px; font-size: 24px; font-variant-numeric: tabular-nums; }
+    .metric span { color: var(--muted); font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 9px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+    .pill { display: inline-flex; padding: 3px 8px; border-radius: 999px; color: #1d4ed8; background: var(--brand-soft); font-size: 12px; font-weight: 750; }
+    .pill.green { color: #047857; background: #e9fbf5; }
+    .pill.red { color: #b42318; background: #fff0ee; }
+    .muted { color: var(--muted); }
+    .hidden { display: none; }
+    .check-list {
+      max-height: 230px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px;
+      background: var(--panel-soft);
+    }
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 6px;
+      border-radius: 6px;
+    }
+    .check-item:hover { background: #edf3ff; }
+    .check-item input { width: auto; }
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(15, 23, 42, 0.36);
+    }
+    .modal.open { display: grid; }
+    .modal-card { width: min(760px, 100%); max-height: 90vh; overflow: auto; padding: 18px; }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+      aside { position: static; }
+      .cards, .grid, .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Unilingo Admin CMS</h1>
+      <div class="status" id="globalStatus">Login with an admin account or paste an admin token.</div>
+    </div>
+    <div class="row">
+      <button class="secondary" id="refreshBtn">Refresh</button>
+      <button class="ghost" id="logoutBtn">Logout</button>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <div id="loginBox">
+        <h2>Admin login</h2>
+        <form id="loginForm">
+          <div class="field">
+            <label>Email</label>
+            <input name="email" type="email" autocomplete="username" />
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input name="password" type="password" autocomplete="current-password" />
+          </div>
+          <button class="success" type="submit">Login</button>
+        </form>
+        <h3>Or paste token</h3>
+        <textarea id="token" placeholder="Access token without Bearer"></textarea>
+        <button class="secondary" id="saveTokenBtn" style="margin-top:8px;">Use token</button>
+      </div>
+      <nav class="tabs">
+        <button class="tab active" data-panel="dashboard">Dashboard</button>
+        <button class="tab" data-panel="notifications">Notifications</button>
+        <button class="tab" data-panel="blogs">Blogs</button>
+        <button class="tab" data-panel="exercises">IELTS Exercises</button>
+        <button class="tab" data-panel="users">Users</button>
+      </nav>
+    </aside>
+
+    <div>
+      <section id="dashboard" class="panel">
+        <div class="between">
+          <h2>Overview</h2>
+          <span class="status" id="dashboardStatus"></span>
+        </div>
+        <div class="cards" id="metrics"></div>
+      </section>
+
+      <section id="notifications" class="panel hidden">
+        <div class="between">
+          <h2>Send Notification</h2>
+          <span class="status" id="notificationStatus"></span>
+        </div>
+        <form id="notificationForm">
+          <div class="grid">
+            <div class="field">
+              <label>Title</label>
+              <input name="title" required placeholder="New IELTS event" />
+            </div>
+            <div class="field">
+              <label>Audience</label>
+              <select name="audience" id="notificationAudience">
+                <option value="active">Active users</option>
+                <option value="all">All users</option>
+                <option value="selected">Selected users</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid-3">
+            <div class="field">
+              <label>Type</label>
+              <select name="notification_type">
+                <option value="event">event</option>
+                <option value="forecast">forecast</option>
+                <option value="tips">tips</option>
+                <option value="news">news</option>
+                <option value="vocabulary">vocabulary</option>
+                <option value="streak">streak</option>
+                <option value="leaderboard">leaderboard</option>
+                <option value="system">system</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Category</label>
+              <select name="category">
+                <option value="event">event</option>
+                <option value="forecast">forecast</option>
+                <option value="tips">tips</option>
+                <option value="news">news</option>
+                <option value="system">system</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Deep link route</label>
+              <input name="route" placeholder="blog/forecast-may" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Body</label>
+            <textarea name="body" required placeholder="Short push message"></textarea>
+          </div>
+          <div class="row">
+            <label class="row"><input type="checkbox" name="respect_user_preferences" checked /> Respect user preferences</label>
+            <button type="submit">Send now</button>
+          </div>
+          <div id="selectedUsersBox" class="hidden">
+            <h3>Select users</h3>
+            <div class="check-list" id="selectedUsersList"></div>
+          </div>
+        </form>
+        <h3>Campaign history</h3>
+        <div class="table-wrap" id="campaignTable"></div>
+      </section>
+
+      <section id="blogs" class="panel hidden">
+        <div class="between">
+          <h2>Blog CMS</h2>
+          <span class="status" id="blogStatus"></span>
+        </div>
+        <form id="blogForm">
+          <input type="hidden" name="id" />
+          <div class="grid">
+            <div class="field">
+              <label>Title</label>
+              <input name="title" required />
+            </div>
+            <div class="field">
+              <label>Category</label>
+              <select name="category">
+                <option value="forecast">forecast</option>
+                <option value="tips">tips</option>
+                <option value="news">news</option>
+                <option value="speaking">speaking</option>
+                <option value="grammar">grammar</option>
+                <option value="vocabulary">vocabulary</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid">
+            <div class="field">
+              <label>Excerpt</label>
+              <input name="excerpt" />
+            </div>
+            <div class="field">
+              <label>Cover image URL</label>
+              <input name="cover_image_url" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Markdown content</label>
+            <textarea name="content" required></textarea>
+          </div>
+          <div class="row">
+            <label class="row"><input type="checkbox" name="is_featured" /> Featured on Home</label>
+            <label class="row"><input type="checkbox" name="is_published" checked /> Published</label>
+            <label class="row"><input type="checkbox" name="notify_users" /> Notify users after save</label>
+            <button type="submit">Save blog</button>
+            <button type="button" class="secondary" id="resetBlogBtn">New blog</button>
+          </div>
+        </form>
+        <h3>All posts</h3>
+        <div class="table-wrap" id="blogTable"></div>
+      </section>
+
+      <section id="exercises" class="panel hidden">
+        <div class="between">
+          <h2>IELTS Exercises CMS</h2>
+          <span class="status" id="exerciseStatus"></span>
+        </div>
+        <form id="topicForm">
+          <input type="hidden" name="id" />
+          <div class="grid-3">
+            <div class="field">
+              <label>Topic title</label>
+              <input name="title" required placeholder="Work & Studies" />
+            </div>
+            <div class="field">
+              <label>IELTS part</label>
+              <select name="ielts_part">
+                <option value="part1">part1</option>
+                <option value="part2">part2</option>
+                <option value="part3">part3</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Category</label>
+              <input name="category" required placeholder="daily_life" />
+            </div>
+          </div>
+          <div class="grid-3">
+            <div class="field">
+              <label>Vietnamese title</label>
+              <input name="title_vi" />
+            </div>
+            <div class="field">
+              <label>Difficulty</label>
+              <select name="difficulty">
+                <option value="easy">easy</option>
+                <option value="medium" selected>medium</option>
+                <option value="hard">hard</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Icon</label>
+              <input name="icon" placeholder="book" />
+            </div>
+          </div>
+          <div class="field">
+            <label>Description</label>
+            <textarea name="description"></textarea>
+          </div>
+          <div class="row">
+            <label class="row"><input type="checkbox" name="is_active" checked /> Active</label>
+            <button type="submit">Save topic</button>
+            <button type="button" class="secondary" id="resetTopicBtn">New topic</button>
+          </div>
+        </form>
+        <h3>Question editor</h3>
+        <form id="questionForm">
+          <input type="hidden" name="id" />
+          <div class="grid">
+            <div class="field">
+              <label>Topic</label>
+              <select name="topic_id" id="questionTopicSelect"></select>
+            </div>
+            <div class="field">
+              <label>IELTS part</label>
+              <select name="ielts_part">
+                <option value="part1">part1</option>
+                <option value="part2">part2</option>
+                <option value="part3">part3</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Question text</label>
+            <textarea name="question_text" required></textarea>
+          </div>
+          <div class="field">
+            <label>Vietnamese question</label>
+            <input name="question_text_vi" />
+          </div>
+          <div class="field">
+            <label>Cue card content (Part 2)</label>
+            <textarea name="cue_card_content" placeholder="You should say:&#10;- where it is&#10;- why it matters"></textarea>
+          </div>
+          <div class="row">
+            <label class="row"><input type="checkbox" name="is_active" checked /> Active</label>
+            <button type="submit">Save question</button>
+            <button type="button" class="secondary" id="resetQuestionBtn">New question</button>
+          </div>
+        </form>
+        <h3>Topics</h3>
+        <div class="table-wrap" id="topicTable"></div>
+        <h3>Questions</h3>
+        <div class="table-wrap" id="questionTable"></div>
+      </section>
+
+      <section id="users" class="panel hidden">
+        <div class="between">
+          <h2>Users</h2>
+          <span class="status" id="userStatus"></span>
+        </div>
+        <div class="row" style="margin-bottom:12px;">
+          <input id="userSearch" placeholder="Search by email or name" style="max-width:320px;" />
+          <button class="secondary" id="searchUsersBtn">Search</button>
+        </div>
+        <div class="table-wrap" id="userTable"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const API = "/api/v1";
+    const state = {
+      token: localStorage.getItem("unilingo_admin_token") || "",
+      users: [],
+      blogs: [],
+      topics: [],
+      questions: [],
+    };
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+    const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[ch]));
+
+    $("#token").value = state.token;
+
+    function authHeaders() {
+      return {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.token}`,
+      };
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(`${API}${path}`, {
+        ...options,
+        headers: { ...authHeaders(), ...(options.headers || {}) },
+      });
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : null;
+      if (!response.ok) throw new Error(data?.detail || response.statusText);
+      return data;
+    }
+
+    function setStatus(id, message, kind = "") {
+      const el = $(id);
+      if (!el) return;
+      el.textContent = message || "";
+      el.className = `status ${kind}`;
+    }
+
+    function formValues(form) {
+      const data = Object.fromEntries(new FormData(form).entries());
+      form.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+        data[input.name] = input.checked;
+      });
+      return data;
+    }
+
+    function fillForm(form, data) {
+      Array.from(form.elements).forEach((input) => {
+        if (!input.name) return;
+        if (input.type === "checkbox") input.checked = Boolean(data[input.name]);
+        else input.value = data[input.name] ?? "";
+      });
+    }
+
+    function resetForm(form) {
+      form.reset();
+      const id = form.querySelector('input[name="id"]');
+      if (id) id.value = "";
+    }
+
+    function table(rows, columns) {
+      if (!rows.length) return "<p class='status'>No data yet.</p>";
+      return `<table><thead><tr>${columns.map(c => `<th>${c.label}</th>`).join("")}</tr></thead><tbody>${
+        rows.map(row => `<tr>${columns.map(c => `<td>${c.render ? c.render(row) : esc(row[c.key])}</td>`).join("")}</tr>`).join("")
+      }</tbody></table>`;
+    }
+
+    function pill(value, kind = "") {
+      return `<span class="pill ${kind}">${esc(value)}</span>`;
+    }
+
+    async function login(email, password) {
+      const response = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.detail || "Login failed");
+      state.token = data.access_token;
+      localStorage.setItem("unilingo_admin_token", state.token);
+      $("#token").value = state.token;
+      await loadDashboard();
+      setStatus("#globalStatus", "Admin session ready.", "ok");
+    }
+
+    async function loadDashboard() {
+      setStatus("#dashboardStatus", "Loading...");
+      const data = await api("/admin/dashboard");
+      $("#metrics").innerHTML = [
+        ["Users", data.total_users],
+        ["Active users", data.active_users],
+        ["Completed tests", data.total_tests_completed],
+        ["Topics", data.total_topics],
+        ["Questions", data.total_questions],
+        ["Saved vocab", data.total_vocabulary_saved],
+      ].map(([label, value]) => `<div class="metric"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`).join("");
+      setStatus("#dashboardStatus", "Updated", "ok");
+    }
+
+    async function loadUsers(search = "") {
+      setStatus("#userStatus", "Loading...");
+      const q = search ? `&search=${encodeURIComponent(search)}` : "";
+      const data = await api(`/admin/users?per_page=100${q}`);
+      state.users = data.items || [];
+      renderUsers();
+      renderSelectedUsers();
+      setStatus("#userStatus", `${state.users.length} users loaded`, "ok");
+    }
+
+    function renderUsers() {
+      $("#userTable").innerHTML = table(state.users, [
+        { label: "Name", render: u => `<strong>${esc(u.full_name)}</strong><br><span class="muted">${esc(u.email)}</span>` },
+        { label: "Username", key: "username" },
+        { label: "XP", key: "total_xp" },
+        { label: "Status", render: u => u.is_active ? pill("active", "green") : pill("blocked", "red") },
+        { label: "Actions", render: u => `<button class="secondary" data-user-toggle="${esc(u.id)}" data-active="${u.is_active ? "false" : "true"}">${u.is_active ? "Block" : "Unblock"}</button>` },
+      ]);
+    }
+
+    function renderSelectedUsers() {
+      $("#selectedUsersList").innerHTML = state.users.map((u) => `
+        <label class="check-item">
+          <input type="checkbox" value="${esc(u.id)}" class="notification-user" />
+          <span><strong>${esc(u.full_name)}</strong><br><span class="muted">${esc(u.email)}</span></span>
+        </label>
+      `).join("");
+    }
+
+    async function loadCampaigns() {
+      const data = await api("/notifications/admin/campaigns?per_page=20");
+      $("#campaignTable").innerHTML = table(data.items || [], [
+        { label: "Title", render: r => `<strong>${esc(r.title)}</strong><br><span class="muted">${esc(r.body).slice(0, 90)}</span>` },
+        { label: "Type", render: r => pill(r.notification_type) },
+        { label: "Audience", key: "audience" },
+        { label: "Recipients", key: "total_recipients" },
+        { label: "Push", render: r => `${esc(r.sent_count)} sent / ${esc(r.failed_count)} failed` },
+        { label: "Status", key: "status" },
+      ]);
+    }
+
+    async function loadBlogs() {
+      const data = await api("/blog/admin/all?per_page=100");
+      state.blogs = data.items || [];
+      $("#blogTable").innerHTML = table(state.blogs, [
+        { label: "Title", render: b => `<strong>${esc(b.title)}</strong><br><span class="muted">${esc(b.slug)}</span>` },
+        { label: "Category", render: b => pill(b.category) },
+        { label: "State", render: b => `${b.is_published ? pill("published", "green") : pill("draft")} ${b.is_featured ? pill("featured") : ""}` },
+        { label: "Views", key: "view_count" },
+        { label: "Actions", render: b => `
+          <button class="secondary" data-blog-edit="${esc(b.id)}">Edit</button>
+          <button class="danger" data-blog-delete="${esc(b.id)}">Delete</button>
+        ` },
+      ]);
+    }
+
+    async function loadTopics() {
+      const data = await api("/admin/topics?per_page=200");
+      state.topics = data.items || [];
+      $("#questionTopicSelect").innerHTML = state.topics.map(t =>
+        `<option value="${esc(t.id)}">${esc(t.ielts_part)} - ${esc(t.title)}</option>`
+      ).join("");
+      $("#topicTable").innerHTML = table(state.topics, [
+        { label: "Topic", render: t => `<strong>${esc(t.title)}</strong><br><span class="muted">${esc(t.title_vi || "")}</span>` },
+        { label: "Part", render: t => pill(t.ielts_part) },
+        { label: "Category", key: "category" },
+        { label: "Difficulty", key: "difficulty" },
+        { label: "Questions", key: "question_count" },
+        { label: "Actions", render: t => `
+          <button class="secondary" data-topic-edit="${esc(t.id)}">Edit</button>
+          <button class="danger" data-topic-delete="${esc(t.id)}">Delete</button>
+        ` },
+      ]);
+    }
+
+    async function loadQuestions() {
+      const data = await api("/admin/questions?per_page=200");
+      state.questions = data.items || [];
+      $("#questionTable").innerHTML = table(state.questions, [
+        { label: "Question", render: q => `<strong>${esc(q.question_text)}</strong><br><span class="muted">${esc(q.question_text_vi || "")}</span>` },
+        { label: "Part", render: q => pill(q.ielts_part) },
+        { label: "Difficulty", key: "difficulty" },
+        { label: "Active", render: q => q.is_active === false ? pill("inactive", "red") : pill("active", "green") },
+        { label: "Actions", render: q => `
+          <button class="secondary" data-question-edit="${esc(q.id)}">Edit</button>
+          <button class="danger" data-question-delete="${esc(q.id)}">Delete</button>
+        ` },
+      ]);
+    }
+
+    async function refreshAll() {
+      if (!state.token) {
+        setStatus("#globalStatus", "Login with an admin account or paste an admin token.", "warn");
+        return;
+      }
+      setStatus("#globalStatus", "Refreshing...");
+      const results = await Promise.allSettled([
+        loadDashboard(), loadUsers(), loadCampaigns(), loadBlogs(), loadTopics(), loadQuestions(),
+      ]);
+      const failed = results.find(r => r.status === "rejected");
+      if (failed) setStatus("#globalStatus", failed.reason.message, "err");
+      else setStatus("#globalStatus", "Ready.", "ok");
+    }
+
+    $("#loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = formValues(event.currentTarget);
+      try {
+        setStatus("#globalStatus", "Logging in...");
+        await login(data.email, data.password);
+        await refreshAll();
+      } catch (error) {
+        setStatus("#globalStatus", error.message, "err");
+      }
+    });
+
+    $("#saveTokenBtn").addEventListener("click", async () => {
+      state.token = $("#token").value.trim();
+      localStorage.setItem("unilingo_admin_token", state.token);
+      await refreshAll();
+    });
+
+    $("#logoutBtn").addEventListener("click", () => {
+      state.token = "";
+      localStorage.removeItem("unilingo_admin_token");
+      $("#token").value = "";
+      setStatus("#globalStatus", "Logged out.", "warn");
+    });
+
+    $("#refreshBtn").addEventListener("click", refreshAll);
+    $("#searchUsersBtn").addEventListener("click", () => loadUsers($("#userSearch").value.trim()).catch(e => setStatus("#userStatus", e.message, "err")));
+    $("#notificationAudience").addEventListener("change", (event) => {
+      $("#selectedUsersBox").classList.toggle("hidden", event.target.value !== "selected");
+    });
+
+    $$(".tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        $$(".tab").forEach(item => item.classList.remove("active"));
+        $$(".panel").forEach(panel => panel.classList.add("hidden"));
+        tab.classList.add("active");
+        $(`#${tab.dataset.panel}`).classList.remove("hidden");
+      });
+    });
+
+    $("#notificationForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = formValues(event.currentTarget);
+      const selected = $$(".notification-user:checked").map(input => input.value);
+      const payload = {
+        title: data.title,
+        body: data.body,
+        notification_type: data.notification_type,
+        category: data.category,
+        audience: data.audience,
+        user_ids: data.audience === "selected" ? selected : null,
+        data: data.route ? { route: data.route } : {},
+        respect_user_preferences: Boolean(data.respect_user_preferences),
+      };
+      try {
+        setStatus("#notificationStatus", "Sending...");
+        const result = await api("/notifications/admin/send", { method: "POST", body: JSON.stringify(payload) });
+        setStatus("#notificationStatus", `Stored ${result.stored_notifications}; push sent ${result.push_sent}`, "ok");
+        event.currentTarget.reset();
+        $("#selectedUsersBox").classList.add("hidden");
+        await loadCampaigns();
+      } catch (error) {
+        setStatus("#notificationStatus", error.message, "err");
+      }
+    });
+
+    $("#blogForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = formValues(event.currentTarget);
+      const id = data.id;
+      const payload = {
+        title: data.title,
+        excerpt: data.excerpt || null,
+        content: data.content,
+        cover_image_url: data.cover_image_url || null,
+        category: data.category,
+        read_time_minutes: Math.max(1, Math.ceil(String(data.content || "").split(/\s+/).length / 220)),
+        is_featured: Boolean(data.is_featured),
+        is_published: Boolean(data.is_published),
+      };
+      try {
+        setStatus("#blogStatus", "Saving...");
+        const saved = id
+          ? await api(`/blog/admin/${id}`, { method: "PUT", body: JSON.stringify(payload) })
+          : await api("/blog/admin/create", { method: "POST", body: JSON.stringify(payload) });
+        if (data.notify_users && saved.is_published) {
+          await api("/notifications/admin/send", {
+            method: "POST",
+            body: JSON.stringify({
+              title: saved.title,
+              body: saved.excerpt || "A new IELTS article is available in Unilingo.",
+              notification_type: saved.category,
+              category: saved.category,
+              audience: "active",
+              data: { route: `blog/${saved.slug}` },
+              respect_user_preferences: true,
+            }),
+          });
+        }
+        setStatus("#blogStatus", "Blog saved", "ok");
+        resetForm(event.currentTarget);
+        await Promise.all([loadBlogs(), loadCampaigns()]);
+      } catch (error) {
+        setStatus("#blogStatus", error.message, "err");
+      }
+    });
+
+    $("#topicForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = formValues(event.currentTarget);
+      const id = data.id;
+      const payload = {
+        title: data.title,
+        title_vi: data.title_vi || null,
+        description: data.description || null,
+        category: data.category,
+        ielts_part: data.ielts_part,
+        difficulty: data.difficulty,
+        icon: data.icon || null,
+        is_active: Boolean(data.is_active),
+      };
+      try {
+        setStatus("#exerciseStatus", "Saving topic...");
+        id
+          ? await api(`/admin/topics/${id}`, { method: "PUT", body: JSON.stringify(payload) })
+          : await api("/admin/topics", { method: "POST", body: JSON.stringify(payload) });
+        setStatus("#exerciseStatus", "Topic saved", "ok");
+        resetForm(event.currentTarget);
+        await loadTopics();
+      } catch (error) {
+        setStatus("#exerciseStatus", error.message, "err");
+      }
+    });
+
+    $("#questionForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = formValues(event.currentTarget);
+      const id = data.id;
+      const payload = {
+        topic_id: data.topic_id,
+        question_text: data.question_text,
+        question_text_vi: data.question_text_vi || null,
+        ielts_part: data.ielts_part,
+        cue_card_content: data.cue_card_content || null,
+        difficulty: "medium",
+        is_active: Boolean(data.is_active),
+      };
+      try {
+        setStatus("#exerciseStatus", "Saving question...");
+        id
+          ? await api(`/admin/questions/${id}`, { method: "PUT", body: JSON.stringify(payload) })
+          : await api("/admin/questions", { method: "POST", body: JSON.stringify(payload) });
+        setStatus("#exerciseStatus", "Question saved", "ok");
+        resetForm(event.currentTarget);
+        await Promise.all([loadQuestions(), loadTopics()]);
+      } catch (error) {
+        setStatus("#exerciseStatus", error.message, "err");
+      }
+    });
+
+    $("#resetBlogBtn").addEventListener("click", () => resetForm($("#blogForm")));
+    $("#resetTopicBtn").addEventListener("click", () => resetForm($("#topicForm")));
+    $("#resetQuestionBtn").addEventListener("click", () => resetForm($("#questionForm")));
+
+    document.addEventListener("click", async (event) => {
+      const target = event.target;
+      const blogEdit = target.dataset?.blogEdit;
+      const blogDelete = target.dataset?.blogDelete;
+      const topicEdit = target.dataset?.topicEdit;
+      const topicDelete = target.dataset?.topicDelete;
+      const questionEdit = target.dataset?.questionEdit;
+      const questionDelete = target.dataset?.questionDelete;
+      const userToggle = target.dataset?.userToggle;
+
+      try {
+        if (blogEdit) {
+          const blog = state.blogs.find(item => item.id === blogEdit);
+          fillForm($("#blogForm"), blog);
+          window.scrollTo({ top: $("#blogs").offsetTop - 80, behavior: "smooth" });
+        }
+        if (blogDelete && confirm("Delete this blog post?")) {
+          await api(`/blog/admin/${blogDelete}`, { method: "DELETE" });
+          await loadBlogs();
+        }
+        if (topicEdit) {
+          const topic = state.topics.find(item => item.id === topicEdit);
+          fillForm($("#topicForm"), topic);
+          window.scrollTo({ top: $("#exercises").offsetTop - 80, behavior: "smooth" });
+        }
+        if (topicDelete && confirm("Delete this topic and its questions?")) {
+          await api(`/admin/topics/${topicDelete}`, { method: "DELETE" });
+          await Promise.all([loadTopics(), loadQuestions()]);
+        }
+        if (questionEdit) {
+          const question = state.questions.find(item => item.id === questionEdit);
+          fillForm($("#questionForm"), question);
+          window.scrollTo({ top: $("#questionForm").offsetTop - 80, behavior: "smooth" });
+        }
+        if (questionDelete && confirm("Delete this question?")) {
+          await api(`/admin/questions/${questionDelete}`, { method: "DELETE" });
+          await Promise.all([loadQuestions(), loadTopics()]);
+        }
+        if (userToggle) {
+          await api(`/admin/users/${userToggle}/status?is_active=${target.dataset.active}`, { method: "PATCH" });
+          await loadUsers($("#userSearch").value.trim());
+        }
+      } catch (error) {
+        setStatus("#globalStatus", error.message, "err");
+      }
+    });
+
+    refreshAll();
+  </script>
+</body>
+</html>

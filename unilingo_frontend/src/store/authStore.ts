@@ -18,6 +18,8 @@ export interface UserProfile {
   total_xp: number;
   current_streak: number;
   longest_streak: number;
+  goal_target: number | null;
+  goal_start_date: string | null;
   created_at: string;
 }
 

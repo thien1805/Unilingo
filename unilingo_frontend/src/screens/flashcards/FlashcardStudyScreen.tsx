@@ -40,18 +40,6 @@ import { AppModal, useAppModal } from '../../components/common/AppModal';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
 
-// Mock cards for when backend is unavailable
-const MOCK_CARDS: FlashcardCard[] = [
-  { id: 'c1', deck_id: '', vocabulary_id: null, front_content: 'sustainable', back_content: 'able to be maintained at a certain rate or level\n\n/səˈsteɪnəbəl/', audio_url: null, extra_info: null, order_index: 0 },
-  { id: 'c2', deck_id: '', vocabulary_id: null, front_content: 'coherent', back_content: 'logical and consistent; forming a unified whole\n\n/koʊˈhɪrənt/', audio_url: null, extra_info: null, order_index: 1 },
-  { id: 'c3', deck_id: '', vocabulary_id: null, front_content: 'elaborate', back_content: 'involving many carefully arranged parts or details\n\n/ɪˈlæbərət/', audio_url: null, extra_info: null, order_index: 2 },
-  { id: 'c4', deck_id: '', vocabulary_id: null, front_content: 'perceive', back_content: 'become aware or conscious of (something)\n\n/pərˈsiːv/', audio_url: null, extra_info: null, order_index: 3 },
-  { id: 'c5', deck_id: '', vocabulary_id: null, front_content: 'prevalent', back_content: 'widespread in a particular area or at a particular time\n\n/ˈprɛvələnt/', audio_url: null, extra_info: null, order_index: 4 },
-  { id: 'c6', deck_id: '', vocabulary_id: null, front_content: 'fluctuate', back_content: 'rise and fall irregularly in number or amount\n\n/ˈflʌktʃueɪt/', audio_url: null, extra_info: null, order_index: 5 },
-  { id: 'c7', deck_id: '', vocabulary_id: null, front_content: 'inevitable', back_content: 'certain to happen; unavoidable\n\n/ɪnˈevɪtəbəl/', audio_url: null, extra_info: null, order_index: 6 },
-  { id: 'c8', deck_id: '', vocabulary_id: null, front_content: 'substantial', back_content: 'of considerable importance, size, or worth\n\n/səbˈstænʃəl/', audio_url: null, extra_info: null, order_index: 7 },
-];
-
 const QUALITY_BUTTONS = [
   { quality: 1, label: 'Again', emoji: '❌', color: '#EF4444' },
   { quality: 3, label: 'Hard', emoji: '🤔', color: '#F59E0B' },
@@ -67,6 +55,7 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
   const [queue, setQueue] = useState<FlashcardCard[]>([]);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
   const [stats, setStats] = useState({ easy: 0, hard: 0, again: 0 });
   const [totalCards, setTotalCards] = useState(0);
@@ -83,6 +72,9 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
   }, []);
 
   const loadCards = async () => {
+    setLoading(true);
+    setLoadError(null);
+    setCompleted(false);
     try {
       const session = await flashcardsAPI.getStudySession(deckId);
       const fetchedCards = session.cards_to_study;
@@ -90,9 +82,10 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
       setQueue([...fetchedCards]);
       setTotalCards(fetchedCards.length);
     } catch {
-      setAllCards(MOCK_CARDS);
-      setQueue([...MOCK_CARDS]);
-      setTotalCards(MOCK_CARDS.length);
+      setAllCards([]);
+      setQueue([]);
+      setTotalCards(0);
+      setLoadError('Unable to load this study session. Please check your connection or try again.');
     } finally {
       setLoading(false);
     }
@@ -112,7 +105,7 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
 
   const goToNext = useCallback((quality: number) => {
     // Record review to backend
-    if (currentCard && !currentCard.id.startsWith('c')) {
+    if (currentCard) {
       flashcardsAPI.reviewCard(currentCard.id, quality).catch(() => {});
     }
 
@@ -240,15 +233,22 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
 
   if (completed || allCards.length === 0) {
     const total = stats.easy + stats.hard + stats.again;
+    const hasError = Boolean(loadError);
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgPrimary }]}>
         <View style={styles.completedContainer}>
-          <Text style={{ fontSize: 64, marginBottom: 16 }}>🎉</Text>
+          {hasError ? (
+            <Ionicons name="cloud-offline-outline" size={64} color={colors.textMuted} style={{ marginBottom: 16 }} />
+          ) : (
+            <Text style={{ fontSize: 64, marginBottom: 16 }}>🎉</Text>
+          )}
           <Text style={[styles.completedTitle, { color: colors.textPrimary }]}>
-            {allCards.length === 0 ? 'No cards to study!' : 'All Cards Mastered!'}
+            {hasError ? "Couldn't load cards" : allCards.length === 0 ? 'No cards to study!' : 'All Cards Mastered!'}
           </Text>
           <Text style={[styles.completedSubtitle, { color: colors.textSecondary }]}>
-            {allCards.length === 0
+            {hasError
+              ? loadError
+              : allCards.length === 0
               ? 'Add some cards to this deck first, then come back.'
               : `Great job! You mastered all ${totalCards} cards.`}
           </Text>
@@ -270,11 +270,27 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
             </View>
           )}
 
+          {hasError && (
+            <TouchableOpacity
+              style={[styles.doneBtn, { backgroundColor: colors.accent, marginBottom: 12 }]}
+              onPress={loadCards}
+            >
+              <Text style={styles.doneBtnText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
-            style={[styles.doneBtn, { backgroundColor: colors.accent }]}
+            style={[
+              styles.doneBtn,
+              hasError
+                ? { backgroundColor: 'transparent', borderColor: colors.border, borderWidth: 1 }
+                : { backgroundColor: colors.accent },
+            ]}
             onPress={() => navigation.goBack()}
           >
-            <Text style={styles.doneBtnText}>Done</Text>
+            <Text style={[styles.doneBtnText, hasError && { color: colors.textPrimary }]}>
+              {hasError ? 'Back' : 'Done'}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

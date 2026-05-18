@@ -206,7 +206,7 @@ export default function RecordingScreen({ navigation, route }: any) {
       const uri = recordingRef.current.getURI();
       recordingRef.current = null;
 
-      if (uri && attemptId && attemptId !== 'mock-1') {
+      if (uri && attemptId) {
         // Upload audio to backend
         try {
           const formData = new FormData();
@@ -229,7 +229,7 @@ export default function RecordingScreen({ navigation, route }: any) {
       if (isFullTest && ieltsPart !== 'part3') {
         const nextPart = ieltsPart === 'part1' ? 'part2' : 'part3';
         navigation.replace('VirtualRoom', {
-          topicId: 'mock-id',
+          topicId: route.params?.topicId,
           topicTitle,
           ieltsPart: nextPart,
           isFullTest: true,

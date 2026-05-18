@@ -2,10 +2,12 @@
 Unilingo Backend - FastAPI Application Entry Point
 """
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import init_db
@@ -123,3 +125,7 @@ async def health_check():
 
 
 configure_openapi(app, title=settings.APP_NAME, version=settings.APP_VERSION)
+
+admin_web_dir = Path(__file__).resolve().parent / "admin_web"
+if admin_web_dir.exists():
+    app.mount("/admin-web", StaticFiles(directory=str(admin_web_dir), html=True), name="admin-web")

@@ -96,6 +96,11 @@ class NotificationSetting(Base):
     new_words_reminder: Mapped[bool] = mapped_column(Boolean, default=True)
     streak_reminder: Mapped[bool] = mapped_column(Boolean, default=True)
     leaderboard_update: Mapped[bool] = mapped_column(Boolean, default=True)
+    event_notifications: Mapped[bool] = mapped_column(Boolean, default=True)
+    blog_notifications: Mapped[bool] = mapped_column(Boolean, default=True)
+    forecast_notifications: Mapped[bool] = mapped_column(Boolean, default=True)
+    tips_notifications: Mapped[bool] = mapped_column(Boolean, default=True)
+    news_notifications: Mapped[bool] = mapped_column(Boolean, default=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

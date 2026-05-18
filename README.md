@@ -55,6 +55,12 @@ unilingo_mobile/
 └── docs/                   # System architecture and implementation documentation
 ```
 
+## 📚 Detailed Documentation
+
+Tài liệu chi tiết bằng tiếng Việt về frontend, backend, database, API, seed/mock gaps, admin CMS, notification flow và production deployment:
+
+- [`docs/PROJECT_DOCUMENTATION_VI.md`](docs/PROJECT_DOCUMENTATION_VI.md)
+
 ## 🚀 Quick Start
 
 ### 1. Backend Setup

@@ -4,7 +4,7 @@
 import apiClient from './client';
 
 export interface StartPracticePayload {
-  topic_id: string;
+  topic_id?: string;
   ielts_part: string;
   question_id?: string;
 }
@@ -15,6 +15,7 @@ export interface PracticeAttempt {
   ielts_part: string;
   question: {
     id: string;
+    topic_id?: string | null;
     question_text: string;
     question_text_vi: string | null;
     ielts_part: string;
@@ -103,7 +104,7 @@ export const practiceAPI = {
 
   generateQuestions: async (ieltsPart: string, count: number = 3, topicId?: string): Promise<{ questions: any[]; count: number }> => {
     let url = `/practice/generate-questions?ielts_part=${ieltsPart}&count=${count}`;
-    if (topicId && topicId !== 'mock-id') {
+    if (topicId) {
       url += `&topic_id=${topicId}`;
     }
     const { data } = await apiClient.post(url);

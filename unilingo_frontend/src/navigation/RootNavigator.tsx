@@ -22,6 +22,7 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 // Main Screens
 import HomeScreen from '../screens/home/HomeScreen';
 import BlogDetailScreen from '../screens/home/BlogDetailScreen';
+import NotificationsScreen from '../screens/home/NotificationsScreen';
 import PracticeScreen from '../screens/practice/PracticeScreen';
 import VirtualRoomScreen from '../screens/practice/VirtualRoomScreen';
 import RecordingScreen from '../screens/practice/RecordingScreen';
@@ -58,6 +59,7 @@ function HomeStackNavigator() {
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
       <HomeStack.Screen name="BlogDetail" component={BlogDetailScreen} />
+      <HomeStack.Screen name="Notifications" component={NotificationsScreen} />
     </HomeStack.Navigator>
   );
 }

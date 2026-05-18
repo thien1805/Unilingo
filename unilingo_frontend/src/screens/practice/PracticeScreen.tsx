@@ -28,6 +28,7 @@ export default function PracticeScreen({ navigation, route }: any) {
   const { colors } = useThemeStore();
   const [selectedPart, setSelectedPart] = useState<string | null>(route?.params?.selectedPart || null);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [topicError, setTopicError] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedPart) {
@@ -37,11 +38,12 @@ export default function PracticeScreen({ navigation, route }: any) {
 
   const loadTopics = async (part: string) => {
     try {
+      setTopicError(null);
       const result = await topicsAPI.list({ ielts_part: part });
       setTopics(result.items);
     } catch {
-      // Use mock data
-      setTopics(MOCK_TOPICS.filter((t) => t.ielts_part === part));
+      setTopics([]);
+      setTopicError('Topics could not be loaded. Please check the backend CMS content.');
     }
   };
 
@@ -133,7 +135,7 @@ export default function PracticeScreen({ navigation, route }: any) {
             title={`${selectedPart.replace('part', 'Part ')} Topics`}
           />
           <View style={styles.topicGrid}>
-            {(topics.length > 0 ? topics : MOCK_TOPICS.filter((t) => t.ielts_part === selectedPart)).map(
+            {topics.map(
               (topic, i) => (
                 <TouchableOpacity
                   key={topic.id || i}
@@ -167,6 +169,14 @@ export default function PracticeScreen({ navigation, route }: any) {
               )
             )}
           </View>
+          {topics.length === 0 && (
+            <View style={[styles.emptyTopics, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <Ionicons name="albums-outline" size={22} color={colors.textMuted} />
+              <Text style={[Typography.caption, { color: colors.textSecondary, textAlign: 'center' }]}>
+                {topicError || 'No active topics yet. Add them in the admin CMS.'}
+              </Text>
+            </View>
+          )}
         </>
       )}
         </ScrollView>
@@ -174,19 +184,6 @@ export default function PracticeScreen({ navigation, route }: any) {
     </AppBackground>
   );
 }
-
-const MOCK_TOPICS: Topic[] = [
-  { id: '1', title: 'Work & Studies', title_vi: null, description: null, category: 'daily_life', ielts_part: 'part1', difficulty: 'easy', is_active: true, order_index: 1, question_count: 5 },
-  { id: '2', title: 'Hometown', title_vi: null, description: null, category: 'places', ielts_part: 'part1', difficulty: 'easy', is_active: true, order_index: 2, question_count: 4 },
-  { id: '3', title: 'Hobbies', title_vi: null, description: null, category: 'lifestyle', ielts_part: 'part1', difficulty: 'easy', is_active: true, order_index: 3, question_count: 4 },
-  { id: '4', title: 'Technology', title_vi: null, description: null, category: 'technology', ielts_part: 'part1', difficulty: 'medium', is_active: true, order_index: 4, question_count: 3 },
-  { id: '5', title: 'Food & Cooking', title_vi: null, description: null, category: 'lifestyle', ielts_part: 'part1', difficulty: 'easy', is_active: true, order_index: 5, question_count: 4 },
-  { id: '6', title: 'Travel', title_vi: null, description: null, category: 'travel', ielts_part: 'part1', difficulty: 'medium', is_active: true, order_index: 6, question_count: 5 },
-  { id: '7', title: 'A Place You Visited', title_vi: null, description: null, category: 'travel', ielts_part: 'part2', difficulty: 'medium', is_active: true, order_index: 1, question_count: 3 },
-  { id: '8', title: 'A Person You Admire', title_vi: null, description: null, category: 'people', ielts_part: 'part2', difficulty: 'medium', is_active: true, order_index: 2, question_count: 2 },
-  { id: '9', title: 'Environment', title_vi: null, description: null, category: 'society', ielts_part: 'part3', difficulty: 'hard', is_active: true, order_index: 1, question_count: 4 },
-  { id: '10', title: 'Education', title_vi: null, description: null, category: 'education', ielts_part: 'part3', difficulty: 'hard', is_active: true, order_index: 2, question_count: 3 },
-];
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 20 },
@@ -211,5 +208,9 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04, shadowRadius: 3, elevation: 1,
     gap: 4,
+  },
+  emptyTopics: {
+    width: '100%', minHeight: 110, borderRadius: 14, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', padding: 18, gap: 8,
   },
 });

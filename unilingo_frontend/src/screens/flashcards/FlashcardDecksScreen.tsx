@@ -21,13 +21,6 @@ import { AppModal, useAppModal } from '../../components/common/AppModal';
 
 const DECK_EMOJIS = ['📚', '📖', '🎯', '💡', '🌍', '🎓', '📝', '🔤', '🧠', '⭐'];
 
-// Mock data for when backend is unavailable
-const MOCK_DECKS: FlashcardDeck[] = [
-  { id: 'mock-1', user_id: '', title: 'IELTS Environment', description: 'Key vocab for environment topics', is_public: false, card_count: 15, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'mock-2', user_id: '', title: 'Academic Words', description: 'Essential academic vocabulary', is_public: false, card_count: 22, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'mock-3', user_id: '', title: 'Pronunciation', description: 'Words I need to practice', is_public: false, card_count: 8, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-];
-
 export default function FlashcardDecksScreen({ navigation }: any) {
   const { colors } = useThemeStore();
   const { modal, hideModal, showError, showConfirm } = useAppModal();
@@ -38,14 +31,16 @@ export default function FlashcardDecksScreen({ navigation }: any) {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [creating, setCreating] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadDecks = useCallback(async () => {
     try {
+      setLoadError(null);
       const result = await flashcardsAPI.listDecks();
       setDecks(result.items);
-    } catch {
-      // Use mock data
-      setDecks(MOCK_DECKS);
+    } catch (error: any) {
+      setDecks([]);
+      setLoadError(error.response?.data?.detail || 'Could not load flashcard decks.');
     } finally {
       setLoading(false);
     }
@@ -174,11 +169,16 @@ export default function FlashcardDecksScreen({ navigation }: any) {
             <View style={styles.empty}>
               <Text style={{ fontSize: 48, marginBottom: 12 }}>🃏</Text>
               <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                No decks yet
+                {loadError ? 'Decks unavailable' : 'No decks yet'}
               </Text>
               <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
-                Create a new deck or auto-generate from vocabulary
+                {loadError || 'Create a new deck or auto-generate from vocabulary'}
               </Text>
+              {loadError && (
+                <TouchableOpacity style={[styles.retryBtn, { borderColor: colors.border }]} onPress={loadDecks}>
+                  <Text style={[styles.retryText, { color: colors.accent }]}>Retry</Text>
+                </TouchableOpacity>
+              )}
             </View>
           }
         />
@@ -291,6 +291,8 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 80 },
   emptyTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 20, marginBottom: 8 },
   emptyDesc: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  retryBtn: { marginTop: 14, borderWidth: 1, borderRadius: 18, paddingHorizontal: 18, paddingVertical: 9 },
+  retryText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 13 },
   // Modal
   modalOverlay: {
     flex: 1, justifyContent: 'flex-end',

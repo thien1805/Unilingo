@@ -18,14 +18,6 @@ import { practiceAPI, PracticeHistoryItem } from '../../api/practice';
 
 const PARTS = ['all', 'part1', 'part2', 'part3'] as const;
 
-const MOCK_HISTORY: PracticeHistoryItem[] = [
-  { attempt_id: 'h1', topic_title: 'Describe a place you visited', ielts_part: 'part2', overall_band: 6.5, status: 'completed', duration_seconds: 180, started_at: new Date(Date.now() - 3600000).toISOString(), completed_at: new Date().toISOString() },
-  { attempt_id: 'h2', topic_title: 'Talk about your hometown', ielts_part: 'part1', overall_band: 7.0, status: 'completed', duration_seconds: 120, started_at: new Date(Date.now() - 86400000).toISOString(), completed_at: new Date(Date.now() - 86400000 + 300000).toISOString() },
-  { attempt_id: 'h3', topic_title: 'Discuss environmental issues', ielts_part: 'part3', overall_band: 6.0, status: 'completed', duration_seconds: 240, started_at: new Date(Date.now() - 172800000).toISOString(), completed_at: new Date(Date.now() - 172800000 + 300000).toISOString() },
-  { attempt_id: 'h4', topic_title: 'Describe a skill you learned', ielts_part: 'part2', overall_band: null, status: 'scoring', duration_seconds: null, started_at: new Date(Date.now() - 259200000).toISOString(), completed_at: null },
-  { attempt_id: 'h5', topic_title: 'Talk about technology', ielts_part: 'part1', overall_band: 7.5, status: 'completed', duration_seconds: 95, started_at: new Date(Date.now() - 345600000).toISOString(), completed_at: new Date(Date.now() - 345600000 + 200000).toISOString() },
-];
-
 export default function PracticeHistoryScreen({ navigation }: any) {
   const { colors } = useThemeStore();
   const [items, setItems] = useState<PracticeHistoryItem[]>([]);
@@ -34,10 +26,12 @@ export default function PracticeHistoryScreen({ navigation }: any) {
   const [activePart, setActivePart] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadHistory = useCallback(async (reset = false) => {
     const p = reset ? 1 : page;
     try {
+      setLoadError(null);
       const result = await practiceAPI.getHistory({
         page: p,
         per_page: 20,
@@ -50,8 +44,9 @@ export default function PracticeHistoryScreen({ navigation }: any) {
       }
       setHasMore(result.items.length === 20);
       setPage(p + 1);
-    } catch {
-      if (reset) setItems(MOCK_HISTORY);
+    } catch (error: any) {
+      if (reset) setItems([]);
+      setLoadError(error.response?.data?.detail || 'Could not load practice history.');
     } finally {
       setLoading(false);
     }
@@ -221,10 +216,20 @@ export default function PracticeHistoryScreen({ navigation }: any) {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={{ fontSize: 48, marginBottom: 12 }}>📋</Text>
-              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No history yet</Text>
-              <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
-                Complete a practice session to see it here
+              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                {loadError ? 'History unavailable' : 'No history yet'}
               </Text>
+              <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
+                {loadError || 'Complete a practice session to see it here'}
+              </Text>
+              {loadError && (
+                <TouchableOpacity
+                  style={[styles.retryBtn, { borderColor: colors.border }]}
+                  onPress={() => loadHistory(true)}
+                >
+                  <Text style={[styles.retryText, { color: colors.accent }]}>Retry</Text>
+                </TouchableOpacity>
+              )}
             </View>
           }
         />
@@ -277,4 +282,6 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 80 },
   emptyTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 20, marginBottom: 8 },
   emptyDesc: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 14, textAlign: 'center' },
+  retryBtn: { marginTop: 14, borderWidth: 1, borderRadius: 18, paddingHorizontal: 18, paddingVertical: 9 },
+  retryText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 13 },
 });

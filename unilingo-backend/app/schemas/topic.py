@@ -34,12 +34,15 @@ class TopicDetailResponse(BaseModel):
 
 class QuestionResponse(BaseModel):
     id: uuid.UUID
+    topic_id: uuid.UUID
     question_text: str
     question_text_vi: str | None
     ielts_part: str
     cue_card_content: str | None
     follow_up_questions: dict | None
     difficulty: str
+    is_active: bool
+    order_index: int
     key_vocabulary: list[dict] | None
 
     model_config = {"from_attributes": True}
@@ -64,6 +67,7 @@ class UpdateTopicRequest(BaseModel):
     title_vi: str | None = None
     description: str | None = None
     category: str | None = None
+    ielts_part: str | None = Field(None, pattern=r"^(part1|part2|part3)$")
     difficulty: str | None = None
     icon: str | None = None
     is_active: bool | None = None
@@ -85,8 +89,10 @@ class CreateQuestionRequest(BaseModel):
 
 
 class UpdateQuestionRequest(BaseModel):
+    topic_id: uuid.UUID | None = None
     question_text: str | None = None
     question_text_vi: str | None = None
+    ielts_part: str | None = Field(None, pattern=r"^(part1|part2|part3)$")
     cue_card_content: str | None = None
     follow_up_questions: dict | None = None
     difficulty: str | None = None
