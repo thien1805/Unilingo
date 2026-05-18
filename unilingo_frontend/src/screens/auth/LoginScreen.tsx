@@ -79,19 +79,19 @@ export default function LoginScreen({ navigation }: any) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      showError('Lỗi', 'Vui lòng nhập email và mật khẩu');
+      showError('Error', 'Please enter email and password');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await authAPI.login({ email, password });
+      const response = await authAPI.login({ email: email.trim().toLowerCase(), password });
       setTokens(response.access_token, response.refresh_token);
       
       const user = await usersAPI.getMe();
       setUser(user);
     } catch (error: any) {
-      showError('Đăng nhập thất bại', getErrorMessage(error, 'Email hoặc mật khẩu không chính xác'));
+      showError('Login Failed', getErrorMessage(error, 'Incorrect email or password'));
     } finally {
       setLoading(false);
     }
@@ -108,15 +108,15 @@ export default function LoginScreen({ navigation }: any) {
 
   const handleSendResetOtp = async () => {
     if (!forgotEmail) {
-      showError('Lỗi', 'Vui lòng nhập email');
+      showError('Error', 'Please enter your email');
       return;
     }
     setForgotLoading(true);
     try {
-      await authAPI.forgotPassword(forgotEmail);
+      await authAPI.forgotPassword(forgotEmail.trim().toLowerCase());
       setForgotStep('otp');
     } catch (error: any) {
-      showError('Lỗi', getErrorMessage(error, 'Không thể gửi mã xác thực.'));
+      showError('Error', getErrorMessage(error, 'Could not send OTP.'));
     } finally {
       setForgotLoading(false);
     }
@@ -124,15 +124,15 @@ export default function LoginScreen({ navigation }: any) {
 
   const handleVerifyResetOtp = async () => {
     if (resetOtp.length !== 6) {
-      showError('Lỗi', 'Mã xác thực phải gồm 6 chữ số');
+      showError('Error', 'OTP must be 6 digits');
       return;
     }
     setForgotLoading(true);
     try {
-      await authAPI.verifyResetOtp(forgotEmail, resetOtp);
+      await authAPI.verifyResetOtp(forgotEmail.trim().toLowerCase(), resetOtp);
       setForgotStep('newpass');
     } catch (error: any) {
-      showError('Lỗi', getErrorMessage(error, 'Mã xác thực không đúng hoặc đã hết hạn'));
+      showError('Error', getErrorMessage(error, 'Invalid or expired OTP'));
     } finally {
       setForgotLoading(false);
     }
@@ -140,20 +140,20 @@ export default function LoginScreen({ navigation }: any) {
 
   const handleResetPassword = async () => {
     if (newPassword.length < 8) {
-      showError('Lỗi', 'Mật khẩu mới phải có ít nhất 8 ký tự');
+      showError('Error', 'New password must be at least 8 characters');
       return;
     }
     if (newPassword !== confirmNewPassword) {
-      showError('Lỗi', 'Mật khẩu xác nhận không khớp');
+      showError('Error', 'Passwords do not match');
       return;
     }
     setForgotLoading(true);
     try {
-      await authAPI.resetPassword({ email: forgotEmail, otp: resetOtp, new_password: newPassword });
+      await authAPI.resetPassword({ email: forgotEmail.trim().toLowerCase(), otp: resetOtp, new_password: newPassword });
       closeForgotModal();
-      showSuccess('Thành công', 'Mật khẩu đã được đặt lại. Vui lòng đăng nhập.');
+      showSuccess('Success', 'Password has been reset. Please log in.');
     } catch (error: any) {
-      showError('Lỗi', getErrorMessage(error, 'Không thể đặt lại mật khẩu'));
+      showError('Error', getErrorMessage(error, 'Could not reset password'));
     } finally {
       setForgotLoading(false);
     }
@@ -310,19 +310,19 @@ export default function LoginScreen({ navigation }: any) {
               <Ionicons name="lock-closed" size={40} color={colors.accent} />
             </View>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-              Quên Mật Khẩu
+              Forgot Password
             </Text>
 
             {forgotStep === 'email' ? (
               <>
                 <Text style={[styles.modalText, { color: colors.textSecondary }]}>
-                  Nhập email của bạn để nhận mã khôi phục mật khẩu.
+                  Enter your email to receive a password reset code.
                 </Text>
                 <View style={[styles.inputRow, { borderBottomColor: colors.border, width: '100%', marginBottom: 24 }]}>
                   <Ionicons name="mail-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: colors.textPrimary }]}
-                    placeholder="Email của bạn"
+                    placeholder="Your email"
                     placeholderTextColor={colors.textMuted}
                     value={forgotEmail}
                     onChangeText={setForgotEmail}
@@ -335,13 +335,13 @@ export default function LoginScreen({ navigation }: any) {
                   onPress={handleSendResetOtp}
                   disabled={forgotLoading}
                 >
-                  {forgotLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Gửi mã xác nhận</Text>}
+                  {forgotLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Send Code</Text>}
                 </TouchableOpacity>
               </>
             ) : forgotStep === 'otp' ? (
               <>
                 <Text style={[styles.modalText, { color: colors.textSecondary }]}>
-                  Nhập mã 6 chữ số đã được gửi đến {forgotEmail}
+                  Enter the 6-digit code sent to {forgotEmail}
                 </Text>
                 <View style={[styles.inputRow, { borderBottomColor: colors.border, width: '100%', marginBottom: 24 }]}>
                   <Ionicons name="keypad-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
@@ -360,22 +360,22 @@ export default function LoginScreen({ navigation }: any) {
                   onPress={handleVerifyResetOtp}
                   disabled={forgotLoading}
                 >
-                  {forgotLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Xác nhận mã</Text>}
+                  {forgotLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Verify Code</Text>}
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setForgotStep('email')} style={{ marginTop: 12 }}>
-                  <Text style={{ color: colors.textSecondary, fontFamily: 'PlusJakartaSans-Medium' }}>Quay lại</Text>
+                  <Text style={{ color: colors.textSecondary, fontFamily: 'PlusJakartaSans-Medium' }}>Go Back</Text>
                 </TouchableOpacity>
               </>
             ) : (
               <>
                 <Text style={[styles.modalText, { color: colors.textSecondary }]}>
-                  Tạo mật khẩu mới cho tài khoản của bạn.
+                  Create a new password for your account.
                 </Text>
                 <View style={[styles.inputRow, { borderBottomColor: colors.border, width: '100%', marginBottom: 16 }]}>
                   <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: colors.textPrimary }]}
-                    placeholder="Mật khẩu mới (ít nhất 8 ký tự)"
+                    placeholder="New password (min 8 characters)"
                     placeholderTextColor={colors.textMuted}
                     value={newPassword}
                     onChangeText={setNewPassword}
@@ -389,7 +389,7 @@ export default function LoginScreen({ navigation }: any) {
                   <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: colors.textPrimary }]}
-                    placeholder="Xác nhận mật khẩu mới"
+                    placeholder="Confirm new password"
                     placeholderTextColor={colors.textMuted}
                     value={confirmNewPassword}
                     onChangeText={setConfirmNewPassword}
@@ -404,10 +404,10 @@ export default function LoginScreen({ navigation }: any) {
                   onPress={handleResetPassword}
                   disabled={forgotLoading}
                 >
-                  {forgotLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Đặt lại mật khẩu</Text>}
+                  {forgotLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Reset Password</Text>}
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setForgotStep('otp')} style={{ marginTop: 12 }}>
-                  <Text style={{ color: colors.textSecondary, fontFamily: 'PlusJakartaSans-Medium' }}>Quay lại</Text>
+                  <Text style={{ color: colors.textSecondary, fontFamily: 'PlusJakartaSans-Medium' }}>Go Back</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -442,7 +442,7 @@ export default function LoginScreen({ navigation }: any) {
               onPress={() => setErrorModalVisible(false)}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalBtnText}>Đóng</Text>
+              <Text style={styles.modalBtnText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -64,24 +64,24 @@ export default function RegisterScreen({ navigation }: any) {
 
   const handleSendOtp = async () => {
     if (!email || !fullName || !password || !confirmPassword) {
-      showError('Lỗi', 'Vui lòng điền đầy đủ thông tin');
+      showError('Error', 'Please fill in all fields');
       return;
     }
     if (password !== confirmPassword) {
-      showError('Lỗi', 'Mật khẩu xác nhận không khớp');
+      showError('Error', 'Passwords do not match');
       return;
     }
     if (password.length < 8) {
-      showError('Lỗi', 'Mật khẩu phải có ít nhất 8 ký tự');
+      showError('Error', 'Password must be at least 8 characters');
       return;
     }
 
     setLoading(true);
     try {
-      await authAPI.registerSendOtp(email);
+      await authAPI.registerSendOtp(email.trim().toLowerCase());
       setStep('otp');
     } catch (error: any) {
-      showError('Lỗi', getErrorMessage(error, 'Không thể gửi mã xác thực. Vui lòng thử lại.'));
+      showError('Error', getErrorMessage(error, 'Could not send OTP. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -89,17 +89,17 @@ export default function RegisterScreen({ navigation }: any) {
 
   const handleRegister = async () => {
     if (otp.length !== 6) {
-      showError('Lỗi', 'Mã xác thực phải gồm 6 chữ số');
+      showError('Error', 'OTP must be 6 digits');
       return;
     }
 
     setLoading(true);
     try {
-      await authAPI.register({ email, password, full_name: fullName, otp });
+      await authAPI.register({ email: email.trim().toLowerCase(), password, full_name: fullName, otp });
       logout();
       setShowSuccessModal(true);
     } catch (error: any) {
-      showError('Đăng ký thất bại', getErrorMessage(error, 'Mã xác thực không đúng hoặc đã hết hạn'));
+      showError('Registration Failed', getErrorMessage(error, 'Invalid or expired OTP'));
     } finally {
       setLoading(false);
     }
@@ -236,9 +236,9 @@ export default function RegisterScreen({ navigation }: any) {
             <>
               {/* OTP Field */}
               <View style={styles.fieldGroup}>
-                <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Mã Xác Thực (OTP)</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textPrimary }]}>Verification Code (OTP)</Text>
                 <Text style={[styles.subtitleText, { color: colors.textSecondary, marginBottom: 12 }]}>
-                  Mã gồm 6 chữ số đã được gửi đến email {email}
+                  A 6-digit code has been sent to {email}
                 </Text>
                 <View style={[styles.inputRow, { borderBottomColor: underlineColor('otp') }]}>
                   <Ionicons name="keypad-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
@@ -265,7 +265,7 @@ export default function RegisterScreen({ navigation }: any) {
                 {loading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.mainBtnText}>Hoàn tất đăng ký</Text>
+                  <Text style={styles.mainBtnText}>Complete Registration</Text>
                 )}
               </TouchableOpacity>
 
@@ -274,7 +274,7 @@ export default function RegisterScreen({ navigation }: any) {
                 onPress={() => setStep('details')}
               >
                 <Text style={{ color: colors.textSecondary, fontFamily: 'PlusJakartaSans-Medium' }}>
-                  Quay lại chỉnh sửa thông tin
+                  Go back to edit details
                 </Text>
               </TouchableOpacity>
             </>
@@ -302,10 +302,10 @@ export default function RegisterScreen({ navigation }: any) {
               <Ionicons name="checkmark-circle" size={48} color={colors.success || '#10B981'} />
             </View>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-              Đăng ký thành công!
+              Registration Successful!
             </Text>
             <Text style={[styles.modalText, { color: colors.textSecondary }]}>
-              Tài khoản của bạn đã được tạo thành công. Vui lòng đăng nhập để bắt đầu trải nghiệm Unilingo.
+              Your account has been successfully created. Please log in to start using Unilingo.
             </Text>
             <TouchableOpacity
               style={[styles.modalBtn, { backgroundColor: colors.accent }]}
@@ -315,7 +315,7 @@ export default function RegisterScreen({ navigation }: any) {
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalBtnText}>Đăng nhập ngay</Text>
+              <Text style={styles.modalBtnText}>Log In Now</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -344,7 +344,7 @@ export default function RegisterScreen({ navigation }: any) {
               onPress={() => setErrorModalVisible(false)}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalBtnText}>Đóng</Text>
+              <Text style={styles.modalBtnText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>

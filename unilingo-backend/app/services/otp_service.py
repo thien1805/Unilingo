@@ -15,8 +15,9 @@ redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 def generate_and_send_otp(email: str, prefix: str = "register") -> str:
     """Generate a 6-digit OTP, store in Redis for 5 minutes, and 'send' email."""
+    email_clean = email.strip().lower()
     otp = str(random.randint(100000, 999999))
-    key = f"otp:{prefix}:{email}"
+    key = f"otp:{prefix}:{email_clean}"
     redis_client.setex(key, 300, otp)  # Valid for 5 minutes
     
     # Print to console for dev/debugging
@@ -56,7 +57,8 @@ def generate_and_send_otp(email: str, prefix: str = "register") -> str:
 
 def verify_otp(email: str, otp: str, prefix: str = "register") -> bool:
     """Verify the OTP from Redis and consume it."""
-    key = f"otp:{prefix}:{email}"
+    email_clean = email.strip().lower()
+    key = f"otp:{prefix}:{email_clean}"
     stored_otp = redis_client.get(key)
     
     if stored_otp and stored_otp == otp:
@@ -66,7 +68,8 @@ def verify_otp(email: str, otp: str, prefix: str = "register") -> bool:
 
 def verify_otp_only(email: str, otp: str, prefix: str = "register") -> bool:
     """Verify the OTP from Redis WITHOUT consuming it (for multi-step flows)."""
-    key = f"otp:{prefix}:{email}"
+    email_clean = email.strip().lower()
+    key = f"otp:{prefix}:{email_clean}"
     stored_otp = redis_client.get(key)
     
     if stored_otp and stored_otp == otp:
