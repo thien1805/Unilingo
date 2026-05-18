@@ -74,7 +74,7 @@ export default function PracticeScreen({ navigation, route }: any) {
           activeOpacity={0.7}
           onPress={() => navigation.navigate('VirtualRoom', { isFullTest: true })}
         >
-          <View style={[styles.partIcon, { backgroundColor: colors.purple + '20' }]}>
+          <View style={[styles.partIcon, { backgroundColor: colors.accentBg }]}>
             <Text style={{ fontSize: 24 }}>🎓</Text>
           </View>
           <View style={{ flex: 1 }}>
