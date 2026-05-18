@@ -3,6 +3,8 @@
  */
 import React, { useState } from 'react';
 import {
+  Image,
+  ImageBackground,
   View,
   Text,
   TextInput,
@@ -164,6 +166,14 @@ export default function LoginScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgPrimary }]}>
+      <View style={styles.backgroundLayer} pointerEvents="none">
+        <ImageBackground
+          source={require('../../../background.png')}
+          style={styles.background}
+          imageStyle={styles.backgroundImage}
+          resizeMode="cover"
+        />
+      </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -175,7 +185,11 @@ export default function LoginScreen({ navigation }: any) {
         >
           {/* Logo */}
           <View style={styles.logoRow}>
-            <View style={[styles.logoDot, { backgroundColor: colors.accent }]} />
+            <Image
+              source={require('../../../uni_icon.png')}
+              style={styles.logoIcon}
+              resizeMode="contain"
+            />
             <Text style={[styles.logoText, { color: colors.textPrimary }]}>Unilingo</Text>
           </View>
 
@@ -453,6 +467,17 @@ export default function LoginScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  backgroundLayer: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  background: {
+    flex: 1,
+  },
+  backgroundImage: {
+    width: '100%',
+    height: '100%',
+    opacity: 0.68,
+  },
   container: {
     paddingHorizontal: 28,
     paddingTop: 20,
@@ -465,10 +490,9 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 36,
   },
-  logoDot: {
+  logoIcon: {
     width: 28,
     height: 28,
-    borderRadius: 8,
   },
   logoText: {
     fontFamily: 'PlusJakartaSans-Bold',
