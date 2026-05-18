@@ -27,6 +27,7 @@ class Settings(BaseSettings):
 
     # ─── Firebase ───
     FIREBASE_SERVICE_ACCOUNT_PATH: str = "./firebase-service-account.json"
+    FIREBASE_SERVICE_ACCOUNT_JSON: str = ""  # JSON string for cloud deploy (Railway)
 
     # ─── AI Services ───
     OPENAI_API_KEY: str = ""

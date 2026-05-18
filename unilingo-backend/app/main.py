@@ -38,13 +38,21 @@ async def lifespan(app: FastAPI):
         import firebase_admin
         from firebase_admin import credentials
         import os
+        import json
 
-        if os.path.exists(settings.FIREBASE_SERVICE_ACCOUNT_PATH):
+        if settings.FIREBASE_SERVICE_ACCOUNT_JSON:
+            # Cloud deploy: credentials from environment variable (JSON string)
+            cred_dict = json.loads(settings.FIREBASE_SERVICE_ACCOUNT_JSON)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            print("🔥 Firebase Admin SDK initialized (from env JSON)")
+        elif os.path.exists(settings.FIREBASE_SERVICE_ACCOUNT_PATH):
+            # Local dev: credentials from file
             cred = credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT_PATH)
             firebase_admin.initialize_app(cred)
-            print("🔥 Firebase Admin SDK initialized")
+            print("🔥 Firebase Admin SDK initialized (from file)")
         else:
-            print("⚠️  Firebase service account file not found, social login will be unavailable")
+            print("⚠️  Firebase service account not found, push notifications unavailable")
     except Exception as e:
         print(f"⚠️  Firebase init skipped: {e}")
 

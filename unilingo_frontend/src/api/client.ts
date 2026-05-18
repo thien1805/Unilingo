@@ -45,18 +45,16 @@ const getHostFromUrl = (url?: string) => {
 const getDefaultBaseUrl = () => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
 
-  if (Platform.OS === 'android') {
-    return envUrl && !isLoopbackUrl(envUrl) ? envUrl : 'http://10.0.1.231:8000/api/v1';
-  }
+  // If explicit non-loopback env URL is set, always use it (e.g. production)
+  if (envUrl && !isLoopbackUrl(envUrl)) return envUrl;
 
-  if (Platform.OS === 'ios') {
-    if (Constants.isDevice) {
-      const packagerUrl = getPackagerHostUrl();
-      return envUrl && !isLoopbackUrl(envUrl) ? envUrl : packagerUrl || DEFAULT_API_URL;
-    }
+  // For physical devices (Android & iOS), auto-detect the dev machine IP
+  // from the Metro bundler connection — no hardcoded IPs needed
+  const packagerUrl = getPackagerHostUrl();
+  if (packagerUrl) return packagerUrl;
 
-    return envUrl || DEFAULT_API_URL;
-  }
+  // Emulator fallbacks
+  if (Platform.OS === 'android') return 'http://10.0.2.2:8000/api/v1';
 
   return envUrl || DEFAULT_API_URL;
 };
