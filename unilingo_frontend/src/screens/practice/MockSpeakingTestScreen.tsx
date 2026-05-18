@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, CameraView } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,16 +9,27 @@ import { AppModal, useAppModal } from '../../components/common/AppModal';
 import { useThemeStore } from '../../store/themeStore';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import { useMockTestTimer } from '../../hooks/useMockTestTimer';
-import {
-  MOCK_TEST,
-  MOCK_TEST_LIMITS,
-  MockTestPart,
-  RecordedMockAnswer,
-} from '../../data/mockSpeakingTest';
+import { MockTestPart, RecordedMockAnswer } from '../../data/mockSpeakingTest';
 import { BorderRadius, Gradients, Spacing, Typography } from '../../theme';
 import { LinearGradient } from 'expo-linear-gradient';
+import apiClient from '../../api/client';
 
-type TestPhase = 'ready' | 'preparing' | 'recording' | 'completed';
+type TestPhase = 'loading' | 'ready' | 'preparing' | 'recording' | 'completed';
+
+type MockTestData = {
+  part1: string[];
+  part2: {
+    topic: string;
+    points: string[];
+    preparationTime: number;
+    speakingTime: number;
+  };
+  part3: string[];
+  limits: {
+    part1Question: number;
+    part3Question: number;
+  };
+};
 
 type ActiveQuestion = {
   part: MockTestPart;
@@ -28,18 +39,6 @@ type ActiveQuestion = {
 };
 
 const getPartLabel = (part: MockTestPart) => `Part ${part}`;
-
-const getQuestion = (part: MockTestPart, index: number) => {
-  if (part === 1) return MOCK_TEST.part1[index] || MOCK_TEST.part1[0];
-  if (part === 2) return MOCK_TEST.part2.topic;
-  return MOCK_TEST.part3[index] || MOCK_TEST.part3[0];
-};
-
-const getLimit = (part: MockTestPart) => {
-  if (part === 1) return MOCK_TEST_LIMITS.part1Question;
-  if (part === 2) return MOCK_TEST.part2.speakingTime;
-  return MOCK_TEST_LIMITS.part3Question;
-};
 
 const formatTime = (seconds: number) => {
   const minutes = Math.floor(seconds / 60);
@@ -58,20 +57,60 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
     error: recorderError,
   } = useAudioRecorder();
 
+  const [testData, setTestData] = useState<MockTestData | null>(null);
   const [part, setPart] = useState<MockTestPart>(1);
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [phase, setPhase] = useState<TestPhase>('ready');
+  const [phase, setPhase] = useState<TestPhase>('loading');
   const [recordedAnswers, setRecordedAnswers] = useState<RecordedMockAnswer[]>([]);
   const [cameraGranted, setCameraGranted] = useState<boolean | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const recordedAnswersRef = useRef<RecordedMockAnswer[]>([]);
   const activeQuestionRef = useRef<ActiveQuestion | null>(null);
   const isStoppingRef = useRef(false);
 
-  const currentQuestion = useMemo(() => getQuestion(part, questionIndex), [part, questionIndex]);
+  // Fetch mock test data from API
+  useEffect(() => {
+    let mounted = true;
+    const fetchMockTest = async () => {
+      try {
+        const response = await apiClient.get('/topics/mock-test');
+        if (mounted) {
+          setTestData(response.data);
+          setPhase('ready');
+        }
+      } catch (err: any) {
+        console.error('Failed to load mock test:', err);
+        if (mounted) {
+          setLoadError(err?.response?.data?.detail || 'Failed to load mock test questions');
+        }
+      }
+    };
+    fetchMockTest();
+    return () => { mounted = false; };
+  }, []);
+
+  // Helper functions that read from API data
+  const getQuestion = useCallback((p: MockTestPart, idx: number) => {
+    if (!testData) return '';
+    if (p === 1) return testData.part1[idx] || testData.part1[0] || '';
+    if (p === 2) return testData.part2.topic;
+    return testData.part3[idx] || testData.part3[0] || '';
+  }, [testData]);
+
+  const getLimit = useCallback((p: MockTestPart) => {
+    if (!testData) return 30;
+    if (p === 1) return testData.limits.part1Question;
+    if (p === 2) return testData.part2.speakingTime;
+    return testData.limits.part3Question;
+  }, [testData]);
+
+  const currentQuestion = useMemo(() => getQuestion(part, questionIndex), [part, questionIndex, getQuestion]);
   const currentLimit = getLimit(part);
   const isPart2 = part === 2;
-  const totalQuestions = part === 1 ? MOCK_TEST.part1.length : part === 3 ? MOCK_TEST.part3.length : 1;
+  const totalQuestions = testData
+    ? (part === 1 ? testData.part1.length : part === 3 ? testData.part3.length : 1)
+    : 1;
 
   const mascotState: AnimatedMascotState =
     phase === 'recording' ? 'speaking' : phase === 'completed' ? 'happy' : 'idle';
@@ -138,17 +177,18 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
     };
     setPhase('recording');
     startTimer(limit, stopCurrentRecording);
-  }, [part, questionIndex, recorderError, showError, startRecording, startTimer, stopCurrentRecording]);
+  }, [part, questionIndex, getQuestion, getLimit, recorderError, showError, startRecording, startTimer, stopCurrentRecording]);
 
   const startPart2Preparation = useCallback(() => {
+    if (!testData) return;
     stopTimer();
     setPart(2);
     setQuestionIndex(0);
     setPhase('preparing');
-    startTimer(MOCK_TEST.part2.preparationTime, () => {
+    startTimer(testData.part2.preparationTime, () => {
       startQuestionRecording(2, 0);
     });
-  }, [startQuestionRecording, startTimer, stopTimer]);
+  }, [testData, startQuestionRecording, startTimer, stopTimer]);
 
   const finishTest = useCallback(() => {
     stopTimer();
@@ -158,14 +198,14 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
   }, [navigation, stopTimer]);
 
   const handleNext = useCallback(() => {
-    if (phase !== 'completed') return;
+    if (phase !== 'completed' || !testData) return;
 
     if (part === 1) {
       const nextIndex = questionIndex + 1;
-      if (nextIndex < MOCK_TEST.part1.length) {
+      if (nextIndex < testData.part1.length) {
         setQuestionIndex(nextIndex);
         setPhase('ready');
-        resetTimer(MOCK_TEST_LIMITS.part1Question);
+        resetTimer(testData.limits.part1Question);
       } else {
         startPart2Preparation();
       }
@@ -176,19 +216,19 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
       setPart(3);
       setQuestionIndex(0);
       setPhase('ready');
-      resetTimer(MOCK_TEST_LIMITS.part3Question);
+      resetTimer(testData.limits.part3Question);
       return;
     }
 
     const nextIndex = questionIndex + 1;
-    if (nextIndex < MOCK_TEST.part3.length) {
+    if (nextIndex < testData.part3.length) {
       setQuestionIndex(nextIndex);
       setPhase('ready');
-      resetTimer(MOCK_TEST_LIMITS.part3Question);
+      resetTimer(testData.limits.part3Question);
     } else {
       finishTest();
     }
-  }, [finishTest, part, phase, questionIndex, resetTimer, startPart2Preparation]);
+  }, [finishTest, testData, part, phase, questionIndex, resetTimer, startPart2Preparation]);
 
   const handleEndTest = useCallback(() => {
     showConfirm(
@@ -213,6 +253,36 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
     };
   }, [stopTimer]);
 
+  // Loading state
+  if (phase === 'loading' || !testData) {
+    return (
+      <AppBackground>
+        <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
+          {loadError ? (
+            <View style={{ alignItems: 'center', gap: 16, paddingHorizontal: 40 }}>
+              <Ionicons name="cloud-offline-outline" size={48} color={colors.error} />
+              <Text style={[Typography.bodyMedium, { color: colors.error, textAlign: 'center' }]}>
+                {loadError}
+              </Text>
+              <TouchableOpacity onPress={() => navigation.goBack()}>
+                <LinearGradient colors={Gradients.primary} style={styles.primaryButton}>
+                  <Text style={styles.primaryButtonText}>Go Back</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ alignItems: 'center', gap: 16 }}>
+              <ActivityIndicator size="large" color={colors.accent} />
+              <Text style={[Typography.bodySm, { color: colors.textSecondary }]}>
+                Loading mock test questions...
+              </Text>
+            </View>
+          )}
+        </SafeAreaView>
+      </AppBackground>
+    );
+  }
+
   const phaseLabel = (() => {
     if (phase === 'preparing') return 'Preparation time';
     if (phase === 'recording') return 'Recording';
@@ -221,10 +291,10 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
   })();
 
   const nextButtonLabel = (() => {
-    if (part === 1 && questionIndex < MOCK_TEST.part1.length - 1) return 'Next Question';
+    if (part === 1 && questionIndex < testData.part1.length - 1) return 'Next Question';
     if (part === 1) return 'Next Part';
     if (part === 2) return 'Next Part';
-    if (part === 3 && questionIndex < MOCK_TEST.part3.length - 1) return 'Next Question';
+    if (part === 3 && questionIndex < testData.part3.length - 1) return 'Next Question';
     return 'Finish Test';
   })();
 
@@ -319,13 +389,13 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
             {isPart2 && (
               <View style={[styles.cueBox, { backgroundColor: colors.accentBg }]}>
                 <Text style={[Typography.bodyMedium, { color: colors.textPrimary }]}>You should say:</Text>
-                {MOCK_TEST.part2.points.map((point) => (
+                {testData.part2.points.map((point) => (
                   <View key={point} style={styles.cuePoint}>
                     <Text style={[Typography.bodySm, { color: colors.textPrimary }]}>• {point}</Text>
                   </View>
                 ))}
                 <Text style={[Typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
-                  Preparation: {MOCK_TEST.part2.preparationTime}s • Speaking: {MOCK_TEST.part2.speakingTime}s
+                  Preparation: {testData.part2.preparationTime}s • Speaking: {testData.part2.speakingTime}s
                 </Text>
               </View>
             )}

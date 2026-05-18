@@ -19,6 +19,63 @@ from app.schemas.topic import (
 router = APIRouter(prefix="/topics", tags=["Topics"])
 
 
+@router.get("/mock-test")
+async def get_mock_test(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get a full mock speaking test (part1 + part2 + part3) from the database."""
+    # Fetch all mock_test topics with their questions
+    result = await db.execute(
+        select(Topic)
+        .options(selectinload(Topic.questions))
+        .where(Topic.category == "mock_test", Topic.is_active == True)
+        .order_by(Topic.order_index)
+    )
+    topics = result.scalars().all()
+
+    part1_questions = []
+    part2_data = None
+    part3_questions = []
+
+    for topic in topics:
+        active_qs = sorted([q for q in topic.questions if q.is_active], key=lambda q: q.order_index)
+        if topic.ielts_part == "part1":
+            part1_questions.extend([q.question_text for q in active_qs])
+        elif topic.ielts_part == "part2" and active_qs:
+            q = active_qs[0]
+            # Parse cue card points from cue_card_content
+            points = []
+            if q.cue_card_content:
+                for line in q.cue_card_content.split("\n"):
+                    line = line.strip()
+                    if line.startswith("- "):
+                        points.append(line[2:])
+            part2_data = {
+                "topic": q.question_text,
+                "points": points,
+                "preparationTime": 60,
+                "speakingTime": 120,
+            }
+        elif topic.ielts_part == "part3":
+            part3_questions.extend([q.question_text for q in active_qs])
+
+    return {
+        "part1": part1_questions,
+        "part2": part2_data or {
+            "topic": "No Part 2 topic available",
+            "points": [],
+            "preparationTime": 60,
+            "speakingTime": 120,
+        },
+        "part3": part3_questions,
+        "limits": {
+            "part1Question": 30,
+            "part3Question": 45,
+        },
+    }
+
+
 @router.get("", response_model=TopicListResponse)
 async def list_topics(
     ielts_part: str | None = Query(None, pattern=r"^(part1|part2|part3)$"),
