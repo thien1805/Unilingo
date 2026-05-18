@@ -1,0 +1,87 @@
+unilingo-api  | INFO:     Will watch for changes in these directories: ['/code']
+unilingo-api  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+unilingo-api  | INFO:     Started reloader process [1] using WatchFiles
+unilingo-api  | INFO:     Started server process [8]
+unilingo-api  | INFO:     Waiting for application startup.
+unilingo-api  | 🚀 Starting Unilingo v1.0.0
+unilingo-api  | 2026-05-18 14:43:28,296 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+unilingo-api  | 2026-05-18 14:43:28,296 INFO sqlalchemy.engine.Engine [raw sql] ()
+unilingo-api  | 2026-05-18 14:43:28,298 INFO sqlalchemy.engine.Engine select current_schema()
+unilingo-api  | 2026-05-18 14:43:28,298 INFO sqlalchemy.engine.Engine [raw sql] ()
+unilingo-api  | 2026-05-18 14:43:28,298 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+unilingo-api  | 2026-05-18 14:43:28,298 INFO sqlalchemy.engine.Engine [raw sql] ()
+unilingo-api  | 2026-05-18 14:43:28,299 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+unilingo-api  | 2026-05-18 14:43:28,301 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,301 INFO sqlalchemy.engine.Engine [generated in 0.00010s] ('users', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,304 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,304 INFO sqlalchemy.engine.Engine [cached since 0.00286s ago] ('user_devices', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,304 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,304 INFO sqlalchemy.engine.Engine [cached since 0.003242s ago] ('notification_settings', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,304 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,304 INFO sqlalchemy.engine.Engine [cached since 0.003551s ago] ('daily_streaks', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,305 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,305 INFO sqlalchemy.engine.Engine [cached since 0.003852s ago] ('test_attempts', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,305 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,305 INFO sqlalchemy.engine.Engine [cached since 0.004156s ago] ('attempt_parts', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,305 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,305 INFO sqlalchemy.engine.Engine [cached since 0.004457s ago] ('ai_scoring_results', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,306 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,306 INFO sqlalchemy.engine.Engine [cached since 0.004663s ago] ('topics', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,306 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,306 INFO sqlalchemy.engine.Engine [cached since 0.004881s ago] ('questions', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,306 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,306 INFO sqlalchemy.engine.Engine [cached since 0.005081s ago] ('vocabulary_notes', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,306 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,306 INFO sqlalchemy.engine.Engine [cached since 0.005269s ago] ('vocabulary_tags', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,306 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,306 INFO sqlalchemy.engine.Engine [cached since 0.005437s ago] ('flashcard_decks', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,306 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,306 INFO sqlalchemy.engine.Engine [cached since 0.00562s ago] ('flashcards', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,307 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,307 INFO sqlalchemy.engine.Engine [cached since 0.005813s ago] ('flashcard_reviews', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,307 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,307 INFO sqlalchemy.engine.Engine [cached since 0.005989s ago] ('leaderboard_cache', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,307 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,307 INFO sqlalchemy.engine.Engine [cached since 0.006146s ago] ('blog_posts', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,307 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,307 INFO sqlalchemy.engine.Engine [cached since 0.006307s ago] ('notification_campaigns', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,307 INFO sqlalchemy.engine.Engine SELECT pg_catalog.pg_class.relname 
+unilingo-api  | FROM pg_catalog.pg_class JOIN pg_catalog.pg_namespace ON pg_catalog.pg_namespace.oid = pg_catalog.pg_class.relnamespace 
+unilingo-api  | WHERE pg_catalog.pg_class.relname = $1::VARCHAR AND pg_catalog.pg_class.relkind = ANY (ARRAY[$2::VARCHAR, $3::VARCHAR, $4::VARCHAR, $5::VARCHAR, $6::VARCHAR]) AND pg_catalog.pg_table_is_visible(pg_catalog.pg_class.oid) AND pg_catalog.pg_namespace.nspname != $7::VARCHAR
+unilingo-api  | 2026-05-18 14:43:28,307 INFO sqlalchemy.engine.Engine [cached since 0.006486s ago] ('user_notifications', 'r', 'p', 'f', 'v', 'm', 'pg_catalog')
+unilingo-api  | 2026-05-18 14:43:28,308 INFO sqlalchemy.engine.Engine COMMIT
+unilingo-api  | INFO:     Application startup complete.

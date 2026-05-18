@@ -28,13 +28,10 @@ export default function AuthChoiceScreen({ navigation }: Props) {
           resizeMode="contain"
         />
 
-        <Text style={styles.title}>{'\n'}UNILINGO</Text>
+        <Text style={styles.title}>UNILINGO</Text>
         <Text style={styles.subtitle}>Learn each day, speak your way</Text>
 
-        <View style={styles.dots}>
-          <View style={[styles.dot, styles.activeDot]} />
-          <View style={styles.dot} />
-        </View>
+
       </View>
 
       <View style={styles.buttonContainer}>
@@ -78,11 +75,14 @@ const styles = StyleSheet.create({
     color: '#3151C6',
   },
   icon: {
-    width: 400,
-    height: 300,
-    marginBottom: 2,
+    width: '100%',
+    maxWidth: 240,
+    height: 200,
+    flexShrink: 1,
+    marginBottom: 0,
   },
   title: {
+    marginTop: 10,
     fontSize: 38,
     lineHeight: 48,
     fontWeight: '900',
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#334155',
     textAlign: 'center',
-    letterSpacing: 1.5,
+    width: '100%',
   },
   dots: {
     flexDirection: 'row',

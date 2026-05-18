@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator, Platform } from 'react-native';
+import { registerDeviceForPush } from '../services/NotificationService';
 
 import { useThemeStore } from '../store/themeStore';
 import { useAuthStore } from '../store/authStore';
@@ -148,6 +149,12 @@ function MainTabNavigator() {
 export default function RootNavigator() {
   const { isAuthenticated, isLoading } = useAuthStore();
   const { colors } = useThemeStore();
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      registerDeviceForPush();
+    }
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (

@@ -12,7 +12,7 @@ import { vocabularyAPI, DictionaryResult } from '../../api/vocabulary';
 import { Card, PrimaryButton, OutlineButton, Badge, ScoreBar } from '../../components/common';
 import { Gradients, Typography, BorderRadius } from '../../theme';
 
-const TABS = ['📜 Script', '💡 Feedback', '📝 Sample', '🔤 Grammar'];
+const TABS = ['Script', 'Feedback', 'Sample', 'Grammar'];
 
 export default function ResultsScreen({ navigation, route }: any) {
   const { attemptId, ieltsPart, topicTitle } = route.params;

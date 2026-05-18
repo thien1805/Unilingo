@@ -45,3 +45,4 @@ Thumbs.db
 
 # Backend Uploads
 unilingo-backend/app/uploads/
+unilingo-backend/firebase-service-account.json

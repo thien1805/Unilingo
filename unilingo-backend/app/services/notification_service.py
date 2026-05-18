@@ -32,30 +32,86 @@ def send_push_to_tokens(
     if not cleaned_tokens:
         return {"sent": 0, "failed": 0, "skipped": True, "reason": "no_tokens"}
 
-    try:
-        import firebase_admin
-        from firebase_admin import messaging
-    except Exception as exc:
-        return {"sent": 0, "failed": 0, "skipped": True, "reason": str(exc)}
+    expo_tokens = [t for t in cleaned_tokens if t.startswith("ExponentPushToken[") or t.startswith("ExpoPushToken[")]
+    fcm_tokens = [t for t in cleaned_tokens if t not in expo_tokens]
 
-    if not getattr(firebase_admin, "_apps", None):
-        return {"sent": 0, "failed": 0, "skipped": True, "reason": "firebase_not_initialized"}
+    sent = 0
+    failed = 0
+    skipped = False
+    reasons = []
 
-    try:
-        message = messaging.MulticastMessage(
-            tokens=cleaned_tokens,
-            notification=messaging.Notification(title=title, body=body),
-            data=_stringify_data(data),
-        )
-        response = messaging.send_each_for_multicast(message)
-        return {
-            "sent": response.success_count,
-            "failed": response.failure_count,
-            "skipped": False,
-            "reason": None,
-        }
-    except Exception as exc:
-        return {"sent": 0, "failed": len(cleaned_tokens), "skipped": False, "reason": str(exc)}
+    if expo_tokens:
+        try:
+            import httpx
+            messages = [{
+                "to": t,
+                "title": title,
+                "body": body,
+                "data": _stringify_data(data),
+                "sound": "default",
+                "priority": "high"
+            } for t in expo_tokens]
+            
+            with httpx.Client() as client:
+                res = client.post("https://exp.host/--/api/v2/push/send", json=messages)
+                res_data = res.json()
+                if isinstance(res_data, dict) and "data" in res_data:
+                    for receipt in res_data["data"]:
+                        if receipt.get("status") == "ok":
+                            sent += 1
+                        else:
+                            failed += 1
+                else:
+                    failed += len(expo_tokens)
+        except Exception as e:
+            failed += len(expo_tokens)
+            reasons.append(str(e))
+
+    if fcm_tokens:
+        try:
+            import firebase_admin
+            from firebase_admin import messaging
+            
+            if getattr(firebase_admin, "_apps", None):
+                message = messaging.MulticastMessage(
+                    tokens=fcm_tokens,
+                    notification=messaging.Notification(title=title, body=body),
+                    data=_stringify_data(data),
+                    android=messaging.AndroidConfig(
+                        priority="high",
+                        notification=messaging.AndroidNotification(
+                            sound="default",
+                            channel_id="default"
+                        )
+                    ),
+                    apns=messaging.APNSConfig(
+                        payload=messaging.APNSPayload(
+                            aps=messaging.Aps(
+                                sound="default",
+                                content_available=True,
+                            )
+                        )
+                    )
+                )
+                response = messaging.send_each_for_multicast(message)
+                sent += response.success_count
+                failed += response.failure_count
+            else:
+                failed += len(fcm_tokens)
+                reasons.append("firebase_not_initialized")
+        except Exception as exc:
+            failed += len(fcm_tokens)
+            reasons.append(str(exc))
+
+    if not sent and not failed:
+        skipped = True
+
+    return {
+        "sent": sent,
+        "failed": failed,
+        "skipped": skipped,
+        "reason": "; ".join(reasons) if reasons else None,
+    }
 
 
 def preference_conditions(notification_type: str, category: str | None):
