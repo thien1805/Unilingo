@@ -33,6 +33,13 @@ const MASTERY_COLORS: Record<string, string> = {
   mastered: '#10B981',
 };
 
+const MASTERY_BACKGROUNDS: Record<string, string> = {
+  new: '#E0F2FE',
+  learning: '#FEF3C7',
+  reviewing: '#FEF3C7',
+  mastered: '#D1FAE5',
+};
+
 export default function VocabularyScreen({ navigation }: any) {
   const { colors } = useThemeStore();
   const { modal, hideModal, showError, showSuccess, showInfo } = useAppModal();
@@ -299,7 +306,7 @@ export default function VocabularyScreen({ navigation }: any) {
                 : ''}
           </Text>
         </View>
-        <View style={[styles.masteryChip, { backgroundColor: MASTERY_COLORS[item.mastery_level] + '20' }]}>
+        <View style={[styles.masteryChip, { backgroundColor: MASTERY_BACKGROUNDS[item.mastery_level] || colors.skyBg }]}>
           <Text style={[styles.masteryText, { color: MASTERY_COLORS[item.mastery_level] }]}>{item.mastery_level}</Text>
         </View>
       </TouchableOpacity>
@@ -343,7 +350,7 @@ export default function VocabularyScreen({ navigation }: any) {
             <Text style={styles.flashcardBannerTitle}>Flashcards</Text>
             <Text style={styles.flashcardBannerDesc}>Study with spaced repetition</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.7)" />
+          <Ionicons name="chevron-forward" size={18} color="#1F2937" />
         </LinearGradient>
       </TouchableOpacity>
 
@@ -606,7 +613,7 @@ export default function VocabularyScreen({ navigation }: any) {
                   
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 16, gap: 8 }}>
                     <Text style={[styles.pos, { color: colors.textSecondary, marginBottom: 0, fontStyle: 'normal' }]}>Mastery:</Text>
-                    <View style={[styles.masteryChip, { backgroundColor: MASTERY_COLORS[selectedWord.mastery_level] + '20', alignSelf: 'flex-start' }]}>
+                    <View style={[styles.masteryChip, { backgroundColor: MASTERY_BACKGROUNDS[selectedWord.mastery_level] || colors.skyBg, alignSelf: 'flex-start' }]}>
                       <Text style={[styles.masteryText, { color: MASTERY_COLORS[selectedWord.mastery_level] }]}>{selectedWord.mastery_level}</Text>
                     </View>
                   </View>
@@ -632,10 +639,10 @@ const styles = StyleSheet.create({
   dictBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   flashcardBanner: { marginHorizontal: 20, borderRadius: 14, overflow: 'hidden', marginBottom: 14 },
   flashcardBannerGradient: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14 },
-  flashcardBannerIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  flashcardBannerTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15, color: '#fff', marginBottom: 2 },
-  flashcardBannerDesc: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 11, color: 'rgba(255,255,255,0.75)' },
-  dictBtnText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 13, color: '#fff' },
+  flashcardBannerIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFF7D6', alignItems: 'center', justifyContent: 'center' },
+  flashcardBannerTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15, color: '#1F2937', marginBottom: 2 },
+  flashcardBannerDesc: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 11, color: '#475569' },
+  dictBtnText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 13, color: '#1F2937' },
   searchBar: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, paddingHorizontal: 14, borderWidth: 1, marginHorizontal: 20, marginBottom: 14 },
   searchInput: { flex: 1, paddingVertical: 12, fontFamily: 'PlusJakartaSans-Regular', fontSize: 14 },
   filterRow: {
@@ -682,11 +689,11 @@ const styles = StyleSheet.create({
   defText: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 14, lineHeight: 20 },
   exampleText: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 13, fontStyle: 'italic', marginTop: 4, lineHeight: 18 },
   addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 48, borderRadius: 24, marginTop: 16 },
-  addBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15, color: '#fff' },
+  addBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15, color: '#1F2937' },
   addToDeckBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 48, borderRadius: 24, marginTop: 10, borderWidth: 1.5 },
   addToDeckBtnText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 15 },
   // Deck Picker
-  deckPickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  deckPickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#111827' },
   deckPickerCard: { borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, padding: 24, paddingBottom: 40 },
   deckPickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   deckPickerTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 20 },

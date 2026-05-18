@@ -77,7 +77,7 @@ export default function PracticeHistoryScreen({ navigation }: any) {
   const getStatusStyle = (status: string) => {
     switch (status) {
       case 'completed': return { bg: colors.successBg, text: colors.success, label: 'Completed', icon: 'checkmark-circle' as const };
-      case 'scoring': return { bg: colors.warningBg, text: colors.warning, label: 'Scoring...', icon: 'hourglass' as const };
+      case 'scoring': return { bg: colors.warningBg, text: colors.warning, label: 'Scoring...', icon: 'time-outline' as const };
       case 'in_progress': return { bg: colors.skyBg, text: colors.sky, label: 'In Progress', icon: 'play-circle' as const };
       default: return { bg: colors.errorBg, text: colors.error, label: status, icon: 'alert-circle' as const };
     }

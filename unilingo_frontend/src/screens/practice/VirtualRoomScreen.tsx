@@ -710,7 +710,7 @@ const styles = StyleSheet.create({
     width: 80, height: 80, borderRadius: 40,
     alignSelf: 'center', alignItems: 'center', justifyContent: 'center',
     marginVertical: 10,
-    shadowColor: '#3350B2', shadowOffset: { width: 0, height: 0 },
+    shadowColor: '#F6D85F', shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3, shadowRadius: 20, elevation: 8,
   },
   cueCard: { borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1 },
@@ -720,7 +720,7 @@ const styles = StyleSheet.create({
   },
   noteHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)',
+    marginBottom: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
   },
   noteInput: { flex: 1, fontSize: 15, lineHeight: 22, minHeight: 60 },
   recordingSection: { alignItems: 'center', paddingVertical: 10 },

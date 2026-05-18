@@ -29,6 +29,9 @@ import VirtualRoomScreen from '../screens/practice/VirtualRoomScreen';
 import RecordingScreen from '../screens/practice/RecordingScreen';
 import ResultsScreen from '../screens/practice/ResultsScreen';
 import PracticeHistoryScreen from '../screens/practice/PracticeHistoryScreen';
+import MockTestIntroScreen from '../screens/practice/MockTestIntroScreen';
+import MockSpeakingTestScreen from '../screens/practice/MockSpeakingTestScreen';
+import MockTestResultScreen from '../screens/practice/MockTestResultScreen';
 import VocabularyScreen from '../screens/vocabulary/VocabularyScreen';
 import LeaderboardScreen from '../screens/leaderboard/LeaderboardScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
@@ -50,7 +53,17 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
-const PracticeStack = createNativeStackNavigator();
+export type PracticeStackParamList = {
+  PracticeMain: undefined;
+  VirtualRoom: any;
+  Recording: any;
+  Results: any;
+  PracticeHistory: undefined;
+  MockTestIntro: undefined;
+  MockSpeakingTest: undefined;
+  MockTestResult: any;
+};
+const PracticeStack = createNativeStackNavigator<PracticeStackParamList>();
 const ProfileStack = createNativeStackNavigator();
 const VocabStack = createNativeStackNavigator();
 
@@ -74,6 +87,9 @@ function PracticeStackNavigator() {
       <PracticeStack.Screen name="Recording" component={RecordingScreen} />
       <PracticeStack.Screen name="Results" component={ResultsScreen} />
       <PracticeStack.Screen name="PracticeHistory" component={PracticeHistoryScreen} />
+      <PracticeStack.Screen name="MockTestIntro" component={MockTestIntroScreen} />
+      <PracticeStack.Screen name="MockSpeakingTest" component={MockSpeakingTestScreen} />
+      <PracticeStack.Screen name="MockTestResult" component={MockTestResultScreen} />
     </PracticeStack.Navigator>
   );
 }

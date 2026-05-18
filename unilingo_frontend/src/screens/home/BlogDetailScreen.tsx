@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingBottom: 24,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(150,150,150,0.2)'
+    borderBottomColor: '#E5E7EB'
   },
   authorAvatar: { 
     width: 40, height: 40, 

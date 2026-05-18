@@ -312,7 +312,7 @@ export default function RegisterScreen({ navigation }: any) {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.bgPrimary }]}>
-            <View style={[styles.iconCircle, { backgroundColor: colors.success + '20' }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.successBg }]}>
               <Ionicons name="checkmark-circle" size={48} color={colors.success || '#10B981'} />
             </View>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
@@ -344,7 +344,7 @@ export default function RegisterScreen({ navigation }: any) {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.bgPrimary }]}>
-            <View style={[styles.iconCircle, { backgroundColor: colors.error + '20' }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.errorBg }]}>
               <Ionicons name="close-circle" size={48} color={colors.error || '#EF4444'} />
             </View>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
     marginBottom: 20,
-    shadowColor: '#3350B2',
+    shadowColor: '#F6D85F',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
   mainBtnText: {
     fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 16,
-    color: '#fff',
+    color: '#1F2937',
     lineHeight: 24,
     includeFontPadding: false,
     paddingRight: 4,
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: '#111827',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#3350B2',
+    shadowColor: '#F6D85F',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 10,

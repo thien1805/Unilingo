@@ -218,8 +218,8 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.dailyTop}>
             <View style={styles.ringContainer}>
               <Svg width={76} height={76}>
-                <Circle cx={38} cy={38} r={radius} fill="rgba(255,255,255,0.45)" stroke="none" />
-                <Circle cx={38} cy={38} r={radius} fill="none" stroke="rgba(246,216,95,0.38)" strokeWidth={6} />
+                <Circle cx={38} cy={38} r={radius} fill="#FFF7D6" stroke="none" />
+                <Circle cx={38} cy={38} r={radius} fill="none" stroke="#FDE68A" strokeWidth={6} />
                 <Circle
                   cx={38} cy={38} r={radius}
                   fill="none" stroke="#F6D85F" strokeWidth={6}
@@ -530,10 +530,9 @@ const styles = StyleSheet.create({
   activityScroll: { gap: 12, paddingBottom: 8 },
   activityCard: { width: 185, padding: 16, borderRadius: 16, borderWidth: 1 },
   activityTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  statusBadge: { alignSelf: 'flex-start' },
+  statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
   partBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   partBadgeText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 11 },
-  statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
   bandScore: { fontFamily: 'PlusJakartaSans-ExtraBold', fontSize: 22 },
   activityTitle: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 14, marginBottom: 12 },
   activityBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },

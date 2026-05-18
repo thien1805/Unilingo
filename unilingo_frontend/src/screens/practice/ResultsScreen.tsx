@@ -189,7 +189,7 @@ export default function ResultsScreen({ navigation, route }: any) {
         <View style={styles.bandDisplay}>
           <LinearGradient colors={Gradients.primary} style={styles.bandCircle}>
             <Text style={[Typography.bandScore, { color: '#fff' }]}>{overall.toFixed(1)}</Text>
-            <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>Overall</Text>
+            <Text style={{ fontSize: 11, color: '#1F2937', marginTop: 2 }}>Overall</Text>
           </LinearGradient>
           <Text style={[Typography.h3, { color: colors.success, marginTop: 10 }]}>{comment}</Text>
           {feedback?.summary && (
@@ -218,11 +218,11 @@ export default function ResultsScreen({ navigation, route }: any) {
         {/* XP Prominent Display */}
         {r.xp_earned > 0 && (
           <LinearGradient 
-            colors={['rgba(245, 158, 11, 0.1)', 'rgba(245, 158, 11, 0.05)']} 
-            style={{ borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(245, 158, 11, 0.3)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+            colors={['#FEF3C7', '#FDE68A']} 
+            style={{ borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#F59E0B', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(245, 158, 11, 0.2)', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF7D6', alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontSize: 24 }}>⭐</Text>
               </View>
               <View>
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
   bandCircle: {
     width: 116, height: 116, borderRadius: 58,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#3350B2', shadowOffset: { width: 0, height: 0 },
+    shadowColor: '#F6D85F', shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3, shadowRadius: 20, elevation: 8,
   },
   tabs: { flexDirection: 'row', borderRadius: 12, padding: 3, marginVertical: 14 },
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
   grammarRow: { gap: 6 },
   grammarOriginal: { padding: 10, borderRadius: 8 },
   grammarCorrected: { padding: 10, borderRadius: 8 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 30, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 30, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   modalTitle: { fontSize: 20, fontWeight: '700' },
   dictCard: { borderRadius: 12, padding: 16, borderWidth: 1 },
   dictWordRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },

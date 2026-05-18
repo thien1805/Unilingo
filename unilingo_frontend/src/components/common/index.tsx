@@ -12,11 +12,12 @@ import {
   TextStyle,
   ActivityIndicator,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { Gradients, BorderRadius, Spacing, Typography } from '../../theme';
+export { default as AnimatedMascot } from './AnimatedMascot';
+export type { AnimatedMascotState } from './AnimatedMascot';
 
 // ─── Primary Gradient Button ───
 interface ButtonProps {
@@ -184,33 +185,25 @@ interface CardProps {
 
 export const Card: React.FC<CardProps> = ({ children, style, onPress }) => {
   const { colors } = useThemeStore();
-  const glassTint = colors.textPrimary === '#F1F5F9'
-    ? 'rgba(15,23,42,0.28)'
-    : 'rgba(255,255,255,0.18)';
-
   const cardShell: ViewStyle = {
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
-    borderColor: colors.borderAccent,
+    borderColor: colors.border,
+    backgroundColor: colors.bgCard,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.10,
-    shadowRadius: 18,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
   };
 
   const cardContent: ViewStyle = {
     padding: Spacing.lg,
-    backgroundColor: glassTint,
+    backgroundColor: colors.bgCard,
   };
 
-  const content = (
-    <>
-      <BlurView intensity={28} tint={colors.textPrimary === '#F1F5F9' ? 'dark' : 'light'} style={StyleSheet.absoluteFillObject} />
-      <View style={[cardContent, style]}>{children}</View>
-    </>
-  );
+  const content = <View style={[cardContent, style]}>{children}</View>;
 
   if (onPress) {
     return (
@@ -377,14 +370,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#3350B2',
+    shadowColor: '#F6D85F',
     shadowOffset: { width: 0, height: 6 }, // Softer, deeper shadow
     shadowOpacity: 0.2, // More subtle
     shadowRadius: 20,
     elevation: 6,
   },
   primaryBtnText: {
-    color: '#fff',
+    color: '#1F2937',
     ...Typography.button,
   },
   outlineBtn: {

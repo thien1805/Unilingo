@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
   levelChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
   levelText: { fontFamily: 'PlusJakartaSans-Medium', fontSize: 12 },
   saveBtn: { height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  saveBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15, color: '#fff' },
+  saveBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15, color: '#1F2937' },
   pwdToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pwdInputRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, paddingBottom: 8 },
   settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },

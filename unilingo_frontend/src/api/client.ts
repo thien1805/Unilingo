@@ -33,15 +33,6 @@ const getPackagerHostUrl = () => {
   return `http://${host}:8000/api/v1`;
 };
 
-const getHostFromUrl = (url?: string) => {
-  if (!url) return null;
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return null;
-  }
-};
-
 const getDefaultBaseUrl = () => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
 
@@ -60,6 +51,10 @@ const getDefaultBaseUrl = () => {
 };
 
 const BASE_URL = getDefaultBaseUrl();
+
+if (__DEV__) {
+  console.log(`[API] BASE_URL=${BASE_URL}`);
+}
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
