@@ -16,6 +16,7 @@ import { blogAPI, BlogPost } from '../../api/blog';
 import { Typography } from '../../theme';
 import Markdown from 'react-native-markdown-display';
 import AppBackground from '../../components/common/AppBackground';
+import MascotIcon from '../../components/common/MascotIcon';
 
 const { width } = Dimensions.get('window');
 
@@ -108,7 +109,7 @@ export default function BlogDetailScreen({ route, navigation }: any) {
 
           <View style={styles.authorRow}>
             <View style={[styles.authorAvatar, { backgroundColor: colors.bgInput }]}>
-               <Text style={{ fontSize: 16 }}>{post.author_avatar || '📝'}</Text>
+              <MascotIcon mood="idle" size={24} />
             </View>
             <View>
               <Text style={[Typography.bodySm, { color: colors.textPrimary, fontWeight: 'bold' }]}>

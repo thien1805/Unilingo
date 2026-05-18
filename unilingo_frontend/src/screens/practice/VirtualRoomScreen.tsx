@@ -23,7 +23,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useThemeStore } from '../../store/themeStore';
 import { practiceAPI } from '../../api/practice';
-import { Card, OutlineButton } from '../../components/common';
+import { Card, MascotIcon, OutlineButton } from '../../components/common';
 import { AppModal, useAppModal } from '../../components/common/AppModal';
 import { Gradients, Typography } from '../../theme';
 import AppBackground from '../../components/common/AppBackground';
@@ -562,7 +562,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* AI Examiner Avatar */}
         <LinearGradient colors={Gradients.primary} style={styles.examinerAvatar}>
-          <Text style={{ fontSize: 42 }}>{isSpeaking ? '🗣️' : '🤖'}</Text>
+          <MascotIcon mood={isSpeaking ? 'closedEyes' : 'idle'} size={58} />
         </LinearGradient>
 
         {/* Phase indicator */}
@@ -571,11 +571,11 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
           textAlign: 'center', marginBottom: 8, textTransform: 'uppercase',
           letterSpacing: 1, fontWeight: '700',
         }]}>
-          {phase === 'intro' || phase === 'asking' ? '🎧 Examiner Speaking...'
-            : phase === 'prep' ? `📝 Preparation Time — ${formatTime(prepTime)}`
-            : phase === 'recording' ? `🔴 Recording — Q${currentIdx + 1}/${questions.length}`
-            : phase === 'transition' ? '💬 Transitioning...'
-            : phase === 'complete' ? '✅ Exam Complete' : ''}
+          {phase === 'intro' || phase === 'asking' ? 'Examiner Speaking...'
+            : phase === 'prep' ? `Preparation Time - ${formatTime(prepTime)}`
+            : phase === 'recording' ? `Recording - Q${currentIdx + 1}/${questions.length}`
+            : phase === 'transition' ? 'Transitioning...'
+            : phase === 'complete' ? 'Exam Complete' : ''}
         </Text>
 
         {/* Question Card */}
@@ -598,7 +598,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
         {/* Cue Card (Part 2) */}
         {cueCard && (
           <View style={[styles.cueCard, { backgroundColor: colors.accentBg, borderColor: colors.borderAccent }]}>
-            <Text style={[Typography.label, { color: colors.accent, marginBottom: 6 }]}>📋 Cue Card</Text>
+            <Text style={[Typography.label, { color: colors.accent, marginBottom: 6 }]}>Cue Card</Text>
             <Text style={[Typography.bodySm, { color: colors.textSecondary, marginBottom: 6 }]}>
               {cueCard.prompt || 'You should say:'}
             </Text>
@@ -615,7 +615,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
         {showNotes && (
           <View style={[styles.noteContainer, { backgroundColor: colors.bgInput, borderColor: colors.border }]}>
             <View style={styles.noteHeader}>
-              <Text style={[Typography.label, { color: colors.textSecondary }]}>📝 Your Notes</Text>
+              <Text style={[Typography.label, { color: colors.textSecondary }]}>Your Notes</Text>
               <TouchableOpacity onPress={() => setShowNotes(false)}>
                 <Ionicons name="close" size={18} color={colors.textMuted} />
               </TouchableOpacity>

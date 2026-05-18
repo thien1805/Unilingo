@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import apiClient from '../../api/client';
 import { usersAPI } from '../../api/users';
 import { ScrollView } from 'react-native';
+import MascotIcon from './MascotIcon';
 
 interface CommitmentModalProps {
   visible: boolean;
@@ -18,9 +19,9 @@ export const StreakModal: React.FC<CommitmentModalProps> = ({ visible, onClose }
   const [targetBand, setTargetBand] = useState<number>(7.0);
 
   const goals = [
-    { days: 7, xp: 20, emoji: '🔥', title: '7 Days', subtitle: 'Starter Goal' },
-    { days: 14, xp: 50, emoji: '🚀', title: '14 Days', subtitle: 'Dedicated' },
-    { days: 30, xp: 120, emoji: '💎', title: '30 Days', subtitle: 'Master' },
+    { days: 7, xp: 20, mood: 'cheer' as const, title: '7 Days', subtitle: 'Starter Goal' },
+    { days: 14, xp: 50, mood: 'jump' as const, title: '14 Days', subtitle: 'Dedicated' },
+    { days: 30, xp: 120, mood: 'happy' as const, title: '30 Days', subtitle: 'Master' },
   ];
 
   const handleCommit = async () => {
@@ -101,7 +102,9 @@ export const StreakModal: React.FC<CommitmentModalProps> = ({ visible, onClose }
                     }
                   ]}
                 >
-                  <Text style={styles.goalEmoji}>{goal.emoji}</Text>
+                  <View style={styles.goalIcon}>
+                    <MascotIcon mood={goal.mood} size={30} />
+                  </View>
                   <View style={styles.goalInfo}>
                     <Text style={[styles.goalTitle, { color: colors.textPrimary }]}>{goal.title}</Text>
                     <Text style={[styles.goalSubtitle, { color: colors.textMuted }]}>{goal.subtitle}</Text>
@@ -202,8 +205,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
   },
-  goalEmoji: {
-    fontSize: 28,
+  goalIcon: {
     marginRight: 16,
   },
   goalInfo: {

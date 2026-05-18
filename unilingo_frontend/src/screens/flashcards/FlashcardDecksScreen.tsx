@@ -19,8 +19,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { flashcardsAPI, FlashcardDeck } from '../../api/flashcards';
 import { AppModal, useAppModal } from '../../components/common/AppModal';
 import AppBackground from '../../components/common/AppBackground';
-
-const DECK_EMOJIS = ['📚', '📖', '🎯', '💡', '🌍', '🎓', '📝', '🔤', '🧠', '⭐'];
+import MascotIcon from '../../components/common/MascotIcon';
 
 export default function FlashcardDecksScreen({ navigation }: any) {
   const { colors } = useThemeStore();
@@ -95,9 +94,7 @@ export default function FlashcardDecksScreen({ navigation }: any) {
     );
   };
 
-  const getEmoji = (index: number) => DECK_EMOJIS[index % DECK_EMOJIS.length];
-
-  const renderDeck = ({ item, index }: { item: FlashcardDeck; index: number }) => (
+  const renderDeck = ({ item }: { item: FlashcardDeck; index: number }) => (
     <TouchableOpacity
       style={[styles.deckCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
       activeOpacity={0.7}
@@ -107,8 +104,8 @@ export default function FlashcardDecksScreen({ navigation }: any) {
       })}
       onLongPress={() => handleDelete(item)}
     >
-      <View style={[styles.deckEmoji, { backgroundColor: colors.accentBg }]}>
-        <Text style={{ fontSize: 28 }}>{getEmoji(index)}</Text>
+      <View style={[styles.deckIcon, { backgroundColor: colors.accentBg }]}>
+        <MascotIcon mood="idle" size={34} />
       </View>
       <Text style={[styles.deckTitle, { color: colors.textPrimary }]} numberOfLines={2}>
         {item.title}
@@ -169,7 +166,7 @@ export default function FlashcardDecksScreen({ navigation }: any) {
             }
             ListEmptyComponent={
               <View style={styles.empty}>
-                <Text style={{ fontSize: 48, marginBottom: 12 }}>🃏</Text>
+                <MascotIcon mood="confused" size={52} />
                 <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
                   {loadError ? 'Decks unavailable' : 'No decks yet'}
                 </Text>
@@ -279,7 +276,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04, shadowRadius: 3, elevation: 1,
   },
-  deckEmoji: {
+  deckIcon: {
     width: 56, height: 56, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center', marginBottom: 12,
   },

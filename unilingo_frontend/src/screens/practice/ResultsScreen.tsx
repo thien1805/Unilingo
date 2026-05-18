@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeStore } from '../../store/themeStore';
 import { practiceAPI, ScoringResult } from '../../api/practice';
 import { vocabularyAPI, DictionaryResult } from '../../api/vocabulary';
-import { Card, PrimaryButton, OutlineButton, Badge, ScoreBar, Mascot } from '../../components/common';
+import { Card, PrimaryButton, OutlineButton, Badge, ScoreBar, Mascot, MascotIcon } from '../../components/common';
 import { Gradients, Typography, BorderRadius } from '../../theme';
 import AppBackground from '../../components/common/AppBackground';
 import { getMascotMoodByBandChange, getMascotMoodByOverall } from '../../utils/mascotMood';
@@ -132,7 +132,7 @@ export default function ResultsScreen({ navigation, route }: any) {
   const grammarErrors = allScoringParts.flatMap((p: any) => p.scoring?.grammar_errors || []).filter(Boolean);
   const vocabSuggestions = allScoringParts.flatMap((p: any) => p.scoring?.vocabulary_suggestions || []).filter(Boolean);
 
-  const comment = overall >= 7 ? 'Excellent! 🎉' : overall >= 6 ? 'Good job! 👏' : overall >= 5 ? 'Keep Going! 💪' : 'Practice more! 📚';
+  const comment = overall >= 7 ? 'Excellent!' : overall >= 6 ? 'Good job!' : overall >= 5 ? 'Keep Going!' : 'Practice more!';
   const overallMascotMood = getMascotMoodByOverall(overall);
 
   const getQuestionMascotMood = (index: number) => {
@@ -197,7 +197,7 @@ export default function ResultsScreen({ navigation, route }: any) {
         </TouchableOpacity>
         <Text style={[Typography.bodyMedium, { color: colors.textPrimary }]}>Practice Result</Text>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={[Typography.bodySm, { color: colors.accent }]}>🔄 Retry</Text>
+          <Text style={[Typography.bodySm, { color: colors.accent }]}>Retry</Text>
         </TouchableOpacity>
         </View>
 
@@ -231,7 +231,7 @@ export default function ResultsScreen({ navigation, route }: any) {
 
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
             {r.duration_seconds && (
-              <Badge label={`⏱ ${Math.floor(r.duration_seconds / 60)}:${(r.duration_seconds % 60).toString().padStart(2, '0')}`} variant="accent" />
+              <Badge label={`${Math.floor(r.duration_seconds / 60)}:${(r.duration_seconds % 60).toString().padStart(2, '0')}`} variant="accent" />
             )}
           </View>
         </Card>
@@ -244,7 +244,7 @@ export default function ResultsScreen({ navigation, route }: any) {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF7D6', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 24 }}>⭐</Text>
+                <MascotIcon mood="happy" size={32} />
               </View>
               <View>
                 <Text style={[Typography.h4, { color: '#D97706' }]}>+{r.xp_earned} XP Earned!</Text>
@@ -319,7 +319,7 @@ export default function ResultsScreen({ navigation, route }: any) {
             {feedback?.detailed && (
               <Card>
                 <Text style={[Typography.h4, { color: colors.textPrimary, marginBottom: 8 }]}>
-                  🎯 AI Assessment
+                  AI Assessment
                 </Text>
                 <Text style={[Typography.bodySm, { color: colors.textSecondary, lineHeight: 22 }]}>
                   {feedback.detailed}
@@ -330,11 +330,11 @@ export default function ResultsScreen({ navigation, route }: any) {
             {/* Strengths */}
             <Card>
               <Text style={[Typography.h4, { color: colors.textPrimary, marginBottom: 8 }]}>
-                📌 Strengths
+                Strengths
               </Text>
               {strengths.map((s: string, i: number) => (
                 <View key={i} style={styles.feedbackItem}>
-                  <Text style={{ color: colors.success, fontWeight: '700' }}>✓</Text>
+                  <Ionicons name="checkmark" size={16} color={colors.success} />
                   <Text style={[Typography.bodySm, { color: colors.textSecondary, flex: 1 }]}>{s}</Text>
                 </View>
               ))}
@@ -343,7 +343,7 @@ export default function ResultsScreen({ navigation, route }: any) {
             {/* Weaknesses */}
             <Card>
               <Text style={[Typography.h4, { color: colors.textPrimary, marginBottom: 8 }]}>
-                ⚠️ Areas to Improve
+                Areas to Improve
               </Text>
               {weaknesses.map((s: string, i: number) => (
                 <View key={i} style={styles.feedbackItem}>
@@ -356,11 +356,11 @@ export default function ResultsScreen({ navigation, route }: any) {
             {/* Suggestions */}
             <Card>
               <Text style={[Typography.h4, { color: colors.textPrimary, marginBottom: 8 }]}>
-                💡 Suggestions
+                Suggestions
               </Text>
               {suggestions.map((s: string, i: number) => (
                 <View key={i} style={styles.feedbackItem}>
-                  <Text style={{ color: colors.sky, fontWeight: '700' }}>→</Text>
+                  <Ionicons name="arrow-forward" size={16} color={colors.sky} />
                   <Text style={[Typography.bodySm, { color: colors.textSecondary, flex: 1 }]}>{s}</Text>
                 </View>
               ))}
@@ -370,7 +370,7 @@ export default function ResultsScreen({ navigation, route }: any) {
             {vocabSuggestions.length > 0 && (
               <Card>
                 <Text style={[Typography.h4, { color: colors.textPrimary, marginBottom: 8 }]}>
-                  📖 Vocabulary Upgrades
+                  Vocabulary Upgrades
                 </Text>
                 {vocabSuggestions.map((v: any, i: number) => (
                   <View key={i} style={[styles.vocabRow, { borderBottomColor: colors.border }]}>
@@ -396,7 +396,7 @@ export default function ResultsScreen({ navigation, route }: any) {
         {activeTab === 2 && (
           <Card>
             <Text style={[Typography.h4, { color: colors.textPrimary, marginBottom: 8 }]}>
-              📝 Sample Better Answer (Band 7.5+)
+              Sample Better Answer (Band 7.5+)
             </Text>
             <Text style={[Typography.bodySm, { color: colors.textSecondary, lineHeight: 22 }]}>
               {firstScoring?.sample_better_answer?.text || 'No sample answer was returned for this attempt.'}
@@ -443,7 +443,7 @@ export default function ResultsScreen({ navigation, route }: any) {
             ) : (
               <Card>
                 <View style={{ alignItems: 'center', padding: 20 }}>
-                  <Text style={{ fontSize: 32, marginBottom: 8 }}>✅</Text>
+                  <MascotIcon mood="happy" size={40} />
                   <Text style={[Typography.bodyMedium, { color: colors.textPrimary }]}>No grammar errors detected!</Text>
                   <Text style={[Typography.caption, { color: colors.textMuted, marginTop: 4 }]}>Great grammar usage in your response.</Text>
                 </View>

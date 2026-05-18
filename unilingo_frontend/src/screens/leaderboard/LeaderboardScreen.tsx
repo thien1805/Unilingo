@@ -19,6 +19,7 @@ import { useAuthStore } from '../../store/authStore';
 import { leaderboardAPI, LeaderboardEntry, LeaderboardResponse } from '../../api/users';
 import { Gradients } from '../../theme';
 import AppBackground from '../../components/common/AppBackground';
+import MascotIcon from '../../components/common/MascotIcon';
 
 const PERIODS = [
   { key: 'weekly', label: 'Weekly' },
@@ -54,20 +55,13 @@ export default function LeaderboardScreen() {
     setRefreshing(false);
   }, [loadData]);
 
-  const getMedal = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return null;
-  };
-
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
   const rankColors = ['#F59E0B', '#94A3B8', '#F97316']; // gold, silver, bronze
 
   const renderItem = ({ item }: { item: LeaderboardEntry }) => {
     const isMe = item.user_id === user?.id;
-    const medal = getMedal(item.rank);
+    const isTopRank = item.rank <= 3;
 
     return (
       <View style={[
@@ -78,8 +72,8 @@ export default function LeaderboardScreen() {
         },
       ]}>
         <View style={styles.rankCol}>
-          {medal ? (
-            <Text style={{ fontSize: 20 }}>{medal}</Text>
+          {isTopRank ? (
+            <MascotIcon mood={item.rank === 1 ? 'cheer' : 'jump'} size={28} />
           ) : (
             <Text style={[styles.rankNum, { color: colors.textMuted }]}>{item.rank}</Text>
           )}
@@ -96,7 +90,7 @@ export default function LeaderboardScreen() {
           </Text>
         </View>
         <View style={styles.rowXp}>
-          <Text style={[styles.xpValue, { color: colors.accent }]}>⭐ {item.total_xp}</Text>
+          <Text style={[styles.xpValue, { color: colors.accent }]}>{item.total_xp}</Text>
         </View>
       </View>
     );
@@ -138,11 +132,11 @@ export default function LeaderboardScreen() {
           </View>
           <View style={styles.myRankStats}>
             <View style={styles.myStatItem}>
-              <Text style={styles.myStatValue}>⭐ {data.my_rank.total_xp}</Text>
+              <Text style={styles.myStatValue}>{data.my_rank.total_xp}</Text>
               <Text style={styles.myStatLabel}>Total XP</Text>
             </View>
             <View style={styles.myStatItem}>
-              <Text style={styles.myStatValue}>📈 {data.my_rank.avg_band_score.toFixed(1)}</Text>
+              <Text style={styles.myStatValue}>{data.my_rank.avg_band_score.toFixed(1)}</Text>
               <Text style={styles.myStatLabel}>Avg Band</Text>
             </View>
           </View>
@@ -164,7 +158,7 @@ export default function LeaderboardScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={{ fontSize: 40 }}>🏆</Text>
+              <MascotIcon mood="cheer" size={48} />
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No rankings yet. Start practicing!</Text>
             </View>
           }

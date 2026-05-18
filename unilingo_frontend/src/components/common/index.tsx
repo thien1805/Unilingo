@@ -21,6 +21,8 @@ export { default as AnimatedMascot } from './AnimatedMascot';
 export type { AnimatedMascotState } from './AnimatedMascot';
 export { default as Mascot } from './Mascot';
 export type { MascotMood } from './Mascot';
+export { default as MascotIcon } from './MascotIcon';
+export type { MascotIconMood } from './MascotIcon';
 
 // ─── Primary Gradient Button ───
 interface ButtonProps {

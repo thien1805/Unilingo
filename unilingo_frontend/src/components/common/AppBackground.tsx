@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
   },
   backgroundImage: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.5,
+    opacity: 0.7,
   },
   content: {
     flex: 1,

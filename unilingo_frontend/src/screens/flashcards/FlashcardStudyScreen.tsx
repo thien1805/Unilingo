@@ -37,15 +37,16 @@ import { flashcardsAPI, FlashcardCard, FlashcardDeck } from '../../api/flashcard
 import { Gradients } from '../../theme';
 import { AppModal, useAppModal } from '../../components/common/AppModal';
 import AppBackground from '../../components/common/AppBackground';
+import MascotIcon from '../../components/common/MascotIcon';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
 
 const QUALITY_BUTTONS = [
-  { quality: 1, label: 'Again', emoji: '❌', color: '#EF4444', bg: '#FEE2E2', border: '#EF4444' },
-  { quality: 3, label: 'Hard', emoji: '🤔', color: '#F59E0B', bg: '#FEF3C7', border: '#F59E0B' },
-  { quality: 5, label: 'Easy', emoji: '✅', color: '#10B981', bg: '#D1FAE5', border: '#10B981' },
-];
+  { quality: 1, label: 'Again', mood: 'sad', color: '#EF4444', bg: '#FEE2E2', border: '#EF4444' },
+  { quality: 3, label: 'Hard', mood: 'confused', color: '#F59E0B', bg: '#FEF3C7', border: '#F59E0B' },
+  { quality: 5, label: 'Easy', mood: 'happy', color: '#10B981', bg: '#D1FAE5', border: '#10B981' },
+] as const;
 
 export default function FlashcardStudyScreen({ navigation, route }: any) {
   const { deckId, deckTitle } = route.params;
@@ -244,7 +245,7 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
           {hasError ? (
             <Ionicons name="cloud-offline-outline" size={64} color={colors.textMuted} style={{ marginBottom: 16 }} />
           ) : (
-            <Text style={{ fontSize: 64, marginBottom: 16 }}>🎉</Text>
+            <MascotIcon mood="cheer" size={72} />
           )}
           <Text style={[styles.completedTitle, { color: colors.textPrimary }]}>
             {hasError ? "Couldn't load cards" : allCards.length === 0 ? 'No cards to study!' : 'All Cards Mastered!'}
@@ -261,15 +262,15 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
             <View style={styles.statsRow}>
               <View style={[styles.statCard, { backgroundColor: '#D1FAE5' }]}>
                 <Text style={[styles.statNum, { color: '#10B981' }]}>{stats.easy}</Text>
-                <Text style={[styles.statCardLabel, { color: '#10B981' }]}>✅ Easy</Text>
+                <Text style={[styles.statCardLabel, { color: '#10B981' }]}>Easy</Text>
               </View>
               <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
                 <Text style={[styles.statNum, { color: '#F59E0B' }]}>{stats.hard}</Text>
-                <Text style={[styles.statCardLabel, { color: '#F59E0B' }]}>🤔 Hard</Text>
+                <Text style={[styles.statCardLabel, { color: '#F59E0B' }]}>Hard</Text>
               </View>
               <View style={[styles.statCard, { backgroundColor: '#FEE2E2' }]}>
                 <Text style={[styles.statNum, { color: '#EF4444' }]}>{stats.again}</Text>
-                <Text style={[styles.statCardLabel, { color: '#EF4444' }]}>❌ Again</Text>
+                <Text style={[styles.statCardLabel, { color: '#EF4444' }]}>Again</Text>
               </View>
             </View>
           )}
@@ -328,7 +329,7 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
           {deckTitle || 'Study'}
         </Text>
         <Text style={[styles.counter, { color: colors.textMuted }]}>
-          {masteredCount}/{totalCards} ✔
+          {masteredCount}/{totalCards}
         </Text>
         </View>
 
@@ -348,10 +349,10 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
           <Animated.View style={[styles.cardContainer, containerStyle]}>
             {/* Swipe Labels */}
             <Animated.View style={[styles.swipeLabel, styles.swipeLabelRight, knowLabelStyle]}>
-              <Text style={styles.swipeLabelText}>✅ Know it!</Text>
+              <Text style={styles.swipeLabelText}>Know it!</Text>
             </Animated.View>
             <Animated.View style={[styles.swipeLabel, styles.swipeLabelLeft, dontKnowLabelStyle]}>
-              <Text style={styles.swipeLabelText}>❌ Again</Text>
+              <Text style={styles.swipeLabelText}>Again</Text>
             </Animated.View>
 
             {/* Front of Card */}
@@ -412,7 +413,7 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
             onPress={() => goToNext(btn.quality)}
             activeOpacity={0.7}
           >
-            <Text style={{ fontSize: 20, marginBottom: 4 }}>{btn.emoji}</Text>
+            <MascotIcon mood={btn.mood} size={24} />
             <Text style={[styles.ratingLabel, { color: btn.color }]}>{btn.label}</Text>
           </TouchableOpacity>
         ))}

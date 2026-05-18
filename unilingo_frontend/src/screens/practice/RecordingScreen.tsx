@@ -377,7 +377,7 @@ export default function RecordingScreen({ navigation, route }: any) {
         {/* Tips */}
         <View style={[styles.tip, { backgroundColor: colors.skyBg }]}>
           <Text style={[Typography.bodySm, { color: colors.sky }]}>
-            💡 <Text style={{ fontWeight: '600' }}>Tip:</Text> Speak clearly and at a natural pace.
+            <Text style={{ fontWeight: '600' }}>Tip:</Text> Speak clearly and at a natural pace.
             {ieltsPart === 'part2' ? ' You have 2 minutes for your long turn.' : ''}
           </Text>
         </View>

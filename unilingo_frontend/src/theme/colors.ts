@@ -1,5 +1,5 @@
 /**
- * Unilingo Color System — Blue Theme 🔵
+ * Unilingo Color System — Blue Theme
  * Matches the demo HTML design tokens exactly
  */
 

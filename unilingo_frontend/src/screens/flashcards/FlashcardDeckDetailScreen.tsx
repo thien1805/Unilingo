@@ -22,6 +22,7 @@ import { flashcardsAPI, FlashcardCard, FlashcardDeck } from '../../api/flashcard
 import { Gradients } from '../../theme';
 import { AppModal, useAppModal } from '../../components/common/AppModal';
 import AppBackground from '../../components/common/AppBackground';
+import MascotIcon from '../../components/common/MascotIcon';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -201,7 +202,7 @@ export default function FlashcardDeckDetailScreen({ navigation, route }: any) {
             }
             ListEmptyComponent={
               <View style={styles.empty}>
-                <Text style={{ fontSize: 48, marginBottom: 12 }}>📝</Text>
+                <MascotIcon mood="idle" size={52} />
                 <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
                   No cards yet
                 </Text>

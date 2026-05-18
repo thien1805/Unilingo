@@ -23,6 +23,7 @@ import { flashcardsAPI, FlashcardDeck } from '../../api/flashcards';
 import { Gradients } from '../../theme';
 import { AppModal, useAppModal } from '../../components/common/AppModal';
 import AppBackground from '../../components/common/AppBackground';
+import MascotIcon from '../../components/common/MascotIcon';
 
 const FILTER_KEYS = ['all', 'new', 'learning', 'mastered'] as const;
 
@@ -343,9 +344,6 @@ export default function VocabularyScreen({ navigation }: any) {
           end={{ x: 1, y: 1 }}
           style={styles.flashcardBannerGradient}
         >
-          <View style={styles.flashcardBannerIcon}>
-            <Text style={{ fontSize: 22 }}>🃏</Text>
-          </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.flashcardBannerTitle}>Flashcards</Text>
             <Text style={styles.flashcardBannerDesc}>Study with spaced repetition</Text>
@@ -412,7 +410,7 @@ export default function VocabularyScreen({ navigation }: any) {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={{ fontSize: 40 }}>📝</Text>
+              <MascotIcon mood="jump" size={250} />
               <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                 No words yet. Use Dictionary to add words!
               </Text>
@@ -527,7 +525,7 @@ export default function VocabularyScreen({ navigation }: any) {
               <ActivityIndicator size="large" color={colors.accent} style={{ marginVertical: 40 }} />
             ) : decks.length === 0 ? (
               <View style={{ alignItems: 'center', paddingVertical: 40 }}>
-                <Text style={{ fontSize: 36, marginBottom: 12 }}>📝</Text>
+                <MascotIcon mood="idle" size={40} />
                 <Text style={[{ color: colors.textSecondary, fontFamily: 'PlusJakartaSans-Regular', fontSize: 14, textAlign: 'center' }]}>
                   No decks yet. Create a deck first in Flashcards.
                 </Text>
@@ -638,8 +636,7 @@ const styles = StyleSheet.create({
   subtitle: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 13, marginTop: 2 },
   dictBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   flashcardBanner: { marginHorizontal: 20, borderRadius: 14, overflow: 'hidden', marginBottom: 14 },
-  flashcardBannerGradient: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14 },
-  flashcardBannerIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFF7D6', alignItems: 'center', justifyContent: 'center' },
+  flashcardBannerGradient: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingVertical: 18, borderRadius: 14 },
   flashcardBannerTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15, color: '#1F2937', marginBottom: 2 },
   flashcardBannerDesc: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 11, color: '#475569' },
   dictBtnText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 13, color: '#1F2937' },
@@ -671,8 +668,8 @@ const styles = StyleSheet.create({
   definition: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 13, marginTop: 2 },
   masteryChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   masteryText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 10, textTransform: 'capitalize' },
-  empty: { alignItems: 'center', paddingTop: 60 },
-  emptyText: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 14, marginTop: 12, textAlign: 'center' },
+  empty: { alignItems: 'center', paddingTop: 54 },
+  emptyText: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 14, marginTop: 8, textAlign: 'center' },
   // Modal
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 },
   modalTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 22 },

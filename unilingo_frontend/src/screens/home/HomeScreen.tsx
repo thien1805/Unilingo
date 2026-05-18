@@ -27,6 +27,8 @@ import { notificationsAPI } from '../../api/notifications';
 import { Gradients } from '../../theme';
 import { StreakModal } from '../../components/common/StreakModal';
 import AppBackground from '../../components/common/AppBackground';
+import MascotIcon from '../../components/common/MascotIcon';
+import { formatBand } from '../../utils/bandScore';
 
 const BLOG_CATEGORIES = [
   { key: 'all', label: 'All' },
@@ -34,6 +36,13 @@ const BLOG_CATEGORIES = [
   { key: 'tips', label: 'Tips' },
   { key: 'news', label: 'News' },
 ];
+
+const dailyMascotImage = require('../../../assets/mascot/mascot_lie.png');
+const partImages = {
+  part1: require('../../../assets/mascot/part1.png'),
+  part2: require('../../../assets/mascot/part2.png'),
+  part3: require('../../../assets/mascot/part3.png'),
+};
 
 export default function HomeScreen({ navigation }: any) {
   const { colors } = useThemeStore();
@@ -126,8 +135,8 @@ export default function HomeScreen({ navigation }: any) {
   const totalXp = dashboard?.user?.total_xp ?? user?.total_xp ?? 0;
   const todayTests = dashboard?.today_stats?.tests_completed ?? 0;
   const avgBand = dashboard?.skill_breakdown
-    ? ((dashboard.skill_breakdown.fluency + dashboard.skill_breakdown.lexical +
-      dashboard.skill_breakdown.grammar + dashboard.skill_breakdown.pronunciation) / 4).toFixed(1)
+    ? formatBand((dashboard.skill_breakdown.fluency + dashboard.skill_breakdown.lexical +
+      dashboard.skill_breakdown.grammar + dashboard.skill_breakdown.pronunciation) / 4)
     : '0.0';
   const notificationBadge = unreadNotifications + reviewDue;
 
@@ -144,15 +153,15 @@ export default function HomeScreen({ navigation }: any) {
     const hr = new Date().getHours();
     if (hr < 12) return 'Good morning! ';
     if (hr < 17) return 'Good afternoon!';
-    return 'Good evening! 👋';
+    return 'Good evening!';
   };
 
   const dailyGoalColors = ['#FFF8D6', '#FFEFA8'] as const;
 
   const parts = [
-    { key: 'part1', label: 'Part 1', desc: 'Interview', emoji: '💬' },
-    { key: 'part2', label: 'Part 2', desc: 'Long Turn', emoji: '🎤' },
-    { key: 'part3', label: 'Part 3', desc: 'Discussion', emoji: '🗣️' },
+    { key: 'part1', label: 'Part 1', desc: 'Interview', image: partImages.part1 },
+    { key: 'part2', label: 'Part 2', desc: 'Long Turn', image: partImages.part2 },
+    { key: 'part3', label: 'Part 3', desc: 'Discussion', image: partImages.part3 },
   ];
 
   const getPartColor = (part: string) => {
@@ -218,7 +227,7 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.dailyTop}>
             <View style={styles.ringContainer}>
               <Svg width={76} height={76}>
-                <Circle cx={38} cy={38} r={radius} fill="#FFF7D6" stroke="none" />
+                <Circle cx={38} cy={38} r={radius} fill="#fffb926f" stroke="none" />
                 <Circle cx={38} cy={38} r={radius} fill="none" stroke="#FDE68A" strokeWidth={6} />
                 <Circle
                   cx={38} cy={38} r={radius}
@@ -234,6 +243,9 @@ export default function HomeScreen({ navigation }: any) {
             <View style={{ flex: 1 }}>
               <Text style={styles.dailyTitle}>Daily Goal</Text>
               <Text style={styles.dailySub}>{todayTests} of 3 practices done today</Text>
+            </View>
+            <View style={styles.dailyMascotWrap}>
+              <Image source={dailyMascotImage} style={styles.dailyMascot} resizeMode="contain" />
             </View>
           </View>
           <View style={styles.statsRow}>
@@ -253,7 +265,16 @@ export default function HomeScreen({ navigation }: any) {
         </LinearGradient>
 
         {/* Quick Practice */}
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Quick Practice</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>Quick Practice</Text>
+          <TouchableOpacity
+            style={styles.viewAllButton}
+            onPress={() => navigation.navigate('PracticeTab', { screen: 'PracticeMain' })}
+          >
+            <Text style={[styles.seeAll, { color: colors.accent }]}>View all</Text>
+            <Ionicons name="chevron-forward" size={15} color={colors.accent} />
+          </TouchableOpacity>
+        </View>
         <View style={styles.quickRow}>
           {parts.map(part => (
             <TouchableOpacity
@@ -266,10 +287,13 @@ export default function HomeScreen({ navigation }: any) {
               })}
             >
               <View style={[styles.quickIcon, { backgroundColor: colors.bgSecondary }]}>
-                <Text style={{ fontSize: 22 }}>{part.emoji}</Text>
+                <Image source={part.image} style={styles.quickPartImage} resizeMode="contain" />
               </View>
               <Text style={[styles.quickLabel, { color: colors.textPrimary }]}>{part.label}</Text>
               <Text style={[styles.quickDesc, { color: colors.textMuted }]}>{part.desc}</Text>
+              <View style={styles.quickArrow}>
+                <Ionicons name="arrow-forward" size={15} color={colors.accent} />
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -283,7 +307,7 @@ export default function HomeScreen({ navigation }: any) {
           >
             <View style={styles.reviewLeft}>
               <View style={[styles.reviewIcon, { backgroundColor: colors.accent2Bg }]}>
-                <Text style={{ fontSize: 18 }}></Text>
+                <MascotIcon mood="confused" size={24} />
               </View>
               <View>
                 <Text style={[styles.reviewTitle, { color: colors.textPrimary }]}>{reviewDue} words to review</Text>
@@ -369,7 +393,7 @@ export default function HomeScreen({ navigation }: any) {
           </ScrollView>
         ) : (
           <View style={[styles.emptyCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-            <Text style={{ fontSize: 32, marginBottom: 8 }}></Text>
+            <MascotIcon mood="idle" size={36} />
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No activity yet. Start your first practice!</Text>
           </View>
         )}
@@ -414,7 +438,7 @@ export default function HomeScreen({ navigation }: any) {
                     {blog.cover_image_url ? (
                       <Image source={{ uri: blog.cover_image_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                     ) : (
-                      <Text style={{ fontSize: 24 }}></Text>
+                      <MascotIcon mood="idle" size={32} />
                     )}
                   </View>
                   <View style={styles.blogContent}>
@@ -510,18 +534,59 @@ const styles = StyleSheet.create({
   ringText: { position: 'absolute', fontFamily: 'PlusJakartaSans-Bold', fontSize: 14, color: '#111827' },
   dailyTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 18, color: '#1F2937', marginBottom: 4 },
   dailySub: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 13, color: '#4B5563' },
+  dailyMascotWrap: {
+    width: 92,
+    height: 92,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -6,
+  },
+  dailyMascot: {
+    width: 112,
+    height: 112,
+  },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#E8DFA8', paddingTop: 16 },
   statItem: { alignItems: 'center' },
   statValue: { fontFamily: 'PlusJakartaSans-ExtraBold', fontSize: 16, color: '#111827', marginBottom: 2 },
   statLabel: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 11, color: '#6B7280' },
   sectionTitle: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 18, marginBottom: 14 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  viewAllButton: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   seeAll: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 14 },
   quickRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  quickCard: { flex: 1, alignItems: 'center', paddingVertical: 18, paddingHorizontal: 8, borderRadius: 16, borderWidth: 1, gap: 8 },
-  quickIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  quickLabel: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 14 },
-  quickDesc: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 11 },
+  quickCard: {
+    flex: 3,
+    aspectRatio: 4/5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  quickIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 5,
+    overflow: 'hidden',
+  },
+  quickPartImage: {
+    width: 65,
+    height: 65,
+  },
+  quickLabel: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 13, marginBottom: 1 },
+  quickDesc: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 10, marginBottom: 5 },
+  quickArrow: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#fff4d662',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   reviewBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 24 },
   reviewLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   reviewIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },

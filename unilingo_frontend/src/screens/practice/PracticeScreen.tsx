@@ -2,28 +2,28 @@
  * Practice Screen — Part selector + Topic grid
  */
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { Image, View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeStore } from '../../store/themeStore';
 import { topicsAPI, Topic } from '../../api/topics';
-import { Card, Badge, SectionTitle, Mascot } from '../../components/common';
+import { Card, Badge, SectionTitle, Mascot, MascotIcon } from '../../components/common';
 import AppBackground from '../../components/common/AppBackground';
 import { Gradients, Typography, Spacing, BorderRadius } from '../../theme';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const PARTS = [
-  { key: 'part1', label: 'Part 1 - Interview', desc: 'Familiar topics about yourself, work, studies, and interests', emoji: '💬', time: '4-5 mins', bgKey: 'accentBg', colorKey: 'accent' },
-  { key: 'part2', label: 'Part 2 - Long Turn', desc: 'Speak for 1-2 minutes on a given cue card topic', emoji: '🎤', time: '3-4 mins', bgKey: 'roseBg', colorKey: 'rose' },
-  { key: 'part3', label: 'Part 3 - Discussion', desc: 'Abstract questions linked to Part 2 topic', emoji: '🗣️', time: '4-5 mins', bgKey: 'skyBg', colorKey: 'sky' },
-];
-
-const TOPIC_ICONS: Record<string, string> = {
-  'work': '💼', 'hometown': '🏘️', 'hobbies': '🎨', 'technology': '📱',
-  'food': '🍕', 'travel': '✈️', 'environment': '🌍', 'education': '🎓',
-  'health': '🏥', 'sports': '⚽', 'family': '👨‍👩‍👧', 'culture': '🎭',
+const partImages = {
+  part1: require('../../../assets/mascot/part1.png'),
+  part2: require('../../../assets/mascot/part2.png'),
+  part3: require('../../../assets/mascot/part3.png'),
 };
+
+const PARTS = [
+  { key: 'part1', label: 'Part 1 - Interview', desc: 'Familiar topics about yourself, work, studies, and interests', image: partImages.part1, time: '4-5 mins', bgKey: 'accentBg', colorKey: 'accent' },
+  { key: 'part2', label: 'Part 2 - Long Turn', desc: 'Speak for 1-2 minutes on a given cue card topic', image: partImages.part2, time: '3-4 mins', bgKey: 'roseBg', colorKey: 'rose' },
+  { key: 'part3', label: 'Part 3 - Discussion', desc: 'Abstract questions linked to Part 2 topic', image: partImages.part3, time: '4-5 mins', bgKey: 'skyBg', colorKey: 'sky' },
+];
 
 export default function PracticeScreen({ navigation, route }: any) {
   const { colors } = useThemeStore();
@@ -46,13 +46,6 @@ export default function PracticeScreen({ navigation, route }: any) {
       setTopics([]);
       setTopicError('Topics could not be loaded. Please check the backend CMS content.');
     }
-  };
-
-  const getTopicIcon = (title: string) => {
-    const key = Object.keys(TOPIC_ICONS).find((k) =>
-      title.toLowerCase().includes(k)
-    );
-    return TOPIC_ICONS[key || ''] || '📝';
   };
 
   return (
@@ -100,10 +93,10 @@ export default function PracticeScreen({ navigation, route }: any) {
             </Text>
             <View style={styles.partMeta}>
               <Text style={[Typography.captionSm, { color: colors.textMuted }]}>
-                🎥 Camera + mic
+                Camera + mic
               </Text>
               <Text style={[Typography.captionSm, { color: colors.textMuted }]}>
-                ⏱️ Full 3-part test
+                Full 3-part test
               </Text>
             </View>
           </View>
@@ -120,13 +113,13 @@ export default function PracticeScreen({ navigation, route }: any) {
           onPress={() => navigation.navigate('VirtualRoom', { isFullTest: true })}
         >
           <View style={[styles.partIcon, { backgroundColor: colors.accentBg }]}>
-            <Text style={{ fontSize: 24 }}>🎓</Text>
+            <MascotIcon mood="cheer" size={52} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[Typography.h4, { color: colors.textPrimary, marginBottom: 3 }]}>Full IELTS Speaking Test</Text>
             <Text style={[Typography.caption, { color: colors.textSecondary, lineHeight: 18 }]}>Practice all 3 parts consecutively in a simulated exam environment.</Text>
             <View style={styles.partMeta}>
-              <Text style={[Typography.captionSm, { color: colors.textMuted }]}>⏱️ 11-14 mins</Text>
+              <Text style={[Typography.captionSm, { color: colors.textMuted }]}>11-14 mins</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -152,7 +145,7 @@ export default function PracticeScreen({ navigation, route }: any) {
                 { backgroundColor: (colors as any)[part.bgKey] },
               ]}
             >
-              <Text style={{ fontSize: 24 }}>{part.emoji}</Text>
+              <Image source={part.image} style={styles.partImage} resizeMode="contain" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[Typography.h4, { color: colors.textPrimary, marginBottom: 3 }]}>
@@ -163,7 +156,7 @@ export default function PracticeScreen({ navigation, route }: any) {
               </Text>
               <View style={styles.partMeta}>
                 <Text style={[Typography.captionSm, { color: colors.textMuted }]}>
-                  ⏱️ {part.time}
+                  {part.time}
                 </Text>
               </View>
             </View>
@@ -195,7 +188,7 @@ export default function PracticeScreen({ navigation, route }: any) {
                     })
                   }
                 >
-                  <Text style={{ fontSize: 28, marginBottom: 8 }}>{getTopicIcon(topic.title)}</Text>
+                  <MascotIcon mood="idle" size={32} />
                   <Text style={[Typography.bodyMedium, { color: colors.textPrimary, marginBottom: 3 }]}>
                     {topic.title}
                   </Text>
@@ -245,8 +238,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04, shadowRadius: 3, elevation: 1,
   },
   partIcon: {
-    width: 54, height: 54, borderRadius: 14,
+    width: 72, height: 72, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
+    overflow: 'visible',
+  },
+  partImage: {
+    width: 86,
+    height: 86,
   },
   partMeta: { flexDirection: 'row', gap: 12, marginTop: 6 },
   mockTestCard: {

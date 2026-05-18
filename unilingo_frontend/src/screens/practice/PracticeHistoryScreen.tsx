@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { practiceAPI, PracticeHistoryItem } from '../../api/practice';
 import AppBackground from '../../components/common/AppBackground';
+import MascotIcon from '../../components/common/MascotIcon';
 
 const PARTS = ['all', 'part1', 'part2', 'part3'] as const;
 
@@ -217,7 +218,7 @@ export default function PracticeHistoryScreen({ navigation }: any) {
             onEndReachedThreshold={0.3}
             ListEmptyComponent={
               <View style={styles.empty}>
-                <Text style={{ fontSize: 48, marginBottom: 12 }}>📋</Text>
+                <MascotIcon mood="idle" size={52} />
                 <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
                   {loadError ? 'History unavailable' : 'No history yet'}
                 </Text>
