@@ -16,8 +16,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { Gradients, BorderRadius, Spacing, Typography } from '../../theme';
+import { formatBand, normalizeBand } from '../../utils/bandScore';
 export { default as AnimatedMascot } from './AnimatedMascot';
 export type { AnimatedMascotState } from './AnimatedMascot';
+export { default as Mascot } from './Mascot';
+export type { MascotMood } from './Mascot';
 
 // ─── Primary Gradient Button ───
 interface ButtonProps {
@@ -341,7 +344,8 @@ export const ScoreBar: React.FC<ScoreBarProps> = ({
   gradient = Gradients.primary,
 }) => {
   const { colors } = useThemeStore();
-  const pct = (value / maxValue) * 100;
+  const normalizedValue = normalizeBand(value);
+  const pct = (normalizedValue / maxValue) * 100;
 
   return (
     <View style={styles.scoreRow}>
@@ -357,7 +361,7 @@ export const ScoreBar: React.FC<ScoreBarProps> = ({
         />
       </View>
       <Text style={[Typography.h4, { width: 30, textAlign: 'right', color: colors.textPrimary }]}>
-        {value.toFixed(1)}
+        {formatBand(normalizedValue)}
       </Text>
     </View>
   );

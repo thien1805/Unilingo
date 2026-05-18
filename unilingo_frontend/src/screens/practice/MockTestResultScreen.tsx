@@ -29,18 +29,18 @@ export default function MockTestResultScreen({ navigation, route }: any) {
               Mock Test Completed
             </Text>
             <Text style={[Typography.body, styles.subtitle, { color: colors.textSecondary }]}>
-              {recordedAnswers.length} recorded answers saved locally for this session.
+              {recordedAnswers.length} audio answers were saved and converted into scripts for evaluation.
             </Text>
 
             <View style={[styles.scoreBox, { backgroundColor: colors.accentBg }]}>
               <Ionicons name="analytics-outline" size={22} color={colors.accent} />
               <View style={{ flex: 1 }}>
-                {/* TODO: Connect this placeholder to the speaking evaluation API once mock-test scoring is ready. */}
+                {/* TODO: Send the mock-test transcripts below to the speaking evaluation API once mock-test scoring is ready. */}
                 <Text style={[Typography.bodyMedium, { color: colors.textPrimary }]}>
                   AI evaluation will be connected later
                 </Text>
                 <Text style={[Typography.caption, { color: colors.textSecondary }]}>
-                  TODO: connect this summary to the existing speaking evaluation pipeline.
+                  Scripts are ready to be connected to the existing speaking evaluation pipeline.
                 </Text>
               </View>
             </View>
@@ -64,23 +64,26 @@ export default function MockTestResultScreen({ navigation, route }: any) {
 
           {showRecordings && (
             <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-              <Text style={[Typography.h4, { color: colors.textPrimary }]}>Recorded Answers</Text>
+              <Text style={[Typography.h4, { color: colors.textPrimary }]}>Answer Scripts</Text>
               {recordedAnswers.length === 0 ? (
                 <Text style={[Typography.caption, { color: colors.textSecondary }]}>
-                  No recordings were saved.
+                  No audio answers were saved.
                 </Text>
               ) : (
                 recordedAnswers.map((answer, index) => (
                   <View key={`${answer.part}-${index}-${answer.uri}`} style={styles.recordingRow}>
                     <View style={[styles.recordingIcon, { backgroundColor: colors.skyBg }]}>
-                      <Ionicons name="mic" size={16} color={colors.sky} />
+                      <Ionicons name="document-text-outline" size={16} color={colors.sky} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[Typography.bodySm, { color: colors.textPrimary }]} numberOfLines={2}>
                         Part {answer.part}: {answer.question}
                       </Text>
-                      <Text style={[Typography.captionSm, { color: colors.textMuted }]}>
-                        {answer.duration}s • {answer.uri}
+                      <Text style={[Typography.caption, styles.transcriptText, { color: colors.textSecondary }]}>
+                        {answer.transcript || 'Transcript unavailable. The audio answer is still saved for retry.'}
+                      </Text>
+                      <Text style={[Typography.captionSm, { color: colors.textMuted }]} numberOfLines={1}>
+                        Audio duration: {answer.duration}s
                       </Text>
                     </View>
                   </View>
@@ -97,7 +100,7 @@ export default function MockTestResultScreen({ navigation, route }: any) {
             >
               <Ionicons name="list-outline" size={18} color={colors.textPrimary} />
               <Text style={[styles.secondaryButtonText, { color: colors.textPrimary }]}>
-                Review Recordings
+                Review Scripts
               </Text>
             </TouchableOpacity>
 
@@ -169,6 +172,10 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  transcriptText: {
+    marginTop: 4,
+    lineHeight: 18,
   },
   actions: {
     gap: 12,

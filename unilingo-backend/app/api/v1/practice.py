@@ -14,13 +14,54 @@ from app.models.topic import Topic, Question
 from app.models.practice import TestAttempt, AttemptPart, AIScoringResult
 from app.schemas.practice import (
     StartPracticeRequest, StartPracticeResponse, QuestionDetail,
-    UploadAudioResponse, SubmitPracticeResponse,
+    UploadAudioResponse, TranscribeAudioResponse, SubmitPracticeResponse,
     ScoringResultResponse, PartResultResponse, AIScoringResponse,
     PracticeHistoryResponse, PracticeHistoryItem,
     PracticeStatsResponse,
 )
 
 router = APIRouter(prefix="/practice", tags=["Practice"])
+
+
+def normalize_band(value) -> float | None:
+    """Clamp IELTS band to 0.0-9.0 and round to the nearest .0/.5 step."""
+    if value is None:
+        return None
+    try:
+        band = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, min(9.0, round(band * 2) / 2))
+
+
+def transcribe_audio_file(audio_path: str) -> str:
+    """Transcribe a local audio file into English text for mock-test evaluation."""
+    import os
+    from app.config import get_settings
+
+    settings = get_settings()
+    if not settings.GROQ_API_KEY:
+        return "[Mock transcript] Speech-to-text is not configured yet. Add GROQ_API_KEY to enable real transcription."
+
+    if not os.path.exists(audio_path):
+        return f"[Transcription failed] Audio file not found: {audio_path}"
+
+    try:
+        from groq import Groq
+
+        client = Groq(api_key=settings.GROQ_API_KEY)
+        with open(audio_path, "rb") as file:
+            transcription = client.audio.transcriptions.create(
+                file=(os.path.basename(audio_path), file.read()),
+                model="whisper-large-v3",
+                response_format="text",
+                language="en",
+            )
+
+        return str(transcription).strip() or "No speech could be recognized."
+    except Exception as exc:
+        print(f"Mock test transcription failed: {exc}")
+        return f"[Transcription failed] {exc}"
 
 
 async def get_or_create_ai_topic(db: AsyncSession, ielts_part: str) -> Topic:
@@ -134,7 +175,43 @@ async def start_practice(
                 traceback.print_exc()
                 
     if not question:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No questions available")
+        import json as json_lib
+
+        fallback_questions = {
+            "part1": {
+                "question_text": "Do you work or study?",
+                "cue_card_content": None,
+            },
+            "part2": {
+                "question_text": "Describe a mobile application that you find useful.",
+                "cue_card_content": {
+                    "prompt": "You should say:",
+                    "points": [
+                        "What the application is",
+                        "When you started using it",
+                        "What features it has",
+                        "And explain why you find it useful",
+                    ],
+                },
+            },
+            "part3": {
+                "question_text": "How have mobile applications changed the way students learn?",
+                "cue_card_content": None,
+            },
+        }
+        fallback = fallback_questions.get(request.ielts_part, fallback_questions["part1"])
+        ai_topic = await get_or_create_ai_topic(db, request.ielts_part)
+        topic = ai_topic
+        question = Question(
+            topic_id=ai_topic.id,
+            ielts_part=request.ielts_part,
+            question_text=fallback["question_text"],
+            cue_card_content=json_lib.dumps(fallback["cue_card_content"]) if fallback["cue_card_content"] else None,
+            difficulty="medium",
+            is_active=True,
+        )
+        db.add(question)
+        await db.flush()
 
     # Determine topic title
     final_topic_id = parsed_topic_id or (question.topic_id if question else None)
@@ -364,6 +441,30 @@ async def upload_audio(
     )
 
 
+@router.post("/transcribe-audio", response_model=TranscribeAudioResponse)
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload one mock-test answer audio file and return its transcript."""
+    import os
+    import shutil
+    import uuid
+
+    upload_dir = os.path.join(os.getcwd(), "app", "uploads", "mock_test_transcripts")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    safe_user_id = str(current_user.id)
+    audio_filename = f"{safe_user_id}_{uuid.uuid4()}.m4a"
+    audio_path = os.path.join(upload_dir, audio_filename)
+
+    with open(audio_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    transcript = transcribe_audio_file(audio_path)
+    return TranscribeAudioResponse(transcript=transcript)
+
+
 @router.post("/{attempt_id}/submit", response_model=SubmitPracticeResponse)
 async def submit_practice(
     attempt_id: UUID,
@@ -474,6 +575,11 @@ async def get_practice_result(
         scoring = None
         if part.scoring_result:
             scoring = AIScoringResponse.model_validate(part.scoring_result)
+            scoring.fluency_band = normalize_band(scoring.fluency_band)
+            scoring.lexical_band = normalize_band(scoring.lexical_band)
+            scoring.grammar_band = normalize_band(scoring.grammar_band)
+            scoring.pronunciation_band = normalize_band(scoring.pronunciation_band)
+            scoring.overall_band = normalize_band(scoring.overall_band)
         parts_response.append(PartResultResponse(
             part_id=part.id,
             part_number=part.part_number,
@@ -486,11 +592,11 @@ async def get_practice_result(
     return ScoringResultResponse(
         attempt_id=attempt.id,
         status=attempt.status,
-        overall_band=attempt.overall_band,
-        fluency_score=attempt.fluency_score,
-        lexical_score=attempt.lexical_score,
-        grammar_score=attempt.grammar_score,
-        pronunciation_score=attempt.pronunciation_score,
+        overall_band=normalize_band(attempt.overall_band),
+        fluency_score=normalize_band(attempt.fluency_score),
+        lexical_score=normalize_band(attempt.lexical_score),
+        grammar_score=normalize_band(attempt.grammar_score),
+        pronunciation_score=normalize_band(attempt.pronunciation_score),
         duration_seconds=attempt.duration_seconds,
         xp_earned=attempt.xp_earned,
         parts=parts_response,

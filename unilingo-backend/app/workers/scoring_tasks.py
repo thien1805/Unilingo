@@ -5,6 +5,29 @@ Uses synchronous DB connections to avoid asyncio event loop conflicts.
 from app.workers.celery_app import celery_app
 
 
+def _normalize_band(value) -> float | None:
+    """Clamp IELTS band to 0.0-9.0 and round to the nearest .0/.5 step."""
+    if value is None:
+        return None
+    try:
+        band = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, min(9.0, round(band * 2) / 2))
+
+
+def _normalize_scoring_bands(scoring: dict) -> dict:
+    for key in (
+        "fluency_band",
+        "lexical_band",
+        "grammar_band",
+        "pronunciation_band",
+        "overall_band",
+    ):
+        scoring[key] = _normalize_band(scoring.get(key))
+    return scoring
+
+
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=30)
 def score_practice_attempt(self, attempt_id: str):
     """
@@ -100,16 +123,12 @@ def score_practice_attempt(self, attempt_id: str):
                     part_count += 1
 
             # Update attempt with averaged scores (IELTS: always round to nearest 0.5)
-            def ielts_round(val):
-                """Round to nearest 0.5 (IELTS standard: 5.0, 5.5, 6.0, 6.5...)"""
-                return round(val * 2) / 2
-
             if part_count > 0:
-                attempt.fluency_score = ielts_round(total_fluency / part_count)
-                attempt.lexical_score = ielts_round(total_lexical / part_count)
-                attempt.grammar_score = ielts_round(total_grammar / part_count)
-                attempt.pronunciation_score = ielts_round(total_pronunciation / part_count)
-                attempt.overall_band = ielts_round(
+                attempt.fluency_score = _normalize_band(total_fluency / part_count)
+                attempt.lexical_score = _normalize_band(total_lexical / part_count)
+                attempt.grammar_score = _normalize_band(total_grammar / part_count)
+                attempt.pronunciation_score = _normalize_band(total_pronunciation / part_count)
+                attempt.overall_band = _normalize_band(
                     (attempt.fluency_score + attempt.lexical_score +
                      attempt.grammar_score + attempt.pronunciation_score) / 4
                 )
@@ -242,7 +261,7 @@ def _score_with_llm_sync(transcript, question_text, ielts_part, pronunciation_da
     )
 
     if not settings.GROQ_API_KEY:
-        return {
+        return _normalize_scoring_bands({
             "fluency_band": 6.5, "lexical_band": 6.0, "grammar_band": 6.5,
             "pronunciation_band": 6.0, "overall_band": 6.5,
             "feedback": {"summary": "Good attempt.", "detailed": "Solid performance."},
@@ -252,7 +271,7 @@ def _score_with_llm_sync(transcript, question_text, ielts_part, pronunciation_da
             "sample_better_answer": {"text": "Example answer...", "explanation": "Better vocabulary."},
             "grammar_errors": [],
             "vocabulary_suggestions": [],
-        }
+        })
 
     from groq import Groq
     client = Groq(api_key=settings.GROQ_API_KEY)
@@ -265,11 +284,11 @@ def _score_with_llm_sync(transcript, question_text, ielts_part, pronunciation_da
 
     try:
         text = response.choices[0].message.content
-        return json.loads(text)
+        return _normalize_scoring_bands(json.loads(text))
     except json.JSONDecodeError:
         text = response.choices[0].message.content
         start = text.find("{")
         end = text.rfind("}") + 1
         if start != -1 and end > start:
-            return json.loads(text[start:end])
+            return _normalize_scoring_bands(json.loads(text[start:end]))
         raise ValueError(f"Failed to parse LLM response: {text[:200]}")

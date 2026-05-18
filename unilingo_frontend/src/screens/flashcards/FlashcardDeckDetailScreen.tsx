@@ -21,6 +21,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { flashcardsAPI, FlashcardCard, FlashcardDeck } from '../../api/flashcards';
 import { Gradients } from '../../theme';
 import { AppModal, useAppModal } from '../../components/common/AppModal';
+import AppBackground from '../../components/common/AppBackground';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -128,9 +129,10 @@ export default function FlashcardDeckDetailScreen({ navigation, route }: any) {
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
-      {/* Header */}
-      <View style={styles.header}>
+    <AppBackground>
+      <SafeAreaView style={styles.safe}>
+        {/* Header */}
+        <View style={styles.header}>
         <TouchableOpacity
           style={[styles.backBtn, { borderColor: colors.border }]}
           onPress={() => navigation.goBack()}
@@ -151,75 +153,75 @@ export default function FlashcardDeckDetailScreen({ navigation, route }: any) {
         >
           <Ionicons name="add" size={20} color="#fff" />
         </TouchableOpacity>
-      </View>
-
-      {/* Study Button Banner */}
-      {cards.length > 0 && (
-        <TouchableOpacity
-          style={styles.studyBanner}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('FlashcardStudy', { deckId, deckTitle })}
-        >
-          <LinearGradient
-            colors={Gradients.primary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.studyBannerGradient}
-          >
-            <View style={styles.studyBannerContent}>
-              <View style={styles.studyBannerIcon}>
-                <Ionicons name="play" size={24} color="#fff" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.studyBannerTitle}>Start Studying</Text>
-                <Text style={styles.studyBannerDesc}>
-                  Swipe cards to learn • {cards.length} cards ready
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#1F2937" />
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
-      )}
-
-      {/* Cards List */}
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.accent} />
         </View>
-      ) : (
-        <FlatList
-          data={cards}
-          renderItem={renderCard}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
-          }
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={{ fontSize: 48, marginBottom: 12 }}>📝</Text>
-              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                No cards yet
-              </Text>
-              <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
-                Tap the + button to add your first flashcard
-              </Text>
-              <TouchableOpacity
-                style={[styles.emptyBtn, { backgroundColor: colors.accent }]}
-                onPress={() => setShowAddCard(true)}
-              >
-                <Ionicons name="add" size={18} color="#fff" />
-                <Text style={styles.emptyBtnText}>Add Card</Text>
-              </TouchableOpacity>
-            </View>
-          }
-        />
-      )}
 
-      {/* Add Card Modal */}
-      <Modal visible={showAddCard} animationType="slide" transparent>
+        {/* Study Button Banner */}
+        {cards.length > 0 && (
+          <TouchableOpacity
+            style={styles.studyBanner}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('FlashcardStudy', { deckId, deckTitle })}
+          >
+            <LinearGradient
+              colors={Gradients.primary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.studyBannerGradient}
+            >
+              <View style={styles.studyBannerContent}>
+                <View style={styles.studyBannerIcon}>
+                  <Ionicons name="play" size={24} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.studyBannerTitle}>Start Studying</Text>
+                  <Text style={styles.studyBannerDesc}>
+                    Swipe cards to learn • {cards.length} cards ready
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#1F2937" />
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
+        {/* Cards List */}
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        ) : (
+          <FlatList
+            data={cards}
+            renderItem={renderCard}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+            }
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={{ fontSize: 48, marginBottom: 12 }}>📝</Text>
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                  No cards yet
+                </Text>
+                <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
+                  Tap the + button to add your first flashcard
+                </Text>
+                <TouchableOpacity
+                  style={[styles.emptyBtn, { backgroundColor: colors.accent }]}
+                  onPress={() => setShowAddCard(true)}
+                >
+                  <Ionicons name="add" size={18} color="#fff" />
+                  <Text style={styles.emptyBtnText}>Add Card</Text>
+                </TouchableOpacity>
+              </View>
+            }
+          />
+        )}
+
+        {/* Add Card Modal */}
+        <Modal visible={showAddCard} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <View style={styles.modalHeader}>
@@ -273,11 +275,12 @@ export default function FlashcardDeckDetailScreen({ navigation, route }: any) {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+        </Modal>
 
-      {/* App Modal */}
-      <AppModal config={modal} onDismiss={hideModal} />
-    </SafeAreaView>
+        {/* App Modal */}
+        <AppModal config={modal} onDismiss={hideModal} />
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 

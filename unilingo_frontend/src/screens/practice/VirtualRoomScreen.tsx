@@ -15,6 +15,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import { usePreventRemove } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue, useAnimatedStyle, withRepeat,
   withSequence, withTiming, Easing,
@@ -24,6 +26,7 @@ import { practiceAPI } from '../../api/practice';
 import { Card, OutlineButton } from '../../components/common';
 import { AppModal, useAppModal } from '../../components/common/AppModal';
 import { Gradients, Typography } from '../../theme';
+import AppBackground from '../../components/common/AppBackground';
 
 // Question counts per part
 const QUESTION_COUNTS: Record<string, number> = { part1: 3, part2: 1, part3: 3 };
@@ -74,11 +77,11 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [metering, setMetering] = useState(-60);
   const recordingRef = useRef<Audio.Recording | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Prep timer (Part 2)
   const [prepTime, setPrepTime] = useState(60);
-  const prepTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const prepTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Notes
   const [showNotes, setShowNotes] = useState(false);
@@ -88,6 +91,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const soundRef = useRef<Audio.Sound | null>(null);
   const isQuestionActiveRef = useRef(false);
+  const initStartedRef = useRef(false);
 
   // Animation
   const pulseScale = useSharedValue(1);
@@ -110,7 +114,10 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
 
   // ──── Lifecycle ────
   useEffect(() => {
-    initExam();
+    if (!initStartedRef.current) {
+      initStartedRef.current = true;
+      initExam();
+    }
     return () => {
       stopAllAudio();
       clearAllTimers();
@@ -118,27 +125,19 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
     };
   }, []);
 
-  // ──── Intercept back gesture / hardware back ────
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
-      // Allow programmatic navigation (replace, goBack after confirm)
-      if (e.data.action.type === 'REPLACE') return;
-
-      e.preventDefault();
-      showConfirm(
-        'Leave Exam?',
-        'Your progress will be lost. Do you want to quit this test?',
-        async () => {
-          await stopAllAudio();
-          clearAllTimers();
-          await cleanupRecording();
-          navigation.dispatch(e.data.action);
-        },
-        { confirmText: 'Quit', cancelText: 'Stay', destructive: true }
-      );
-    });
-    return unsubscribe;
-  }, [navigation]);
+  usePreventRemove(phase !== 'complete' && phase !== 'error', ({ data }) => {
+    showConfirm(
+      'Leave Exam?',
+      'Your progress will be lost. Do you want to quit this test?',
+      async () => {
+        await stopAllAudio();
+        clearAllTimers();
+        await cleanupRecording();
+        navigation.dispatch(data.action);
+      },
+      { confirmText: 'Quit', cancelText: 'Stay', destructive: true }
+    );
+  });
 
   useEffect(() => {
     if (isRecording) {
@@ -480,41 +479,51 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   // ──── Render ────
   if (phase === 'loading') {
     return (
-      <View style={[styles.container, { backgroundColor: colors.bgPrimary, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={colors.accent} />
-        <Text style={[Typography.bodyMedium, { color: colors.textSecondary, marginTop: 16 }]}>
-          Preparing your exam...
-        </Text>
-      </View>
+      <AppBackground>
+        <SafeAreaView style={styles.safe}>
+          <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator size="large" color={colors.accent} />
+            <Text style={[Typography.bodyMedium, { color: colors.textSecondary, marginTop: 16 }]}>
+              Preparing your exam...
+            </Text>
+          </View>
+        </SafeAreaView>
+      </AppBackground>
     );
   }
 
   if (phase === 'error') {
     return (
-      <View style={[styles.container, { backgroundColor: colors.bgPrimary, justifyContent: 'center', padding: 24 }]}>
-        <View style={[styles.errorCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <Ionicons name="alert-circle-outline" size={34} color={colors.error} />
-          <Text style={[Typography.h3, { color: colors.textPrimary, textAlign: 'center' }]}>
-            Exam unavailable
-          </Text>
-          <Text style={[Typography.caption, { color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }]}>
-            {loadError}
-          </Text>
-          <View style={styles.errorActions}>
-            <OutlineButton title="Go Back" onPress={() => navigation.goBack()} />
-            <TouchableOpacity style={[styles.retryExamBtn, { backgroundColor: colors.accent }]} onPress={initExam}>
-              <Text style={styles.retryExamText}>Retry</Text>
-            </TouchableOpacity>
+      <AppBackground>
+        <SafeAreaView style={styles.safe}>
+          <View style={[styles.container, { justifyContent: 'center', padding: 24 }]}>
+            <View style={[styles.errorCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <Ionicons name="alert-circle-outline" size={34} color={colors.error} />
+              <Text style={[Typography.h3, { color: colors.textPrimary, textAlign: 'center' }]}>
+                Exam unavailable
+              </Text>
+              <Text style={[Typography.caption, { color: colors.textSecondary, textAlign: 'center', lineHeight: 20 }]}>
+                {loadError}
+              </Text>
+              <View style={styles.errorActions}>
+                <OutlineButton title="Go Back" onPress={() => navigation.goBack()} />
+                <TouchableOpacity style={[styles.retryExamBtn, { backgroundColor: colors.accent }]} onPress={initExam}>
+                  <Text style={styles.retryExamText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-        </View>
-      </View>
+        </SafeAreaView>
+      </AppBackground>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-      {/* Header */}
-      <View style={styles.topBar}>
+    <AppBackground>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.topBar}>
         <TouchableOpacity
           style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           onPress={() => {
@@ -532,10 +541,10 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
           {displayTitle}
         </Text>
         <View style={{ width: 36 }} />
-      </View>
+        </View>
 
-      {/* Progress Indicator */}
-      <View style={styles.progressRow}>
+        {/* Progress Indicator */}
+        <View style={styles.progressRow}>
         {questions.map((_, i) => (
           <View
             key={i}
@@ -548,9 +557,9 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
             ]}
           />
         ))}
-      </View>
+        </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* AI Examiner Avatar */}
         <LinearGradient colors={Gradients.primary} style={styles.examinerAvatar}>
           <Text style={{ fontSize: 42 }}>{isSpeaking ? '🗣️' : '🤖'}</Text>
@@ -643,10 +652,10 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
             </Text>
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
 
-      {/* Action Buttons */}
-      <View style={styles.actions}>
+        {/* Action Buttons */}
+        <View style={styles.actions}>
         {(phase === 'prep' || phase === 'asking') && (
           <OutlineButton
             title={showNotes ? 'Hide Notes' : 'Notes'}
@@ -680,14 +689,17 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
             </LinearGradient>
           </TouchableOpacity>
         )}
-      </View>
+        </View>
 
-      <AppModal config={modal} onDismiss={hideModal} />
-    </View>
+        <AppModal config={modal} onDismiss={hideModal} />
+        </View>
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: { flex: 1 },
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

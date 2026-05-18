@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeStore } from '../../store/themeStore';
 import { topicsAPI, Topic } from '../../api/topics';
-import { Card, Badge, SectionTitle } from '../../components/common';
+import { Card, Badge, SectionTitle, Mascot } from '../../components/common';
 import AppBackground from '../../components/common/AppBackground';
 import { Gradients, Typography, Spacing, BorderRadius } from '../../theme';
 
@@ -64,7 +64,13 @@ export default function PracticeScreen({ navigation, route }: any) {
           showsVerticalScrollIndicator={false}
         >
         <View style={styles.topBar}>
-          <Text style={[Typography.h2, { color: colors.textPrimary }]}>Practice</Text>
+          <View>
+            <Text style={[Typography.h2, { color: colors.textPrimary }]}>Practice</Text>
+            <Text style={[Typography.caption, { color: colors.textMuted }]}>
+              Choose a speaking mode and start when you are ready.
+            </Text>
+          </View>
+          <Mascot mood="idle" size={86} animated />
         </View>
 
         {/* IELTS Speaking Mock Test */}
@@ -224,7 +230,13 @@ export default function PracticeScreen({ navigation, route }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 20 },
-  topBar: { paddingTop: 8, paddingBottom: 14 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    paddingBottom: 14,
+  },
   partCards: { gap: 10, marginBottom: 22 },
   partCard: {
     flexDirection: 'row', alignItems: 'center', gap: 16,

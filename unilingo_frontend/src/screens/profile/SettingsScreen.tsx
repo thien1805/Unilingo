@@ -26,6 +26,7 @@ import apiClient from '../../api/client';
 import { notificationsAPI, NotificationSettings } from '../../api/notifications';
 import { syncNotificationPreferences } from '../../services/NotificationService';
 import { Gradients } from '../../theme';
+import AppBackground from '../../components/common/AppBackground';
 
 export default function SettingsScreen({ navigation }: any) {
   const { colors, isDark, toggleTheme } = useThemeStore();
@@ -161,8 +162,9 @@ export default function SettingsScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+    <AppBackground>
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.topBar}>
@@ -429,8 +431,9 @@ export default function SettingsScreen({ navigation }: any) {
             <Text style={[styles.logoutText, { color: colors.error }]}>Logout</Text>
           </TouchableOpacity>
         </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 

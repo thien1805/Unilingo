@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { flashcardsAPI, FlashcardDeck } from '../../api/flashcards';
 import { AppModal, useAppModal } from '../../components/common/AppModal';
+import AppBackground from '../../components/common/AppBackground';
 
 const DECK_EMOJIS = ['📚', '📖', '🎯', '💡', '🌍', '🎓', '📝', '🔤', '🧠', '⭐'];
 
@@ -129,9 +130,10 @@ export default function FlashcardDecksScreen({ navigation }: any) {
   );
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
-      {/* Header */}
-      <View style={styles.header}>
+    <AppBackground>
+      <SafeAreaView style={styles.safe}>
+        {/* Header */}
+        <View style={styles.header}>
         <TouchableOpacity
           style={[styles.backBtn, { borderColor: colors.border }]}
           onPress={() => navigation.goBack()}
@@ -145,47 +147,47 @@ export default function FlashcardDecksScreen({ navigation }: any) {
         >
           <Ionicons name="add" size={20} color="#fff" />
         </TouchableOpacity>
-      </View>
-
-
-      {/* Deck Grid */}
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.accent} />
         </View>
-      ) : (
-        <FlatList
-          data={decks}
-          renderItem={renderDeck}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          contentContainerStyle={styles.grid}
-          columnWrapperStyle={styles.gridRow}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
-          }
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={{ fontSize: 48, marginBottom: 12 }}>🃏</Text>
-              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                {loadError ? 'Decks unavailable' : 'No decks yet'}
-              </Text>
-              <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
-                {loadError || 'Create a new deck or auto-generate from vocabulary'}
-              </Text>
-              {loadError && (
-                <TouchableOpacity style={[styles.retryBtn, { borderColor: colors.border }]} onPress={loadDecks}>
-                  <Text style={[styles.retryText, { color: colors.accent }]}>Retry</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          }
-        />
-      )}
 
-      {/* Create Deck Modal */}
-      <Modal visible={showCreate} animationType="slide" transparent>
+
+        {/* Deck Grid */}
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        ) : (
+          <FlatList
+            data={decks}
+            renderItem={renderDeck}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            contentContainerStyle={styles.grid}
+            columnWrapperStyle={styles.gridRow}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+            }
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={{ fontSize: 48, marginBottom: 12 }}>🃏</Text>
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                  {loadError ? 'Decks unavailable' : 'No decks yet'}
+                </Text>
+                <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
+                  {loadError || 'Create a new deck or auto-generate from vocabulary'}
+                </Text>
+                {loadError && (
+                  <TouchableOpacity style={[styles.retryBtn, { borderColor: colors.border }]} onPress={loadDecks}>
+                    <Text style={[styles.retryText, { color: colors.accent }]}>Retry</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            }
+          />
+        )}
+
+        {/* Create Deck Modal */}
+        <Modal visible={showCreate} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <View style={styles.modalHeader}>
@@ -231,11 +233,12 @@ export default function FlashcardDecksScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+        </Modal>
 
-      {/* App Modal */}
-      <AppModal config={modal} onDismiss={hideModal} />
-    </SafeAreaView>
+        {/* App Modal */}
+        <AppModal config={modal} onDismiss={hideModal} />
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 

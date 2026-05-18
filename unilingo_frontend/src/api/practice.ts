@@ -128,6 +128,19 @@ export const practiceAPI = {
     return data;
   },
 
+  transcribeAudio: async (audioFile: FormData): Promise<{ transcript: string }> => {
+    const { data } = await apiClient.post(
+      '/practice/transcribe-audio',
+      audioFile,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000,
+        transformRequest: (data) => data,
+      }
+    );
+    return data;
+  },
+
   submit: async (attemptId: string) => {
     const { data } = await apiClient.post(`/practice/${attemptId}/submit`);
     return data;

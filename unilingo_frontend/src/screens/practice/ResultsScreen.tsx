@@ -3,14 +3,18 @@
  * Fully integrated with backend scoring pipeline
  */
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeStore } from '../../store/themeStore';
 import { practiceAPI, ScoringResult } from '../../api/practice';
 import { vocabularyAPI, DictionaryResult } from '../../api/vocabulary';
-import { Card, PrimaryButton, OutlineButton, Badge, ScoreBar } from '../../components/common';
+import { Card, PrimaryButton, OutlineButton, Badge, ScoreBar, Mascot } from '../../components/common';
 import { Gradients, Typography, BorderRadius } from '../../theme';
+import AppBackground from '../../components/common/AppBackground';
+import { getMascotMoodByBandChange, getMascotMoodByOverall } from '../../utils/mascotMood';
+import { formatBand, normalizeBand } from '../../utils/bandScore';
 
 const TABS = ['Script', 'Feedback', 'Sample', 'Grammar'];
 
@@ -113,11 +117,11 @@ export default function ResultsScreen({ navigation, route }: any) {
   const firstScoring = parts[0]?.scoring;
 
   // Top-level scores are already averaged by the backend across all parts
-  const overall = r.overall_band ?? firstScoring?.overall_band ?? 0;
-  const fluency = r.fluency_score ?? firstScoring?.fluency_band ?? 0;
-  const lexical = r.lexical_score ?? firstScoring?.lexical_band ?? 0;
-  const grammar = r.grammar_score ?? firstScoring?.grammar_band ?? 0;
-  const pronunciation = r.pronunciation_score ?? firstScoring?.pronunciation_band ?? 0;
+  const overall = normalizeBand(r.overall_band ?? firstScoring?.overall_band ?? 0);
+  const fluency = normalizeBand(r.fluency_score ?? firstScoring?.fluency_band ?? 0);
+  const lexical = normalizeBand(r.lexical_score ?? firstScoring?.lexical_band ?? 0);
+  const grammar = normalizeBand(r.grammar_score ?? firstScoring?.grammar_band ?? 0);
+  const pronunciation = normalizeBand(r.pronunciation_score ?? firstScoring?.pronunciation_band ?? 0);
 
   // Aggregate AI-generated content from all parts
   const allScoringParts = parts.filter((p: any) => p.scoring);
@@ -129,12 +133,23 @@ export default function ResultsScreen({ navigation, route }: any) {
   const vocabSuggestions = allScoringParts.flatMap((p: any) => p.scoring?.vocabulary_suggestions || []).filter(Boolean);
 
   const comment = overall >= 7 ? 'Excellent! 🎉' : overall >= 6 ? 'Good job! 👏' : overall >= 5 ? 'Keep Going! 💪' : 'Practice more! 📚';
+  const overallMascotMood = getMascotMoodByOverall(overall);
+
+  const getQuestionMascotMood = (index: number) => {
+    const currentBand = parts[index]?.scoring?.overall_band;
+    const rawPreviousBand = index > 0 ? parts[index - 1]?.scoring?.overall_band : null;
+    const previousBand = typeof rawPreviousBand === 'number' ? normalizeBand(rawPreviousBand) : null;
+    if (typeof currentBand !== 'number') return 'idle';
+    return getMascotMoodByBandChange(previousBand, normalizeBand(currentBand));
+  };
 
   if (loading || polling) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-        {/* Header */}
-        <View style={styles.topBar}>
+      <AppBackground>
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.container}>
+          {/* Header */}
+          <View style={styles.topBar}>
           <TouchableOpacity
             style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
             onPress={() => navigation.popToTop()}
@@ -143,32 +158,37 @@ export default function ResultsScreen({ navigation, route }: any) {
           </TouchableOpacity>
           <Text style={[Typography.bodyMedium, { color: colors.textPrimary }]}>Practice Result</Text>
           <View style={{ width: 38 }} />
-        </View>
-
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}>
-          <View style={{
-            width: 80, height: 80, borderRadius: 40,
-            backgroundColor: colors.accentBg,
-            alignItems: 'center', justifyContent: 'center',
-            marginBottom: 24,
-          }}>
-            <ActivityIndicator size="large" color={colors.accent} />
           </View>
-          <Text style={[Typography.h2, { color: colors.textPrimary, textAlign: 'center', marginBottom: 12 }]}>
-            AI is grading...
-          </Text>
-          <Text style={[Typography.bodyMedium, { color: colors.textSecondary, textAlign: 'center', lineHeight: 24 }]}>
-            Please wait a moment while our AI examiner analyzes your pronunciation, vocabulary, and grammar.
-          </Text>
-        </View>
-      </View>
+
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 }}>
+            <Mascot mood="confused" size={128} animated />
+            <View style={{
+              width: 80, height: 80, borderRadius: 40,
+              backgroundColor: colors.accentBg,
+              alignItems: 'center', justifyContent: 'center',
+              marginBottom: 24,
+            }}>
+              <ActivityIndicator size="large" color={colors.accent} />
+            </View>
+            <Text style={[Typography.h2, { color: colors.textPrimary, textAlign: 'center', marginBottom: 12 }]}>
+              AI is grading...
+            </Text>
+            <Text style={[Typography.bodyMedium, { color: colors.textSecondary, textAlign: 'center', lineHeight: 24 }]}>
+              Please wait a moment while our AI examiner analyzes your pronunciation, vocabulary, and grammar.
+            </Text>
+          </View>
+          </View>
+        </SafeAreaView>
+      </AppBackground>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-      {/* Header */}
-      <View style={styles.topBar}>
+    <AppBackground>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.topBar}>
         <TouchableOpacity
           style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           onPress={() => navigation.popToTop()}
@@ -179,16 +199,17 @@ export default function ResultsScreen({ navigation, route }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={[Typography.bodySm, { color: colors.accent }]}>🔄 Retry</Text>
         </TouchableOpacity>
-      </View>
+        </View>
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
         {/* Band Score Circle */}
         <View style={styles.bandDisplay}>
+          <Mascot mood={overallMascotMood} size={118} animated />
           <LinearGradient colors={Gradients.primary} style={styles.bandCircle}>
-            <Text style={[Typography.bandScore, { color: '#fff' }]}>{(Math.round(overall * 2) / 2).toFixed(1)}</Text>
+            <Text style={[Typography.bandScore, { color: '#fff' }]}>{formatBand(overall)}</Text>
             <Text style={{ fontSize: 11, color: '#1F2937', marginTop: 2 }}>Overall</Text>
           </LinearGradient>
           <Text style={[Typography.h3, { color: colors.success, marginTop: 10 }]}>{comment}</Text>
@@ -264,9 +285,12 @@ export default function ResultsScreen({ navigation, route }: any) {
             {r.parts && r.parts.length > 0 ? (
               r.parts.map((p: any, index: number) => (
                 <Card key={index} style={{ marginBottom: 8 }}>
-                  <Text style={[Typography.h4, { color: colors.accent, marginBottom: 8 }]}>
-                    Q{index + 1}: {p.question_text || 'Topic Question'}
-                  </Text>
+                  <View style={styles.questionResultHeader}>
+                    <Text style={[Typography.h4, { color: colors.accent, flex: 1 }]}>
+                      Q{index + 1}: {p.question_text || 'Topic Question'}
+                    </Text>
+                    <Mascot mood={getQuestionMascotMood(index)} size={54} animated />
+                  </View>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                     {(p.transcript || 'No speech recorded.').split(' ').map((word: string, i: number) => (
                       <TouchableOpacity key={i} onPress={() => handleLookup(word)}>
@@ -434,10 +458,10 @@ export default function ResultsScreen({ navigation, route }: any) {
           <OutlineButton title="History" icon="time" onPress={() => navigation.navigate('PracticeHistory')} style={{ flex: 1 }} />
           <PrimaryButton title="Done" icon="checkmark" onPress={() => navigation.popToTop()} style={{ flex: 1 }} />
         </View>
-      </ScrollView>
+        </ScrollView>
 
-      {/* Dictionary Modal */}
-      <Modal visible={!!selectedWord} animationType="slide" presentationStyle="pageSheet">
+        {/* Dictionary Modal */}
+        <Modal visible={!!selectedWord} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={[{ flex: 1, backgroundColor: colors.bgBody }]}>
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Dictionary</Text>
@@ -490,13 +514,16 @@ export default function ResultsScreen({ navigation, route }: any) {
             ) : null}
           </ScrollView>
         </SafeAreaView>
-      </Modal>
+        </Modal>
 
-    </View>
+        </View>
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1 },
   container: { flex: 1 },
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -521,6 +548,12 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', borderRadius: 12, padding: 3, marginVertical: 14 },
   tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
   transcriptHint: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  questionResultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
   feedbackItem: { flexDirection: 'row', gap: 10, paddingLeft: 4, marginTop: 4 },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   vocabRow: {

@@ -5,6 +5,7 @@ export type RecordedMockAnswer = {
   question: string;
   uri: string;
   duration: number;
+  transcript: string | null;
 };
 
 export const MOCK_TEST = {

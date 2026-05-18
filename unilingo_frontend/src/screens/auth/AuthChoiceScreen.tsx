@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import AnimatedMascot from '../../components/common/AnimatedMascot';
+import AppBackground from '../../components/common/AppBackground';
 
 type Props = {
   navigation: any;
@@ -18,43 +19,45 @@ type Props = {
 
 export default function AuthChoiceScreen({ navigation }: Props) {
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.smallLogo}>UNILINGO</Text>
+    <AppBackground>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          <Text style={styles.smallLogo}>UNILINGO</Text>
 
-        <AnimatedMascot state="idle" size={300} style={styles.icon} />
+          <AnimatedMascot state="idle" size={300} style={styles.icon} />
 
-        <Text style={styles.title}>UNILINGO</Text>
-        <Text style={styles.subtitle}>Learn each day, speak your way</Text>
+          <Text style={styles.title}>UNILINGO</Text>
+          <Text style={styles.subtitle}>Learn each day, speak your way</Text>
 
 
-      </View>
+        </View>
 
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.signUpButton}
-          onPress={() => navigation.navigate('Register')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.signUpText}>Sign Up</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.signUpButton}
+            onPress={() => navigation.navigate('Register')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.signUpText}>Sign Up</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.signInButton}
-          onPress={() => navigation.navigate('Login')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.signInText}>Sign In</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+          <TouchableOpacity
+            style={styles.signInButton}
+            onPress={() => navigation.navigate('Login')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.signInText}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFF',
+    backgroundColor: 'transparent',
   },
   content: {
     flex: 1,

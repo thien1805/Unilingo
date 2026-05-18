@@ -16,8 +16,9 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useThemeStore } from '../../store/themeStore';
 import { practiceAPI } from '../../api/practice';
-import { Card } from '../../components/common';
+import { Card, Mascot } from '../../components/common';
 import { Typography, Gradients } from '../../theme';
+import AppBackground from '../../components/common/AppBackground';
 
 export default function RecordingScreen({ navigation, route }: any) {
   const { attemptId, question, ieltsPart, topicTitle, isFullTest } = route.params;
@@ -30,7 +31,7 @@ export default function RecordingScreen({ navigation, route }: any) {
   const maxSeconds = ieltsPart === 'part2' ? 120 : 180;
 
   const recordingRef = useRef<Audio.Recording | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isStoppingRef = useRef(false);
 
   // Animated recording pulse
@@ -269,9 +270,10 @@ export default function RecordingScreen({ navigation, route }: any) {
   });
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bgPrimary }]}>
-      {/* Header */}
-      <View style={styles.topBar}>
+    <AppBackground>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.topBar}>
         <TouchableOpacity
           style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           onPress={() => {
@@ -300,17 +302,18 @@ export default function RecordingScreen({ navigation, route }: any) {
           Recording — {ieltsPart?.replace('part', 'Part ')}
         </Text>
         <View style={{ width: 36 }} />
-      </View>
+        </View>
 
-      {/* Question */}
-      <Card style={{ marginHorizontal: 20, marginTop: 6 }}>
-        <Text style={[Typography.bodyMedium, { color: colors.textSecondary }]}>
-          {question?.question_text || 'Describe a place you have visited...'}
-        </Text>
-      </Card>
+        {/* Question */}
+        <Card style={{ marginHorizontal: 20, marginTop: 6 }}>
+          <Text style={[Typography.bodyMedium, { color: colors.textSecondary }]}>
+            {question?.question_text || 'Describe a place you have visited...'}
+          </Text>
+        </Card>
 
-      {/* Recording Section */}
-      <View style={styles.recordingSection}>
+        {/* Recording Section */}
+        <View style={styles.recordingSection}>
+        <Mascot mood="closedEyes" size={130} animated />
         {/* Recording indicator */}
         <View style={styles.recLabel}>
           <Animated.View style={pulseStyle}>
@@ -378,8 +381,9 @@ export default function RecordingScreen({ navigation, route }: any) {
             {ieltsPart === 'part2' ? ' You have 2 minutes for your long turn.' : ''}
           </Text>
         </View>
+        </View>
       </View>
-    </View>
+    </AppBackground>
   );
 }
 

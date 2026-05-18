@@ -4,7 +4,6 @@
 import React, { useState } from 'react';
 import {
   Image,
-  ImageBackground,
   View,
   Text,
   TextInput,
@@ -176,10 +175,9 @@ export default function LoginScreen({ navigation }: any) {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgPrimary }]}>
       <View style={styles.backgroundLayer} pointerEvents="none">
-        <ImageBackground
+        <Image
           source={require('../../../background.png')}
           style={styles.background}
-          imageStyle={styles.backgroundImage}
           resizeMode="cover"
         />
       </View>
@@ -480,9 +478,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   background: {
-    flex: 1,
-  },
-  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
     opacity: 0.68,

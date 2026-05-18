@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { practiceAPI, PracticeHistoryItem } from '../../api/practice';
+import AppBackground from '../../components/common/AppBackground';
 
 const PARTS = ['all', 'part1', 'part2', 'part3'] as const;
 
@@ -157,84 +158,86 @@ export default function PracticeHistoryScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[styles.backBtn, { borderColor: colors.border }]}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Practice History</Text>
-        <View style={{ width: 38 }} />
-      </View>
-
-      {/* Part Filter */}
-      <View style={styles.filterRow}>
-        {PARTS.map(part => (
+    <AppBackground>
+      <SafeAreaView style={styles.safe}>
+        {/* Header */}
+        <View style={styles.header}>
           <TouchableOpacity
-            key={part}
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor: activePart === part ? colors.accent : colors.bgCard,
-                borderColor: activePart === part ? colors.accent : colors.border,
-              },
-            ]}
-            onPress={() => setActivePart(part)}
+            style={[styles.backBtn, { borderColor: colors.border }]}
+            onPress={() => navigation.goBack()}
           >
-            <Text
-              style={[
-                styles.filterText,
-                { color: activePart === part ? '#fff' : colors.textSecondary },
-              ]}
-            >
-              {part === 'all' ? 'All' : part.replace('part', 'Part ')}
-            </Text>
+            <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* History List */}
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={[styles.title, { color: colors.textPrimary }]}>Practice History</Text>
+          <View style={{ width: 38 }} />
         </View>
-      ) : (
-        <FlatList
-          data={items}
-          renderItem={renderItem}
-          keyExtractor={(item) => item.attempt_id}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
-          }
-          onEndReached={() => hasMore && loadHistory()}
-          onEndReachedThreshold={0.3}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={{ fontSize: 48, marginBottom: 12 }}>📋</Text>
-              <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-                {loadError ? 'History unavailable' : 'No history yet'}
+
+        {/* Part Filter */}
+        <View style={styles.filterRow}>
+          {PARTS.map(part => (
+            <TouchableOpacity
+              key={part}
+              style={[
+                styles.filterChip,
+                {
+                  backgroundColor: activePart === part ? colors.accent : colors.bgCard,
+                  borderColor: activePart === part ? colors.accent : colors.border,
+                },
+              ]}
+              onPress={() => setActivePart(part)}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  { color: activePart === part ? '#fff' : colors.textSecondary },
+                ]}
+              >
+                {part === 'all' ? 'All' : part.replace('part', 'Part ')}
               </Text>
-              <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
-                {loadError || 'Complete a practice session to see it here'}
-              </Text>
-              {loadError && (
-                <TouchableOpacity
-                  style={[styles.retryBtn, { borderColor: colors.border }]}
-                  onPress={() => loadHistory(true)}
-                >
-                  <Text style={[styles.retryText, { color: colors.accent }]}>Retry</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          }
-        />
-      )}
-    </SafeAreaView>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* History List */}
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        ) : (
+          <FlatList
+            data={items}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.attempt_id}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
+            }
+            onEndReached={() => hasMore && loadHistory()}
+            onEndReachedThreshold={0.3}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={{ fontSize: 48, marginBottom: 12 }}>📋</Text>
+                <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+                  {loadError ? 'History unavailable' : 'No history yet'}
+                </Text>
+                <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
+                  {loadError || 'Complete a practice session to see it here'}
+                </Text>
+                {loadError && (
+                  <TouchableOpacity
+                    style={[styles.retryBtn, { borderColor: colors.border }]}
+                    onPress={() => loadHistory(true)}
+                  >
+                    <Text style={[styles.retryText, { color: colors.accent }]}>Retry</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            }
+          />
+        )}
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 

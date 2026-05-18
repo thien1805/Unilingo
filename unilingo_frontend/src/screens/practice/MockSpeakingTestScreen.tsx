@@ -13,6 +13,7 @@ import { MockTestPart, RecordedMockAnswer } from '../../data/mockSpeakingTest';
 import { BorderRadius, Gradients, Spacing, Typography } from '../../theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import apiClient from '../../api/client';
+import { practiceAPI } from '../../api/practice';
 
 type TestPhase = 'loading' | 'ready' | 'preparing' | 'recording' | 'completed';
 
@@ -64,6 +65,8 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
   const [recordedAnswers, setRecordedAnswers] = useState<RecordedMockAnswer[]>([]);
   const [cameraGranted, setCameraGranted] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
 
   const recordedAnswersRef = useRef<RecordedMockAnswer[]>([]);
   const activeQuestionRef = useRef<ActiveQuestion | null>(null);
@@ -133,6 +136,28 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
     setRecordedAnswers(next);
   }, []);
 
+  const transcribeRecording = useCallback(async (uri: string) => {
+    try {
+      setIsTranscribing(true);
+      setTranscriptionError(null);
+
+      const formData = new FormData();
+      formData.append('file', {
+        uri,
+        type: 'audio/m4a',
+        name: `mock_answer_${Date.now()}.m4a`,
+      } as any);
+
+      const response = await practiceAPI.transcribeAudio(formData);
+      return response.transcript?.trim() || 'No speech could be recognized.';
+    } catch {
+      setTranscriptionError('Could not transcribe this answer. The audio was still saved.');
+      return null;
+    } finally {
+      setIsTranscribing(false);
+    }
+  }, []);
+
   const stopCurrentRecording = useCallback(async () => {
     if (isStoppingRef.current) return;
     isStoppingRef.current = true;
@@ -142,17 +167,19 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
     const result = await stopRecording();
 
     if (result?.uri && activeQuestion) {
+      const transcript = await transcribeRecording(result.uri);
       appendRecordedAnswer({
         part: activeQuestion.part,
         question: activeQuestion.question,
         uri: result.uri,
         duration: Math.min(result.duration, activeQuestion.limit),
+        transcript,
       });
     }
 
     activeQuestionRef.current = null;
     setPhase('completed');
-  }, [appendRecordedAnswer, stopRecording, stopTimer]);
+  }, [appendRecordedAnswer, stopRecording, stopTimer, transcribeRecording]);
 
   const startQuestionRecording = useCallback(async (
     targetPart: MockTestPart = part,
@@ -357,20 +384,22 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
 
             <View style={[styles.recordingStatus, { backgroundColor: phase === 'recording' ? colors.roseBg : colors.bgSecondary }]}>
               <Ionicons
-                name={phase === 'recording' ? 'radio-button-on' : phase === 'completed' ? 'checkmark-circle' : 'time-outline'}
+                name={isTranscribing ? 'document-text-outline' : phase === 'recording' ? 'radio-button-on' : phase === 'completed' ? 'checkmark-circle' : 'time-outline'}
                 size={18}
-                color={phase === 'recording' ? colors.rose : phase === 'completed' ? colors.success : colors.textSecondary}
+                color={isTranscribing ? colors.accent : phase === 'recording' ? colors.rose : phase === 'completed' ? colors.success : colors.textSecondary}
               />
               <Text
                 style={[
                   Typography.bodySm,
-                  { color: phase === 'recording' ? colors.rose : phase === 'completed' ? colors.success : colors.textSecondary },
+                  { color: isTranscribing ? colors.accent : phase === 'recording' ? colors.rose : phase === 'completed' ? colors.success : colors.textSecondary },
                 ]}
               >
-                {phase === 'recording'
+                {isTranscribing
+                  ? 'Converting your audio answer into script...'
+                  : phase === 'recording'
                   ? 'Recording your answer'
                   : phase === 'completed'
-                    ? 'Recording saved'
+                    ? 'Audio saved and transcript ready'
                     : phase === 'preparing'
                       ? 'Prepare your answer. Recording starts after the timer.'
                       : 'Recording status: idle'}
@@ -410,12 +439,21 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
             </View>
           )}
 
+          {transcriptionError && (
+            <View style={[styles.errorBox, { backgroundColor: colors.warningBg }]}>
+              <Ionicons name="document-text-outline" size={18} color={colors.warning} />
+              <Text style={[Typography.caption, { color: colors.warning, flex: 1 }]}>
+                {transcriptionError}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.actions}>
             <TouchableOpacity
               activeOpacity={0.85}
-              disabled={phase !== 'ready'}
+              disabled={phase !== 'ready' || isTranscribing}
               onPress={() => startQuestionRecording()}
-              style={{ opacity: phase === 'ready' ? 1 : 0.5 }}
+              style={{ opacity: phase === 'ready' && !isTranscribing ? 1 : 0.5 }}
             >
               <LinearGradient colors={Gradients.primary} style={styles.primaryButton}>
                 <Ionicons name="mic" size={18} color="#1F2937" />
@@ -427,9 +465,9 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
               <TouchableOpacity
                 style={[
                   styles.secondaryButton,
-                  { backgroundColor: colors.bgCard, borderColor: colors.border, opacity: phase === 'recording' ? 1 : 0.5 },
+                  { backgroundColor: colors.bgCard, borderColor: colors.border, opacity: phase === 'recording' && !isTranscribing ? 1 : 0.5 },
                 ]}
-                disabled={phase !== 'recording'}
+                disabled={phase !== 'recording' || isTranscribing}
                 onPress={stopCurrentRecording}
               >
                 <Ionicons name="stop" size={18} color={colors.rose} />
@@ -439,9 +477,9 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
               <TouchableOpacity
                 style={[
                   styles.secondaryButton,
-                  { backgroundColor: colors.bgCard, borderColor: colors.border, opacity: phase === 'completed' ? 1 : 0.5 },
+                  { backgroundColor: colors.bgCard, borderColor: colors.border, opacity: phase === 'completed' && !isTranscribing ? 1 : 0.5 },
                 ]}
-                disabled={phase !== 'completed'}
+                disabled={phase !== 'completed' || isTranscribing}
                 onPress={handleNext}
               >
                 <Ionicons name="arrow-forward" size={18} color={colors.textPrimary} />

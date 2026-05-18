@@ -15,6 +15,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { blogAPI, BlogPost } from '../../api/blog';
 import { Typography } from '../../theme';
 import Markdown from 'react-native-markdown-display';
+import AppBackground from '../../components/common/AppBackground';
 
 const { width } = Dimensions.get('window');
 
@@ -41,45 +42,50 @@ export default function BlogDetailScreen({ route, navigation }: any) {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.accent} />
-        </View>
-      </SafeAreaView>
+      <AppBackground>
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        </SafeAreaView>
+      </AppBackground>
     );
   }
 
   if (!post) {
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={[Typography.body, { color: colors.textSecondary }]}>Post not found</Text>
-        </View>
-      </SafeAreaView>
+      <AppBackground>
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
+          </View>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={[Typography.body, { color: colors.textSecondary }]}>Post not found</Text>
+          </View>
+        </SafeAreaView>
+      </AppBackground>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-          <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[Typography.h3, { flex: 1, textAlign: 'center', color: colors.textPrimary }]} numberOfLines={1}>Blog</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <AppBackground>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            <Ionicons name="arrow-back" size={20} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[Typography.h3, { flex: 1, textAlign: 'center', color: colors.textPrimary }]} numberOfLines={1}>Blog</Text>
+          <View style={{ width: 40 }} />
+        </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {post.cover_image_url && (
           <Image source={{ uri: post.cover_image_url }} style={styles.coverImage} />
         )}
@@ -156,8 +162,9 @@ export default function BlogDetailScreen({ route, navigation }: any) {
             </Markdown>
           </View>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { notificationsAPI, UserNotification } from '../../api/notifications';
 import { Typography } from '../../theme';
+import AppBackground from '../../components/common/AppBackground';
 
 const FILTERS = [
   { key: 'all', label: 'All' },
@@ -86,8 +87,9 @@ export default function NotificationsScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgBody }]}>
-      <View style={styles.header}>
+    <AppBackground>
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.header}>
         <TouchableOpacity
           style={[styles.iconButton, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           onPress={() => navigation.goBack()}
@@ -107,9 +109,9 @@ export default function NotificationsScreen({ navigation }: any) {
         >
           <Ionicons name="checkmark-done" size={20} color={unread === 0 ? colors.textMuted : colors.accent} />
         </TouchableOpacity>
-      </View>
+        </View>
 
-      <View style={styles.filterRow}>
+        <View style={styles.filterRow}>
         {FILTERS.map((item) => {
           const selected = filter === item.key;
           return (
@@ -130,18 +132,18 @@ export default function NotificationsScreen({ navigation }: any) {
             </TouchableOpacity>
           );
         })}
-      </View>
-
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
         </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
-        >
+
+        {loading ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={colors.accent} />
+          </View>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+          >
           <Animated.View style={{ opacity: fadeAnim }}>
             {items.length === 0 ? (
               <View style={[styles.emptyCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
@@ -195,9 +197,10 @@ export default function NotificationsScreen({ navigation }: any) {
               </View>
             )}
           </Animated.View>
-        </ScrollView>
-      )}
-    </SafeAreaView>
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 

@@ -7,29 +7,24 @@ type AppBackgroundProps = {
 
 export default function AppBackground({ children }: AppBackgroundProps) {
   return (
-    <View style={styles.container}>
-      <ImageBackground
-        source={require('../../../background.png')}
-        style={styles.background}
-        imageStyle={styles.backgroundImage}
-        resizeMode="cover"
-      />
+    <ImageBackground
+      source={require('../../../background.png')}
+      style={styles.container}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
       <View style={styles.content}>{children}</View>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
-  },
-  background: {
-    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#F8FAFF',
   },
   backgroundImage: {
-    width: '100%',
-    height: '100%',
+    ...StyleSheet.absoluteFillObject,
     opacity: 0.5,
   },
   content: {

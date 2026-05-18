@@ -15,7 +15,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.unilingo.app",
-      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Unilingo uses the camera during IELTS Speaking Mock Test mode to monitor your speaking environment.",
         "NSMicrophoneUsageDescription": "Unilingo records your voice for speaking practice and mock test answers."

@@ -36,6 +36,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { flashcardsAPI, FlashcardCard, FlashcardDeck } from '../../api/flashcards';
 import { Gradients } from '../../theme';
 import { AppModal, useAppModal } from '../../components/common/AppModal';
+import AppBackground from '../../components/common/AppBackground';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
@@ -223,11 +224,13 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgPrimary }]}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.accent} />
-        </View>
-      </SafeAreaView>
+      <AppBackground>
+        <SafeAreaView style={styles.safe}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        </SafeAreaView>
+      </AppBackground>
     );
   }
 
@@ -235,8 +238,9 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
     const total = stats.easy + stats.hard + stats.again;
     const hasError = Boolean(loadError);
     return (
-      <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgPrimary }]}>
-        <View style={styles.completedContainer}>
+      <AppBackground>
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.completedContainer}>
           {hasError ? (
             <Ionicons name="cloud-offline-outline" size={64} color={colors.textMuted} style={{ marginBottom: 16 }} />
           ) : (
@@ -292,15 +296,17 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
               {hasError ? 'Back' : 'Done'}
             </Text>
           </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+          </View>
+        </SafeAreaView>
+      </AppBackground>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bgPrimary }]}>
-      {/* Header */}
-      <View style={styles.topBar}>
+    <AppBackground>
+      <SafeAreaView style={styles.safe}>
+        {/* Header */}
+        <View style={styles.topBar}>
         <TouchableOpacity
           style={[styles.backBtn, { borderColor: colors.border }]}
           onPress={() => {
@@ -324,20 +330,20 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
         <Text style={[styles.counter, { color: colors.textMuted }]}>
           {masteredCount}/{totalCards} ✔
         </Text>
-      </View>
+        </View>
 
-      {/* Progress Bar */}
-      <View style={[styles.progressBar, { backgroundColor: colors.bgInput }]}>
+        {/* Progress Bar */}
+        <View style={[styles.progressBar, { backgroundColor: colors.bgInput }]}>
         <LinearGradient
           colors={Gradients.primary}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[styles.progressFill, { width: `${progress * 100}%` }]}
         />
-      </View>
+        </View>
 
-      {/* Card Area */}
-      <View style={styles.cardArea}>
+        {/* Card Area */}
+        <View style={styles.cardArea}>
         <GestureDetector gesture={panGesture}>
           <Animated.View style={[styles.cardContainer, containerStyle]}>
             {/* Swipe Labels */}
@@ -389,16 +395,16 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
             </Animated.View>
           </Animated.View>
         </GestureDetector>
-      </View>
+        </View>
 
-      {/* Swipe Hint */}
-      <Text style={[styles.swipeHint, { color: colors.textMuted }]}>
-        {queue.length > 1 ? `${queue.length - 1} cards remaining` : 'Last card!'} {'\n'}
-        {'← Don\'t know  ·  Know it! →'}
-      </Text>
+        {/* Swipe Hint */}
+        <Text style={[styles.swipeHint, { color: colors.textMuted }]}>
+          {queue.length > 1 ? `${queue.length - 1} cards remaining` : 'Last card!'} {'\n'}
+          {'← Don\'t know  ·  Know it! →'}
+        </Text>
 
-      {/* Quality Rating Buttons */}
-      <View style={styles.ratingRow}>
+        {/* Quality Rating Buttons */}
+        <View style={styles.ratingRow}>
         {QUALITY_BUTTONS.map(btn => (
           <TouchableOpacity
             key={btn.quality}
@@ -410,11 +416,12 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
             <Text style={[styles.ratingLabel, { color: btn.color }]}>{btn.label}</Text>
           </TouchableOpacity>
         ))}
-      </View>
+        </View>
 
-      {/* App Modal */}
-      <AppModal config={modal} onDismiss={hideModal} />
-    </SafeAreaView>
+        {/* App Modal */}
+        <AppModal config={modal} onDismiss={hideModal} />
+      </SafeAreaView>
+    </AppBackground>
   );
 }
 

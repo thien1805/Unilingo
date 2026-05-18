@@ -41,6 +41,10 @@ class UploadAudioResponse(BaseModel):
     duration_seconds: int | None
 
 
+class TranscribeAudioResponse(BaseModel):
+    transcript: str
+
+
 class SubmitPracticeResponse(BaseModel):
     attempt_id: uuid.UUID
     status: str  # "scoring"
