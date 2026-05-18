@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
 import { authAPI } from '../../api/auth';
+import { BASE_URL } from '../../api/client';
 import { usersAPI } from '../../api/users';
 import { Typography, FontFamily } from '../../theme/typography';
 
@@ -74,6 +75,14 @@ export default function LoginScreen({ navigation }: any) {
       return detail
         .map((item) => item?.msg || item?.message || JSON.stringify(item))
         .join(', ');
+    }
+
+    if (error?.code === 'ECONNABORTED') {
+      return `Request timed out while connecting to ${BASE_URL}.`;
+    }
+
+    if (!error?.response && (error?.request || error?.message === 'Network Error')) {
+      return `Cannot connect to API server at ${BASE_URL}. Make sure the backend is running and your iPhone is on the same network.`;
     }
 
     return fallback;
@@ -320,7 +329,7 @@ export default function LoginScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
             
-            <View style={[styles.iconCircle, { backgroundColor: colors.accent + '20' }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.accentBg }]}>
               <Ionicons name="lock-closed" size={40} color={colors.accent} />
             </View>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
@@ -438,7 +447,7 @@ export default function LoginScreen({ navigation }: any) {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.bgPrimary }]}>
-            <View style={[styles.iconCircle, { backgroundColor: (errorModalType === 'success' ? (colors.success || '#10B981') : (colors.error || '#EF4444')) + '20' }]}>
+            <View style={[styles.iconCircle, { backgroundColor: errorModalType === 'success' ? colors.successBg : colors.errorBg }]}>
               <Ionicons 
                 name={errorModalType === 'success' ? 'checkmark-circle' : 'close-circle'} 
                 size={48} 
@@ -588,7 +597,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
-    shadowColor: '#3350B2',
+    shadowColor: '#F6D85F',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
@@ -597,7 +606,7 @@ const styles = StyleSheet.create({
   mainBtnText: {
     fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 16,
-    color: '#fff',
+    color: '#1F2937',
     lineHeight: 24,
     includeFontPadding: false,
     paddingRight: 4,
@@ -629,7 +638,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: '#111827',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,

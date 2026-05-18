@@ -41,9 +41,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
 
 const QUALITY_BUTTONS = [
-  { quality: 1, label: 'Again', emoji: '❌', color: '#EF4444' },
-  { quality: 3, label: 'Hard', emoji: '🤔', color: '#F59E0B' },
-  { quality: 5, label: 'Easy', emoji: '✅', color: '#10B981' },
+  { quality: 1, label: 'Again', emoji: '❌', color: '#EF4444', bg: '#FEE2E2', border: '#EF4444' },
+  { quality: 3, label: 'Hard', emoji: '🤔', color: '#F59E0B', bg: '#FEF3C7', border: '#F59E0B' },
+  { quality: 5, label: 'Easy', emoji: '✅', color: '#10B981', bg: '#D1FAE5', border: '#10B981' },
 ];
 
 export default function FlashcardStudyScreen({ navigation, route }: any) {
@@ -255,15 +255,15 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
 
           {total > 0 && (
             <View style={styles.statsRow}>
-              <View style={[styles.statCard, { backgroundColor: '#10B98118' }]}>
+              <View style={[styles.statCard, { backgroundColor: '#D1FAE5' }]}>
                 <Text style={[styles.statNum, { color: '#10B981' }]}>{stats.easy}</Text>
                 <Text style={[styles.statCardLabel, { color: '#10B981' }]}>✅ Easy</Text>
               </View>
-              <View style={[styles.statCard, { backgroundColor: '#F59E0B18' }]}>
+              <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
                 <Text style={[styles.statNum, { color: '#F59E0B' }]}>{stats.hard}</Text>
                 <Text style={[styles.statCardLabel, { color: '#F59E0B' }]}>🤔 Hard</Text>
               </View>
-              <View style={[styles.statCard, { backgroundColor: '#EF444418' }]}>
+              <View style={[styles.statCard, { backgroundColor: '#FEE2E2' }]}>
                 <Text style={[styles.statNum, { color: '#EF4444' }]}>{stats.again}</Text>
                 <Text style={[styles.statCardLabel, { color: '#EF4444' }]}>❌ Again</Text>
               </View>
@@ -402,7 +402,7 @@ export default function FlashcardStudyScreen({ navigation, route }: any) {
         {QUALITY_BUTTONS.map(btn => (
           <TouchableOpacity
             key={btn.quality}
-            style={[styles.ratingBtn, { backgroundColor: btn.color + '15', borderColor: btn.color + '30' }]}
+            style={[styles.ratingBtn, { backgroundColor: btn.bg, borderColor: btn.border }]}
             onPress={() => goToNext(btn.quality)}
             activeOpacity={0.7}
           >
@@ -469,9 +469,9 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 20, zIndex: 10,
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12,
   },
-  swipeLabelRight: { right: 20, backgroundColor: '#10B98130' },
-  swipeLabelLeft: { left: 20, backgroundColor: '#EF444430' },
-  swipeLabelText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 14, color: '#fff' },
+  swipeLabelRight: { right: 20, backgroundColor: '#10B981' },
+  swipeLabelLeft: { left: 20, backgroundColor: '#EF4444' },
+  swipeLabelText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 14, color: '#FFFFFF' },
   swipeHint: {
     fontFamily: 'PlusJakartaSans-Regular', fontSize: 11, textAlign: 'center',
     paddingHorizontal: 20, marginBottom: 12,
@@ -499,5 +499,5 @@ const styles = StyleSheet.create({
     width: '100%', height: 54, borderRadius: 27,
     alignItems: 'center', justifyContent: 'center',
   },
-  doneBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 17, color: '#fff' },
+  doneBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 17, color: '#1F2937' },
 });

@@ -81,10 +81,10 @@ const MODAL_CONFIG: Record<AppModalType, {
   icon: keyof typeof Ionicons.glyphMap;
   getColor: (colors: any) => string;
 }> = {
-  info: { icon: 'information-circle', getColor: (c) => c.accent || '#3350B2' },
+  info: { icon: 'information-circle', getColor: (c) => c.accent || '#F6D85F' },
   error: { icon: 'close-circle', getColor: (c) => c.error || '#EF4444' },
   success: { icon: 'checkmark-circle', getColor: (c) => c.success || '#10B981' },
-  confirm: { icon: 'help-circle', getColor: (c) => c.accent || '#3350B2' },
+  confirm: { icon: 'help-circle', getColor: (c) => c.accent || '#F6D85F' },
   destructive: { icon: 'warning', getColor: (c) => c.error || '#EF4444' },
 };
 
@@ -100,7 +100,14 @@ export const AppModal: React.FC<AppModalProps> = ({ config, onDismiss }) => {
 
   const { icon, getColor } = MODAL_CONFIG[config.type];
   const accentColor = getColor(colors);
+  const iconBackground =
+    config.type === 'success'
+      ? colors.successBg
+      : config.type === 'error' || config.type === 'destructive'
+        ? colors.errorBg
+        : colors.accentBg;
   const isConfirmType = config.type === 'confirm' || config.type === 'destructive';
+  const actionTextColor = config.type === 'info' || config.type === 'confirm' ? '#1F2937' : '#fff';
 
   const handleConfirm = () => {
     onDismiss();
@@ -121,7 +128,7 @@ export const AppModal: React.FC<AppModalProps> = ({ config, onDismiss }) => {
     >
       <View style={styles.overlay}>
         <View style={[styles.card, { backgroundColor: colors.bgPrimary }]}>
-          <View style={[styles.iconCircle, { backgroundColor: accentColor + '20' }]}>
+          <View style={[styles.iconCircle, { backgroundColor: iconBackground }]}>
             <Ionicons name={icon} size={48} color={accentColor} />
           </View>
 
@@ -149,7 +156,7 @@ export const AppModal: React.FC<AppModalProps> = ({ config, onDismiss }) => {
                 onPress={handleConfirm}
                 activeOpacity={0.8}
               >
-                <Text style={styles.confirmBtnText}>
+                <Text style={[styles.confirmBtnText, { color: actionTextColor }]}>
                   {config.confirmText || 'Confirm'}
                 </Text>
               </TouchableOpacity>
@@ -160,7 +167,7 @@ export const AppModal: React.FC<AppModalProps> = ({ config, onDismiss }) => {
               onPress={onDismiss}
               activeOpacity={0.8}
             >
-              <Text style={styles.confirmBtnText}>OK</Text>
+              <Text style={[styles.confirmBtnText, { color: actionTextColor }]}>OK</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -172,7 +179,7 @@ export const AppModal: React.FC<AppModalProps> = ({ config, onDismiss }) => {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: '#111827',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,

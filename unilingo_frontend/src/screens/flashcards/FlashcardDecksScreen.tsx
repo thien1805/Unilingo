@@ -259,14 +259,14 @@ const styles = StyleSheet.create({
   autoBannerContent: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   autoBannerIcon: {
     width: 48, height: 48, borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#FFF7D6',
     alignItems: 'center', justifyContent: 'center',
   },
   autoBannerTitle: {
-    fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, color: '#fff', marginBottom: 3,
+    fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, color: '#1F2937', marginBottom: 3,
   },
   autoBannerDesc: {
-    fontFamily: 'PlusJakartaSans-Regular', fontSize: 12, color: 'rgba(255,255,255,0.8)',
+    fontFamily: 'PlusJakartaSans-Regular', fontSize: 12, color: '#475569',
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   grid: { paddingHorizontal: 20, paddingBottom: 100, gap: 12 },
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   // Modal
   modalOverlay: {
     flex: 1, justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: '#111827',
   },
   modalCard: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
@@ -320,5 +320,5 @@ const styles = StyleSheet.create({
     height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
     marginTop: 8,
   },
-  createBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, color: '#fff' },
+  createBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, color: '#1F2937' },
 });

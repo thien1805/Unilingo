@@ -46,7 +46,7 @@ export const StreakModal: React.FC<CommitmentModalProps> = ({ visible, onClose }
       <View style={styles.overlay}>
         <View style={[styles.card, { backgroundColor: colors.bgPrimary }]}>
           <View style={styles.header}>
-            <View style={[styles.iconCircle, { backgroundColor: colors.accent + '20' }]}>
+            <View style={[styles.iconCircle, { backgroundColor: colors.accentBg }]}>
               <Ionicons name="flag" size={36} color={colors.accent} />
             </View>
             <Text style={[styles.title, { color: colors.textPrimary }]}>
@@ -138,7 +138,7 @@ export const StreakModal: React.FC<CommitmentModalProps> = ({ visible, onClose }
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: '#111827',
     justifyContent: 'center',
     padding: 20,
   },

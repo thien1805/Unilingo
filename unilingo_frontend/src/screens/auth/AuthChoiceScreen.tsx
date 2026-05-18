@@ -4,13 +4,13 @@
  */
 import React from 'react';
 import {
-  Image,
   SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import AnimatedMascot from '../../components/common/AnimatedMascot';
 
 type Props = {
   navigation: any;
@@ -22,11 +22,7 @@ export default function AuthChoiceScreen({ navigation }: Props) {
       <View style={styles.content}>
         <Text style={styles.smallLogo}>UNILINGO</Text>
 
-        <Image
-          source={require('../../../uni_icon.png')}
-          style={styles.icon}
-          resizeMode="contain"
-        />
+        <AnimatedMascot state="idle" size={300} style={styles.icon} />
 
         <Text style={styles.title}>UNILINGO</Text>
         <Text style={styles.subtitle}>Learn each day, speak your way</Text>
@@ -72,7 +68,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '300',
     letterSpacing: 6,
-    color: '#3151C6',
+    color: '#F6D85F',
   },
   icon: {
     width: '100%',
@@ -87,7 +83,7 @@ const styles = StyleSheet.create({
     lineHeight: 48,
     fontWeight: '900',
     textAlign: 'center',
-    color: '#3151C6',
+    color: '#F6D85F',
     letterSpacing: 3,
   },
   subtitle: {
@@ -106,10 +102,10 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#BFD7F2',
+    backgroundColor: '#FFF3C7',
   },
   activeDot: {
-    backgroundColor: '#3151C6',
+    backgroundColor: '#F6D85F',
   },
   buttonContainer: {
     paddingHorizontal: 28,
@@ -119,12 +115,12 @@ const styles = StyleSheet.create({
   signUpButton: {
     height: 58,
     borderRadius: 16,
-    backgroundColor: '#3151C6',
+    backgroundColor: '#F6D85F',
     alignItems: 'center',
     justifyContent: 'center',
   },
   signUpText: {
-    color: '#FFFFFF',
+    color: '#1F2937',
     fontSize: 22,
     fontWeight: '700',
   },
@@ -133,12 +129,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#3151C6',
+    borderColor: '#F6D85F',
     alignItems: 'center',
     justifyContent: 'center',
   },
   signInText: {
-    color: '#3151C6',
+    color: '#F6D85F',
     fontSize: 22,
     fontWeight: '700',
   },

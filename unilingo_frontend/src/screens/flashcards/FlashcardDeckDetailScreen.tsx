@@ -176,7 +176,7 @@ export default function FlashcardDeckDetailScreen({ navigation, route }: any) {
                   Swipe cards to learn • {cards.length} cards ready
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
+              <Ionicons name="chevron-forward" size={20} color="#1F2937" />
             </View>
           </LinearGradient>
         </TouchableOpacity>
@@ -302,14 +302,14 @@ const styles = StyleSheet.create({
   studyBannerContent: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   studyBannerIcon: {
     width: 48, height: 48, borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#FFF7D6',
     alignItems: 'center', justifyContent: 'center',
   },
   studyBannerTitle: {
-    fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, color: '#fff', marginBottom: 3,
+    fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, color: '#1F2937', marginBottom: 3,
   },
   studyBannerDesc: {
-    fontFamily: 'PlusJakartaSans-Regular', fontSize: 12, color: 'rgba(255,255,255,0.8)',
+    fontFamily: 'PlusJakartaSans-Regular', fontSize: 12, color: '#475569',
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { paddingHorizontal: 20, paddingBottom: 100 },
@@ -335,11 +335,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 24, paddingVertical: 14, borderRadius: 999,
   },
-  emptyBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15, color: '#fff' },
+  emptyBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15, color: '#1F2937' },
   // Modal
   modalOverlay: {
     flex: 1, justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: '#111827',
   },
   modalCard: {
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
@@ -369,5 +369,5 @@ const styles = StyleSheet.create({
     height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center',
     marginTop: 8, flexDirection: 'row', gap: 8,
   },
-  addCardBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, color: '#fff' },
+  addCardBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, color: '#1F2937' },
 });

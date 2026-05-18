@@ -9,6 +9,8 @@ import { useAuthStore } from '../store/authStore';
 const DEFAULT_API_URL = 'http://localhost:8000/api/v1';
 
 const isLoopbackUrl = (url?: string) => !!url && /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url);
+const isPrivateIpv4Host = (host?: string | null) =>
+  !!host && /^(10\.|172\.(1[6-9]|2\d|3[0-1])\.|192\.168\.)/.test(host);
 
 const getDebuggerHost = () => {
   const manifest: any = Constants.manifest;
@@ -42,6 +44,17 @@ const getHostFromUrl = (url?: string) => {
   }
 };
 
+const shouldPreferPackagerUrl = (envUrl?: string, packagerUrl?: string | null) => {
+  if (!envUrl || !packagerUrl || process.env.EXPO_PUBLIC_API_URL_STRICT === 'true') {
+    return false;
+  }
+
+  const envHost = getHostFromUrl(envUrl);
+  const packagerHost = getHostFromUrl(packagerUrl);
+
+  return !!envHost && !!packagerHost && envHost !== packagerHost && isPrivateIpv4Host(envHost);
+};
+
 const getDefaultBaseUrl = () => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
 
@@ -52,6 +65,10 @@ const getDefaultBaseUrl = () => {
   if (Platform.OS === 'ios') {
     if (Constants.isDevice) {
       const packagerUrl = getPackagerHostUrl();
+      if (shouldPreferPackagerUrl(envUrl, packagerUrl)) {
+        return packagerUrl;
+      }
+
       return envUrl && !isLoopbackUrl(envUrl) ? envUrl : packagerUrl || DEFAULT_API_URL;
     }
 
@@ -62,6 +79,10 @@ const getDefaultBaseUrl = () => {
 };
 
 const BASE_URL = getDefaultBaseUrl();
+
+if (__DEV__) {
+  console.log(`[API] BASE_URL=${BASE_URL}`);
+}
 
 const apiClient = axios.create({
   baseURL: BASE_URL,

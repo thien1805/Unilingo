@@ -1,17 +1,59 @@
-import redis
+import importlib
 import random
 import os
 import smtplib
+import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Optional
+from typing import Optional, Dict, Tuple
 from app.config import get_settings
 
 settings = get_settings()
 
-# Connect to Redis
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+_redis_module = None
+try:
+    _redis_module = importlib.import_module("redis")
+except ModuleNotFoundError:
+    _redis_module = None
+
+
+class _InMemoryOTPStore:
+    def __init__(self) -> None:
+        self._store: Dict[str, Tuple[str, float]] = {}
+
+    def setex(self, key: str, ttl_seconds: int, value: str) -> None:
+        self._store[key] = (value, time.time() + ttl_seconds)
+
+    def get(self, key: str) -> Optional[str]:
+        item = self._store.get(key)
+        if not item:
+            return None
+
+        value, expires_at = item
+        if time.time() >= expires_at:
+            self._store.pop(key, None)
+            return None
+
+        return value
+
+    def delete(self, key: str) -> None:
+        self._store.pop(key, None)
+
+
+def _build_redis_client():
+    redis_url = settings.REDIS_URL or os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    if not _redis_module:
+        print("⚠️ redis package not available, using in-memory OTP store.", flush=True)
+        return _InMemoryOTPStore()
+
+    try:
+        return _redis_module.from_url(redis_url, decode_responses=True)
+    except Exception as exc:
+        print(f"⚠️ Failed to connect to Redis at {redis_url}: {exc}. Using in-memory OTP store.", flush=True)
+        return _InMemoryOTPStore()
+
+
+redis_client = _build_redis_client()
 
 def generate_and_send_otp(email: str, prefix: str = "register") -> str:
     """Generate a 6-digit OTP, store in Redis for 5 minutes, and 'send' email."""

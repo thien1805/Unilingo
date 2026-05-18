@@ -4,11 +4,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useThemeStore } from '../../store/themeStore';
 import { topicsAPI, Topic } from '../../api/topics';
 import { Card, Badge, SectionTitle } from '../../components/common';
 import AppBackground from '../../components/common/AppBackground';
-import { Typography, Spacing, BorderRadius } from '../../theme';
+import { Gradients, Typography, Spacing, BorderRadius } from '../../theme';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -65,6 +66,42 @@ export default function PracticeScreen({ navigation, route }: any) {
         <View style={styles.topBar}>
           <Text style={[Typography.h2, { color: colors.textPrimary }]}>Practice</Text>
         </View>
+
+        {/* IELTS Speaking Mock Test */}
+        <SectionTitle title="IELTS Speaking Mock Test" />
+        <TouchableOpacity
+          style={[
+            styles.mockTestCard,
+            { backgroundColor: colors.bgCard, borderColor: colors.border },
+          ]}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('MockTestIntro')}
+        >
+          <LinearGradient colors={Gradients.primary} style={styles.mockIcon}>
+            <Ionicons name="videocam" size={24} color="#1F2937" />
+          </LinearGradient>
+          <View style={{ flex: 1 }}>
+            <View style={styles.mockTitleRow}>
+              <Text style={[Typography.h4, { color: colors.textPrimary, flex: 1 }]}>
+                IELTS Speaking Mock Test
+              </Text>
+              <View style={[styles.hardcoreBadge, { backgroundColor: colors.errorBg }]}>
+                <Text style={[styles.hardcoreText, { color: colors.error }]}>Hardcore</Text>
+              </View>
+            </View>
+            <Text style={[Typography.caption, { color: colors.textSecondary, lineHeight: 18 }]}>
+              Complete Part 1, Part 2, and Part 3 with camera and microphone simulation.
+            </Text>
+            <View style={styles.partMeta}>
+              <Text style={[Typography.captionSm, { color: colors.textMuted }]}>
+                🎥 Camera + mic
+              </Text>
+              <Text style={[Typography.captionSm, { color: colors.textMuted }]}>
+                ⏱️ Full 3-part test
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
 
         {/* Virtual Room - Full Test */}
         <SectionTitle title="Mock Test (Virtual Room)" />
@@ -200,6 +237,43 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   partMeta: { flexDirection: 'row', gap: 12, marginTop: 6 },
+  mockTestCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    padding: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  mockIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mockTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  hardcoreBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  hardcoreText: {
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: 10,
+    textTransform: 'uppercase',
+  },
   topicGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 10,
   },
