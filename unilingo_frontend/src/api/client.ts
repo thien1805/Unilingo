@@ -46,7 +46,7 @@ const getDefaultBaseUrl = () => {
   const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
 
   if (Platform.OS === 'android') {
-    return envUrl && !isLoopbackUrl(envUrl) ? envUrl : 'http://10.0.2.2:8000/api/v1';
+    return envUrl && !isLoopbackUrl(envUrl) ? envUrl : 'http://10.0.1.231:8000/api/v1';
   }
 
   if (Platform.OS === 'ios') {
