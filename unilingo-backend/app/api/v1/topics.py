@@ -24,27 +24,46 @@ async def get_mock_test(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Get a full mock speaking test (part1 + part2 + part3) from the database."""
-    # Fetch all mock_test topics with their questions
+    """
+    Generate a randomized IELTS mock speaking test.
+
+    - Part 1: 4 random questions from all part1 topics
+    - Part 2: 1 random cue card topic (with related theme)
+    - Part 3: 4 random questions from part3 topics matching the Part 2 category
+    
+    Each call returns a different combination, just like a real IELTS exam.
+    """
+    import random
+
+    # Fetch ALL active topics with their questions
     result = await db.execute(
         select(Topic)
         .options(selectinload(Topic.questions))
-        .where(Topic.category == "mock_test", Topic.is_active == True)
-        .order_by(Topic.order_index)
+        .where(Topic.is_active == True)
     )
     topics = result.scalars().all()
 
-    part1_questions = []
-    part2_data = None
-    part3_questions = []
+    # Group topics by ielts_part
+    part1_topics = [t for t in topics if t.ielts_part == "part1"]
+    part2_topics = [t for t in topics if t.ielts_part == "part2"]
+    part3_topics = [t for t in topics if t.ielts_part == "part3"]
 
-    for topic in topics:
-        active_qs = sorted([q for q in topic.questions if q.is_active], key=lambda q: q.order_index)
-        if topic.ielts_part == "part1":
-            part1_questions.extend([q.question_text for q in active_qs])
-        elif topic.ielts_part == "part2" and active_qs:
-            q = active_qs[0]
-            # Parse cue card points from cue_card_content
+    # ── Part 1: collect all active questions, shuffle, pick 4 ──
+    all_part1_qs = []
+    for t in part1_topics:
+        all_part1_qs.extend([q.question_text for q in t.questions if q.is_active])
+    random.shuffle(all_part1_qs)
+    part1_questions = all_part1_qs[:4] if len(all_part1_qs) >= 4 else all_part1_qs
+
+    # ── Part 2: pick 1 random cue card topic ──
+    part2_data = None
+    selected_category = None
+    if part2_topics:
+        chosen_topic = random.choice(part2_topics)
+        selected_category = chosen_topic.category
+        active_qs = [q for q in chosen_topic.questions if q.is_active]
+        if active_qs:
+            q = random.choice(active_qs)
             points = []
             if q.cue_card_content:
                 for line in q.cue_card_content.split("\n"):
@@ -57,8 +76,24 @@ async def get_mock_test(
                 "preparationTime": 60,
                 "speakingTime": 120,
             }
-        elif topic.ielts_part == "part3":
-            part3_questions.extend([q.question_text for q in active_qs])
+
+    # ── Part 3: prefer questions from same category as Part 2 (coherent theme) ──
+    all_part3_qs = []
+    # First, try to get questions from matching category
+    if selected_category:
+        matching = [t for t in part3_topics if t.category == selected_category]
+        for t in matching:
+            all_part3_qs.extend([q.question_text for q in t.questions if q.is_active])
+    # If not enough, supplement with other part3 questions
+    if len(all_part3_qs) < 4:
+        other_qs = []
+        for t in part3_topics:
+            if t.category != selected_category:
+                other_qs.extend([q.question_text for q in t.questions if q.is_active])
+        random.shuffle(other_qs)
+        all_part3_qs.extend(other_qs)
+    random.shuffle(all_part3_qs)
+    part3_questions = all_part3_qs[:4] if len(all_part3_qs) >= 4 else all_part3_qs
 
     return {
         "part1": part1_questions,

@@ -188,7 +188,7 @@ export default function ResultsScreen({ navigation, route }: any) {
         {/* Band Score Circle */}
         <View style={styles.bandDisplay}>
           <LinearGradient colors={Gradients.primary} style={styles.bandCircle}>
-            <Text style={[Typography.bandScore, { color: '#fff' }]}>{overall.toFixed(1)}</Text>
+            <Text style={[Typography.bandScore, { color: '#fff' }]}>{(Math.round(overall * 2) / 2).toFixed(1)}</Text>
             <Text style={{ fontSize: 11, color: '#1F2937', marginTop: 2 }}>Overall</Text>
           </LinearGradient>
           <Text style={[Typography.h3, { color: colors.success, marginTop: 10 }]}>{comment}</Text>

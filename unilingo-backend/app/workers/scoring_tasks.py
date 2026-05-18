@@ -99,16 +99,20 @@ def score_practice_attempt(self, attempt_id: str):
                     total_pronunciation += scoring.get("pronunciation_band", 0)
                     part_count += 1
 
-            # Update attempt with averaged scores
+            # Update attempt with averaged scores (IELTS: always round to nearest 0.5)
+            def ielts_round(val):
+                """Round to nearest 0.5 (IELTS standard: 5.0, 5.5, 6.0, 6.5...)"""
+                return round(val * 2) / 2
+
             if part_count > 0:
-                attempt.fluency_score = round(total_fluency / part_count, 1)
-                attempt.lexical_score = round(total_lexical / part_count, 1)
-                attempt.grammar_score = round(total_grammar / part_count, 1)
-                attempt.pronunciation_score = round(total_pronunciation / part_count, 1)
-                attempt.overall_band = round(
+                attempt.fluency_score = ielts_round(total_fluency / part_count)
+                attempt.lexical_score = ielts_round(total_lexical / part_count)
+                attempt.grammar_score = ielts_round(total_grammar / part_count)
+                attempt.pronunciation_score = ielts_round(total_pronunciation / part_count)
+                attempt.overall_band = ielts_round(
                     (attempt.fluency_score + attempt.lexical_score +
-                     attempt.grammar_score + attempt.pronunciation_score) / 4 * 2
-                ) / 2  # Round to nearest 0.5
+                     attempt.grammar_score + attempt.pronunciation_score) / 4
+                )
 
                 attempt.xp_earned = int(attempt.overall_band * 10)
 
