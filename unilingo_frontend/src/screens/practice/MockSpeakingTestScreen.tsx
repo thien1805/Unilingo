@@ -71,6 +71,7 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
   const recordedAnswersRef = useRef<RecordedMockAnswer[]>([]);
   const activeQuestionRef = useRef<ActiveQuestion | null>(null);
   const isStoppingRef = useRef(false);
+  const autoAdvancePendingRef = useRef(false);
 
   // Fetch mock test data from API
   useEffect(() => {
@@ -203,7 +204,10 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
       limit,
     };
     setPhase('recording');
-    startTimer(limit, stopCurrentRecording);
+    startTimer(limit, () => {
+      autoAdvancePendingRef.current = true;
+      stopCurrentRecording();
+    });
   }, [part, questionIndex, getQuestion, getLimit, recorderError, showError, startRecording, startTimer, stopCurrentRecording]);
 
   const startPart2Preparation = useCallback(() => {
@@ -256,6 +260,17 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
       finishTest();
     }
   }, [finishTest, testData, part, phase, questionIndex, resetTimer, startPart2Preparation]);
+
+  useEffect(() => {
+    if (phase !== 'completed' || isTranscribing || !autoAdvancePendingRef.current) return;
+
+    autoAdvancePendingRef.current = false;
+    const timeout = setTimeout(() => {
+      handleNext();
+    }, 350);
+
+    return () => clearTimeout(timeout);
+  }, [handleNext, isTranscribing, phase]);
 
   const handleEndTest = useCallback(() => {
     showConfirm(

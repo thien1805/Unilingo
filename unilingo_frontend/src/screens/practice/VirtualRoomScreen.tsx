@@ -78,6 +78,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   const [metering, setMetering] = useState(-60);
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isStoppingRecordingRef = useRef(false);
 
   // Prep timer (Part 2)
   const [prepTime, setPrepTime] = useState(60);
@@ -327,11 +328,16 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       // Start timer
       timerRef.current = setInterval(() => {
         setRecordSeconds(s => {
-          if (s >= maxRecordSecs - 1) {
+          const next = s + 1;
+          if (next >= maxRecordSecs) {
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+              timerRef.current = null;
+            }
             stopRecording();
-            return s;
+            return maxRecordSecs;
           }
-          return s + 1;
+          return next;
         });
       }, 1000);
 
@@ -343,9 +349,21 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   };
 
   const stopRecording = async () => {
-    if (!recordingRef.current) return;
+    if (isStoppingRecordingRef.current) return;
+    isStoppingRecordingRef.current = true;
+
+    if (!recordingRef.current) {
+      setIsRecording(false);
+      isStoppingRecordingRef.current = false;
+      handleNextOrFinish();
+      return;
+    }
+
     setIsRecording(false);
-    if (timerRef.current) clearInterval(timerRef.current);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
 
     try {
       await recordingRef.current.stopAndUnloadAsync();
@@ -373,6 +391,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       recordingRef.current = null;
     }
 
+    isStoppingRecordingRef.current = false;
     handleNextOrFinish();
   };
 

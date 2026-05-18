@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeStore } from '../../store/themeStore';
 import { practiceAPI, ScoringResult } from '../../api/practice';
 import { vocabularyAPI, DictionaryResult } from '../../api/vocabulary';
+import { flashcardsAPI } from '../../api/flashcards';
 import { Card, PrimaryButton, OutlineButton, Badge, ScoreBar, Mascot, MascotIcon } from '../../components/common';
 import { Gradients, Typography, BorderRadius } from '../../theme';
 import AppBackground from '../../components/common/AppBackground';
@@ -28,17 +29,23 @@ export default function ResultsScreen({ navigation, route }: any) {
 
   // Dictionary Lookup State
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [selectedLookupSource, setSelectedLookupSource] = useState<'script' | 'sample'>('script');
   const [dictResult, setDictResult] = useState<DictionaryResult | null>(null);
   const [dictLoading, setDictLoading] = useState(false);
+  const [savingVocab, setSavingVocab] = useState(false);
+  const [addingFlashcard, setAddingFlashcard] = useState(false);
+  const [dictActionMessage, setDictActionMessage] = useState<string | null>(null);
 
-  const handleLookup = async (word: string) => {
+  const handleLookup = async (word: string, source: 'script' | 'sample' = 'script') => {
     // Clean punctuation from word
     const cleanWord = word.replace(/[^a-zA-Z]/g, '').toLowerCase();
     if (!cleanWord) return;
     
     setSelectedWord(cleanWord);
+    setSelectedLookupSource(source);
     setDictLoading(true);
     setDictResult(null);
+    setDictActionMessage(null);
     try {
       const res = await vocabularyAPI.lookupDictionary(cleanWord);
       setDictResult(res);
@@ -61,6 +68,119 @@ export default function ResultsScreen({ navigation, route }: any) {
       setDictLoading(false);
     }
   };
+
+  const getFirstDefinition = (entry: DictionaryResult) => {
+    const firstMeaning = entry.meanings?.[0];
+    const firstDefinition = firstMeaning?.definitions?.[0];
+    return {
+      firstMeaning,
+      firstDefinition,
+      definition: firstDefinition?.definition || 'No definition available.',
+      example: firstDefinition?.example || undefined,
+    };
+  };
+
+  const saveDictionaryWord = async (entry: DictionaryResult) => {
+    const { firstDefinition } = getFirstDefinition(entry);
+    try {
+      const saved = await vocabularyAPI.add({
+        word: entry.word,
+        phonetic: entry.phonetic || undefined,
+        audio_url: entry.audio_url || undefined,
+        definitions: entry.meanings?.flatMap((meaning) =>
+          meaning.definitions.map((definition) => ({
+            definition: definition.definition,
+            part_of_speech: meaning.part_of_speech,
+          }))
+        ),
+        examples: firstDefinition?.example ? [firstDefinition.example] : undefined,
+        source_context: selectedLookupSource === 'sample' ? 'sample_answer' : 'practice_script',
+        source_attempt_id: attemptId,
+        tags: ['practice-result', selectedLookupSource],
+      });
+      return saved.id;
+    } catch (error: any) {
+      const existing = await vocabularyAPI
+        .list({ search: entry.word, per_page: 10 })
+        .then((result) => result.items.find((item) => item.word.toLowerCase() === entry.word.toLowerCase()))
+        .catch(() => null);
+      if (existing?.id) return existing.id;
+
+      const detail = error?.response?.data?.detail;
+      if (typeof detail === 'string' && detail.toLowerCase().includes('already')) {
+        return undefined;
+      }
+      throw error;
+    }
+  };
+
+  const handleSaveVocabulary = async () => {
+    if (!dictResult) return;
+    setSavingVocab(true);
+    setDictActionMessage(null);
+    try {
+      await saveDictionaryWord(dictResult);
+      setDictActionMessage(`Saved "${dictResult.word}" to Vocabulary.`);
+    } catch {
+      setDictActionMessage('Could not save this word. Please try again.');
+    } finally {
+      setSavingVocab(false);
+    }
+  };
+
+  const getOrCreatePracticeDeck = async () => {
+    const decks = await flashcardsAPI.listDecks();
+    const existing = decks.items.find((deck) => deck.title.toLowerCase() === 'practice vocabulary');
+    if (existing) return existing;
+    return flashcardsAPI.createDeck({
+      title: 'Practice Vocabulary',
+      description: 'Words saved from speaking scripts and sample answers.',
+    });
+  };
+
+  const handleAddToFlashcards = async () => {
+    if (!dictResult) return;
+    setAddingFlashcard(true);
+    setDictActionMessage(null);
+    try {
+      const vocabularyId = await saveDictionaryWord(dictResult);
+      const deck = await getOrCreatePracticeDeck();
+      const { definition, example, firstMeaning } = getFirstDefinition(dictResult);
+      const backContent = [
+        firstMeaning?.part_of_speech ? `(${firstMeaning.part_of_speech}) ${definition}` : definition,
+        dictResult.phonetic ? `Pronunciation: ${dictResult.phonetic}` : null,
+        example ? `Example: ${example}` : null,
+      ].filter(Boolean).join('\n\n');
+
+      await flashcardsAPI.addCard(deck.id, {
+        front_content: dictResult.word,
+        back_content: backContent,
+        audio_url: dictResult.audio_url || undefined,
+        vocabulary_id: vocabularyId,
+        extra_info: {
+          source: selectedLookupSource,
+          source_attempt_id: attemptId,
+        },
+      });
+      setDictActionMessage(`Added "${dictResult.word}" to Practice Vocabulary flashcards.`);
+    } catch {
+      setDictActionMessage('Could not add this word to flashcards. Please try again.');
+    } finally {
+      setAddingFlashcard(false);
+    }
+  };
+
+  const renderLookupWords = (text: string, source: 'script' | 'sample' = 'script') => (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+      {text.split(/\s+/).filter(Boolean).map((word: string, i: number) => (
+        <TouchableOpacity key={`${source}-${word}-${i}`} onPress={() => handleLookup(word, source)}>
+          <Text style={[Typography.body, { color: colors.textSecondary, lineHeight: 26, marginRight: 4 }]}>
+            {word}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
 
   useEffect(() => {
     loadResult();
@@ -291,15 +411,7 @@ export default function ResultsScreen({ navigation, route }: any) {
                     </Text>
                     <Mascot mood={getQuestionMascotMood(index)} size={54} animated />
                   </View>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                    {(p.transcript || 'No speech recorded.').split(' ').map((word: string, i: number) => (
-                      <TouchableOpacity key={i} onPress={() => handleLookup(word)}>
-                        <Text style={[Typography.body, { color: colors.textSecondary, lineHeight: 26, marginRight: 4 }]}>
-                          {word}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                  {renderLookupWords(p.transcript || 'No speech recorded.', 'script')}
                 </Card>
               ))
             ) : (
@@ -398,9 +510,13 @@ export default function ResultsScreen({ navigation, route }: any) {
             <Text style={[Typography.h4, { color: colors.textPrimary, marginBottom: 8 }]}>
               Sample Better Answer (Band 7.5+)
             </Text>
-            <Text style={[Typography.bodySm, { color: colors.textSecondary, lineHeight: 22 }]}>
-              {firstScoring?.sample_better_answer?.text || 'No sample answer was returned for this attempt.'}
-            </Text>
+            <View style={styles.transcriptHint}>
+              <Ionicons name="information-circle" size={14} color={colors.textMuted} />
+              <Text style={[Typography.caption, { color: colors.textMuted }]}>
+                Tap any word to save it or add it to flashcards
+              </Text>
+            </View>
+            {renderLookupWords(firstScoring?.sample_better_answer?.text || 'No sample answer was returned for this attempt.', 'sample')}
             {firstScoring?.sample_better_answer?.explanation && (
               <View style={[styles.sampleExplanation, { backgroundColor: colors.accentBg }]}>
                 <Text style={[Typography.captionSm, { color: colors.accent, fontWeight: '600', marginBottom: 4 }]}>
@@ -501,13 +617,28 @@ export default function ResultsScreen({ navigation, route }: any) {
                   </View>
                 ))}
 
+                {dictActionMessage && (
+                  <View style={[styles.dictActionMessage, { backgroundColor: colors.accentBg }]}>
+                    <Text style={[Typography.caption, { color: colors.accent, textAlign: 'center' }]}>
+                      {dictActionMessage}
+                    </Text>
+                  </View>
+                )}
+
+                <OutlineButton
+                  title="Save Vocabulary"
+                  icon="bookmark"
+                  loading={savingVocab}
+                  disabled={addingFlashcard}
+                  onPress={handleSaveVocabulary}
+                  style={{ marginTop: 10 }}
+                />
                 <PrimaryButton 
                   title="Add to Flashcards" 
                   icon="add"
-                  onPress={() => {
-                    setSelectedWord(null);
-                    navigation.navigate('Vocabulary', { screen: 'VocabularyHub', params: { searchWord: dictResult.word } });
-                  }} 
+                  loading={addingFlashcard}
+                  disabled={savingVocab}
+                  onPress={handleAddToFlashcards}
                   style={{ marginTop: 10 }}
                 />
               </View>
@@ -580,4 +711,5 @@ const styles = StyleSheet.create({
   defNum: { fontSize: 14, width: 14 },
   defText: { fontSize: 15, lineHeight: 22 },
   exampleText: { fontSize: 14, fontStyle: 'italic', marginTop: 4, marginLeft: 22 },
+  dictActionMessage: { borderRadius: 10, padding: 10, marginTop: 6 },
 });
