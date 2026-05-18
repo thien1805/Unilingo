@@ -2,10 +2,66 @@
  * API Client — Axios instance with JWT interceptors
  */
 import axios from 'axios';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import { useAuthStore } from '../store/authStore';
 
-const DEFAULT_API_URL = 'http://10.248.172.253:8000/api/v1';
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL?.trim() || DEFAULT_API_URL;
+const DEFAULT_API_URL = 'http://localhost:8000/api/v1';
+
+const isLoopbackUrl = (url?: string) => !!url && /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url);
+
+const getDebuggerHost = () => {
+  const manifest: any = Constants.manifest;
+  const manifest2: any = (Constants as any).manifest2;
+
+  return (
+    Constants.expoConfig?.hostUri ||
+    manifest?.hostUri ||
+    manifest?.debuggerHost ||
+    manifest2?.extra?.expoGo?.debuggerHost ||
+    null
+  );
+};
+
+const getPackagerHostUrl = () => {
+  const hostUri = getDebuggerHost();
+  if (!hostUri) return null;
+
+  const host = hostUri.split(':')[0];
+  if (!host || isLoopbackUrl(host)) return null;
+
+  return `http://${host}:8000/api/v1`;
+};
+
+const getHostFromUrl = (url?: string) => {
+  if (!url) return null;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+};
+
+const getDefaultBaseUrl = () => {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+
+  if (Platform.OS === 'android') {
+    return envUrl && !isLoopbackUrl(envUrl) ? envUrl : 'http://10.0.2.2:8000/api/v1';
+  }
+
+  if (Platform.OS === 'ios') {
+    if (Constants.isDevice) {
+      const packagerUrl = getPackagerHostUrl();
+      return envUrl && !isLoopbackUrl(envUrl) ? envUrl : packagerUrl || DEFAULT_API_URL;
+    }
+
+    return envUrl || DEFAULT_API_URL;
+  }
+
+  return envUrl || DEFAULT_API_URL;
+};
+
+const BASE_URL = getDefaultBaseUrl();
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
