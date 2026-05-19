@@ -584,6 +584,7 @@ async def get_practice_result(
             part_id=part.id,
             part_number=part.part_number,
             question_text=part.question.question_text if part.question else None,
+            has_audio=bool(part.audio_url),
             transcript=part.transcript,
             duration_seconds=part.duration_seconds,
             scoring=scoring,

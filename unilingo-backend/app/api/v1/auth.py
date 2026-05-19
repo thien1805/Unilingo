@@ -41,7 +41,13 @@ async def register_send_otp(request: SendOTPRequest, db: AsyncSession = Depends(
     if result.scalars().first():
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    generate_and_send_otp(request.email, prefix="register")
+    try:
+        generate_and_send_otp(request.email, prefix="register", raise_on_email_failure=True)
+    except RuntimeError:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not send OTP email. Please check email provider configuration.",
+        )
     return {"message": "OTP sent to your email."}
 
 

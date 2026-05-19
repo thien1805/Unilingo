@@ -41,6 +41,8 @@ export interface ScoringResult {
   parts: {
     part_id: string;
     part_number: number;
+    question_text?: string | null;
+    has_audio?: boolean;
     transcript: string | null;
     duration_seconds: number | null;
     scoring: {

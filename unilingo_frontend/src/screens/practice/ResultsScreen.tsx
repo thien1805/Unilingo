@@ -2,7 +2,7 @@
  * Results Screen — Band scores + AI feedback + transcript
  * Fully integrated with backend scoring pipeline
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,6 +26,9 @@ export default function ResultsScreen({ navigation, route }: any) {
   const [result, setResult] = useState<ScoringResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
+  const [resultError, setResultError] = useState<string | null>(null);
+  const mountedRef = useRef(false);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Dictionary Lookup State
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -182,50 +185,120 @@ export default function ResultsScreen({ navigation, route }: any) {
     </View>
   );
 
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  };
+
+  const handleResultData = (data: ScoringResult) => {
+    if (!mountedRef.current) return;
+
+    setResult(data);
+    if (data.status === 'completed') {
+      stopPolling();
+      setPolling(false);
+      setLoading(false);
+      setResultError(null);
+      const hasScoring = data.parts?.some((part: any) => !!part.scoring);
+      if (!hasScoring) {
+        setResultError('The attempt finished, but no AI scoring data was returned. Please retry the test.');
+      }
+      return;
+    }
+
+    if (data.status === 'failed') {
+      stopPolling();
+      setPolling(false);
+      setLoading(false);
+      setResultError('AI scoring failed for this attempt. Please retry the test.');
+      return;
+    }
+
+    setResultError(null);
+    setPolling(true);
+    setLoading(false);
+    pollForResult();
+  };
+
   useEffect(() => {
+    mountedRef.current = true;
     loadResult();
-  }, []);
+
+    return () => {
+      mountedRef.current = false;
+      stopPolling();
+    };
+  }, [attemptId]);
 
   const loadResult = async () => {
+    stopPolling();
     setLoading(true);
+    setResultError(null);
     try {
       const data = await practiceAPI.getResult(attemptId);
-      if (data.status === 'scoring') {
-        // AI is still processing, poll every 3 seconds
-        setPolling(true);
-        setResult(data);
-        setLoading(false);
-        pollForResult();
-      } else {
-        setResult(data);
-        setPolling(false);
-        setLoading(false);
-      }
+      handleResultData(data);
     } catch (err) {
       console.log('[Results] Error loading result:', err);
       // Don't use mock — start polling in case it's still being created
-      setPolling(true);
-      setLoading(false);
-      pollForResult();
+      if (mountedRef.current) {
+        setPolling(true);
+        setLoading(false);
+        pollForResult();
+      }
     }
   };
 
   const pollForResult = async () => {
+    stopPolling();
     let retries = 0;
     const maxRetries = 30; // Max 90 seconds
-    const interval = setInterval(async () => {
+    pollIntervalRef.current = setInterval(async () => {
+      if (!mountedRef.current) {
+        stopPolling();
+        return;
+      }
       retries++;
       try {
         const data = await practiceAPI.getResult(attemptId);
-        if (data.status === 'completed' || retries >= maxRetries) {
-          setResult(data);
+        if (!mountedRef.current) return;
+
+        setResult(data);
+        if (data.status === 'completed') {
+          const hasScoring = data.parts?.some((part: any) => !!part.scoring);
+          stopPolling();
           setPolling(false);
-          clearInterval(interval);
+          setLoading(false);
+          setResultError(null);
+          if (!hasScoring) {
+            setResultError('The attempt finished, but no AI scoring data was returned. Please retry the test.');
+          }
+          return;
+        }
+
+        if (data.status === 'failed') {
+          stopPolling();
+          setPolling(false);
+          setLoading(false);
+          setResultError('AI scoring failed for this attempt. Please retry the test.');
+          return;
+        }
+
+        if (retries >= maxRetries) {
+          stopPolling();
+          setPolling(false);
+          setLoading(false);
+          setResultError('AI scoring is taking longer than expected. Please check this attempt again from Practice History.');
         }
       } catch {
         if (retries >= maxRetries) {
-          setPolling(false);
-          clearInterval(interval);
+          stopPolling();
+          if (mountedRef.current) {
+            setPolling(false);
+            setLoading(false);
+            setResultError('Could not fetch the AI scoring result. Please check your connection and try again.');
+          }
         }
       }
     }, 3000);
@@ -297,6 +370,41 @@ export default function ResultsScreen({ navigation, route }: any) {
               Please wait a moment while our AI examiner analyzes your pronunciation, vocabulary, and grammar.
             </Text>
           </View>
+          </View>
+        </SafeAreaView>
+      </AppBackground>
+    );
+  }
+
+  if (resultError) {
+    return (
+      <AppBackground>
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.container}>
+            <View style={styles.topBar}>
+              <TouchableOpacity
+                style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+                onPress={() => navigation.popToTop()}
+              >
+                <Ionicons name="arrow-back" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+              <Text style={[Typography.bodyMedium, { color: colors.textPrimary }]}>Practice Result</Text>
+              <View style={{ width: 38 }} />
+            </View>
+
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
+              <Mascot mood="confused" size={128} animated />
+              <Text style={[Typography.h2, { color: colors.textPrimary, textAlign: 'center', marginTop: 16, marginBottom: 10 }]}>
+                Could not grade this attempt
+              </Text>
+              <Text style={[Typography.bodyMedium, { color: colors.textSecondary, textAlign: 'center', lineHeight: 24 }]}>
+                {resultError}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 24, width: '100%' }}>
+                <OutlineButton title="Retry" icon="refresh" onPress={() => navigation.goBack()} style={{ flex: 1 }} />
+                <PrimaryButton title="Done" icon="checkmark" onPress={() => navigation.popToTop()} style={{ flex: 1 }} />
+              </View>
+            </View>
           </View>
         </SafeAreaView>
       </AppBackground>
@@ -410,6 +518,13 @@ export default function ResultsScreen({ navigation, route }: any) {
                       Q{index + 1}: {p.question_text || 'Topic Question'}
                     </Text>
                     <Mascot mood={getQuestionMascotMood(index)} size={54} animated />
+                  </View>
+                  <View style={styles.resultMetaRow}>
+                    <Badge
+                      label={p.has_audio === false ? 'No recording' : 'Recording saved'}
+                      variant={p.has_audio === false ? 'warning' : 'success'}
+                    />
+                    {p.scoring && <Badge label="AI scored" variant="accent" />}
                   </View>
                   {renderLookupWords(p.transcript || 'No speech recorded.', 'script')}
                 </Card>
@@ -685,6 +800,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 8,
   },
+  resultMetaRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 8 },
   feedbackItem: { flexDirection: 'row', gap: 10, paddingLeft: 4, marginTop: 4 },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   vocabRow: {

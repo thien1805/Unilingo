@@ -195,8 +195,10 @@ export default function RecordingScreen({ navigation, route }: any) {
     if (timerRef.current) clearInterval(timerRef.current);
 
     if (!recordingRef.current) {
-      // No recording — navigate with whatever we have
-      navigation.replace('Results', { attemptId, ieltsPart, topicTitle, duration: seconds });
+      isStoppingRef.current = false;
+      Alert.alert('Recording unavailable', 'No recording was captured, so this answer cannot be scored.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
       return;
     }
 
@@ -206,6 +208,14 @@ export default function RecordingScreen({ navigation, route }: any) {
 
       const uri = recordingRef.current.getURI();
       recordingRef.current = null;
+
+      if (!uri || !attemptId) {
+        isStoppingRef.current = false;
+        Alert.alert('Recording unavailable', 'No recording file was produced, so this answer cannot be scored.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+        return;
+      }
 
       if (uri && attemptId) {
         // Upload audio to backend
@@ -222,8 +232,15 @@ export default function RecordingScreen({ navigation, route }: any) {
           if (!isFullTest || ieltsPart === 'part3') {
             await practiceAPI.submit(attemptId);
           }
-        } catch (uploadError) {
-          console.log('Upload failed:', uploadError);
+        } catch (uploadOrSubmitError) {
+          console.log('Upload/submit failed:', uploadOrSubmitError);
+          isStoppingRef.current = false;
+          Alert.alert(
+            'Could not submit recording',
+            'Your recording could not be uploaded or submitted for AI scoring. Please retry this question.',
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+          );
+          return;
         }
       }
 
@@ -247,9 +264,12 @@ export default function RecordingScreen({ navigation, route }: any) {
     } catch (error) {
       console.error('Stop recording error:', error);
       recordingRef.current = null;
-      navigation.replace('Results', { attemptId, ieltsPart, topicTitle, duration: seconds });
+      isStoppingRef.current = false;
+      Alert.alert('Recording Error', 'Could not finish saving your recording. Please retry this question.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
     }
-  }, [seconds, attemptId, ieltsPart, topicTitle]);
+  }, [seconds, attemptId, ieltsPart, topicTitle, isFullTest, navigation, route.params?.topicId]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);

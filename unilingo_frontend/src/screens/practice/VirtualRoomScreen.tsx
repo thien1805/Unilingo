@@ -71,6 +71,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [allowRemove, setAllowRemove] = useState(false);
 
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -93,6 +94,11 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   const soundRef = useRef<Audio.Sound | null>(null);
   const isQuestionActiveRef = useRef(false);
   const initStartedRef = useRef(false);
+  const isExamActiveRef = useRef(true);
+  const isExitingRef = useRef(false);
+  const speechFinishRef = useRef<(() => void) | null>(null);
+  const delayedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const uploadedPartCountRef = useRef(0);
 
   // Animation
   const pulseScale = useSharedValue(1);
@@ -103,6 +109,11 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   // ──── Stop All Audio (TTS + native speech) ────
   const stopAllAudio = useCallback(async () => {
     Speech.stop();
+    const finishSpeech = speechFinishRef.current;
+    if (finishSpeech) {
+      speechFinishRef.current = null;
+      finishSpeech();
+    }
     if (soundRef.current) {
       try {
         await soundRef.current.stopAsync();
@@ -113,6 +124,55 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
     setIsSpeaking(false);
   }, []);
 
+  const clearAllTimers = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (prepTimerRef.current) {
+      clearInterval(prepTimerRef.current);
+      prepTimerRef.current = null;
+    }
+    if (delayedTimeoutRef.current) {
+      clearTimeout(delayedTimeoutRef.current);
+      delayedTimeoutRef.current = null;
+    }
+  }, []);
+
+  const cleanupRecording = useCallback(async () => {
+    if (recordingRef.current) {
+      try {
+        await recordingRef.current.stopAndUnloadAsync();
+      } catch {}
+      recordingRef.current = null;
+    }
+    isStoppingRecordingRef.current = false;
+    setIsRecording(false);
+    await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(() => {});
+  }, []);
+
+  const wait = useCallback((ms: number) => new Promise<void>((resolve) => {
+    if (!isExamActiveRef.current) {
+      resolve();
+      return;
+    }
+
+    delayedTimeoutRef.current = setTimeout(() => {
+      delayedTimeoutRef.current = null;
+      resolve();
+    }, ms);
+  }), []);
+
+  const exitExam = useCallback(async () => {
+    if (isExitingRef.current) return;
+    isExitingRef.current = true;
+    isExamActiveRef.current = false;
+    isQuestionActiveRef.current = false;
+    clearAllTimers();
+    await stopAllAudio();
+    await cleanupRecording();
+  }, [cleanupRecording, clearAllTimers, stopAllAudio]);
+
   // ──── Lifecycle ────
   useEffect(() => {
     if (!initStartedRef.current) {
@@ -120,21 +180,21 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       initExam();
     }
     return () => {
+      isExamActiveRef.current = false;
       stopAllAudio();
       clearAllTimers();
       cleanupRecording();
     };
   }, []);
 
-  usePreventRemove(phase !== 'complete' && phase !== 'error', ({ data }) => {
+  usePreventRemove(!allowRemove && phase !== 'complete' && phase !== 'error', ({ data }) => {
     showConfirm(
       'Leave Exam?',
       'Your progress will be lost. Do you want to quit this test?',
       async () => {
-        await stopAllAudio();
-        clearAllTimers();
-        await cleanupRecording();
-        navigation.dispatch(data.action);
+        await exitExam();
+        setAllowRemove(true);
+        setTimeout(() => navigation.dispatch(data.action), 0);
       },
       { confirmText: 'Quit', cancelText: 'Stay', destructive: true }
     );
@@ -155,6 +215,11 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
 
   // ──── Init Exam ────
   const initExam = async () => {
+    isExamActiveRef.current = true;
+    isExitingRef.current = false;
+    isQuestionActiveRef.current = false;
+    uploadedPartCountRef.current = 0;
+    setAllowRemove(false);
     setPhase('loading');
     setLoadError(null);
     try {
@@ -163,11 +228,13 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
         topic_id: topicId,
         ielts_part: safeIeltsPart,
       });
+      if (!isExamActiveRef.current) return;
       setAttemptId(attempt.attempt_id);
 
       // 2. Generate questions
       const resolvedTopicId = attempt.question?.topic_id || topicId;
       const { questions: qs } = await practiceAPI.generateQuestions(safeIeltsPart, questionCount, resolvedTopicId);
+      if (!isExamActiveRef.current) return;
 
       // Use the first question from start if generateQuestions returned fewer
       const allQuestions = qs.length >= questionCount ? qs : [
@@ -186,10 +253,12 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       // 3. AI intro
       const introText = getIntroText();
       await speakAndWait(introText);
+      if (!isExamActiveRef.current) return;
 
       // 4. Ask first question
       askQuestion(0, allQuestions.slice(0, questionCount));
     } catch (err) {
+      if (!isExamActiveRef.current) return;
       console.log('[VirtualRoom] Init failed:', err);
       setQuestions([]);
       setAttemptId(null);
@@ -202,6 +271,21 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   const speakAndWait = (text: string): Promise<void> => {
     return new Promise(async (resolve) => {
       await stopAllAudio();
+      if (!isExamActiveRef.current) {
+        resolve();
+        return;
+      }
+
+      let resolved = false;
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        speechFinishRef.current = null;
+        setIsSpeaking(false);
+        resolve();
+      };
+
+      speechFinishRef.current = finish;
       setIsSpeaking(true);
       
       try {
@@ -222,11 +306,14 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
           if (status.isLoaded && status.didJustFinish) {
             sound.unloadAsync();
             soundRef.current = null;
-            setIsSpeaking(false);
-            resolve();
+            finish();
           }
         });
       } catch (err) {
+        if (!isExamActiveRef.current) {
+          finish();
+          return;
+        }
         console.log('[TTS] Backend TTS failed, falling back to native:', err);
         soundRef.current = null;
         // Fallback to native speech if network TTS fails
@@ -242,12 +329,11 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
             voice: bestVoice?.identifier,
             rate: 0.95,
             pitch: 1.0,
-            onDone: () => { setIsSpeaking(false); resolve(); },
-            onError: () => { setIsSpeaking(false); resolve(); },
+            onDone: finish,
+            onError: finish,
           });
         } catch {
-          setIsSpeaking(false);
-          resolve();
+          finish();
         }
       }
     });
@@ -255,6 +341,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
 
   // ──── Ask Question ────
   const askQuestion = async (idx: number, qs: any[]) => {
+    if (!isExamActiveRef.current) return;
     // Guard against duplicate calls for the same question
     if (isQuestionActiveRef.current) return;
     isQuestionActiveRef.current = true;
@@ -265,6 +352,10 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
     if (!q) { isQuestionActiveRef.current = false; return; }
 
     await speakAndWait(q.question_text);
+    if (!isExamActiveRef.current) {
+      isQuestionActiveRef.current = false;
+      return;
+    }
 
     // Part 2: start prep timer
     if (safeIeltsPart === 'part2') {
@@ -273,7 +364,11 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       startPrepTimer();
     } else {
       // Part 1 & 3: brief pause then auto-start recording
-      await new Promise(r => setTimeout(r, 1200));
+      await wait(1200);
+      if (!isExamActiveRef.current) {
+        isQuestionActiveRef.current = false;
+        return;
+      }
       startRecording();
     }
     isQuestionActiveRef.current = false;
@@ -281,10 +376,17 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
 
   // ──── Prep Timer (Part 2) ────
   const startPrepTimer = () => {
+    if (!isExamActiveRef.current) return;
     prepTimerRef.current = setInterval(() => {
       setPrepTime(t => {
+        if (!isExamActiveRef.current) {
+          if (prepTimerRef.current) clearInterval(prepTimerRef.current);
+          prepTimerRef.current = null;
+          return t;
+        }
         if (t <= 1) {
           if (prepTimerRef.current) clearInterval(prepTimerRef.current);
+          prepTimerRef.current = null;
           startRecording();
           return 0;
         }
@@ -295,20 +397,26 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
 
   // ──── Recording ────
   const startRecording = async () => {
+    if (!isExamActiveRef.current) return;
     setPhase('recording');
     setRecordSeconds(0);
 
     try {
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
-      await new Promise(r => setTimeout(r, 200));
+      await wait(200);
+      if (!isExamActiveRef.current) return;
 
       const { granted } = await Audio.requestPermissionsAsync();
+      if (!isExamActiveRef.current) return;
       if (!granted) {
         showError('Permission Required', 'Microphone access is needed.');
+        setLoadError('Microphone permission was not granted, so this answer cannot be recorded or scored.');
+        setPhase('error');
         return;
       }
 
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      if (!isExamActiveRef.current) return;
 
       const { recording } = await Audio.Recording.createAsync(
         {
@@ -317,10 +425,16 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
           web: { mimeType: 'audio/webm', bitsPerSecond: 128000 },
         },
         (status) => {
-          if (status.isRecording && status.metering !== undefined) setMetering(status.metering);
+          if (isExamActiveRef.current && status.isRecording && status.metering !== undefined) setMetering(status.metering);
         },
         100,
       );
+
+      if (!isExamActiveRef.current) {
+        try { await recording.stopAndUnloadAsync(); } catch {}
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(() => {});
+        return;
+      }
 
       recordingRef.current = recording;
       setIsRecording(true);
@@ -328,6 +442,13 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       // Start timer
       timerRef.current = setInterval(() => {
         setRecordSeconds(s => {
+          if (!isExamActiveRef.current) {
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+              timerRef.current = null;
+            }
+            return s;
+          }
           const next = s + 1;
           if (next >= maxRecordSecs) {
             if (timerRef.current) {
@@ -342,20 +463,23 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       }, 1000);
 
     } catch (error) {
+      if (!isExamActiveRef.current) return;
       console.error('Recording start failed:', error);
-      setPhase('transition');
-      handleNextOrFinish();
+      setLoadError('Could not start the microphone. Please retry the exam.');
+      setPhase('error');
     }
   };
 
   const stopRecording = async () => {
+    if (!isExamActiveRef.current) return;
     if (isStoppingRecordingRef.current) return;
     isStoppingRecordingRef.current = true;
 
     if (!recordingRef.current) {
       setIsRecording(false);
       isStoppingRecordingRef.current = false;
-      handleNextOrFinish();
+      setLoadError('No recording was captured, so this answer cannot be scored. Please retry the exam.');
+      setPhase('error');
       return;
     }
 
@@ -370,8 +494,16 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
       const uri = recordingRef.current.getURI();
       recordingRef.current = null;
+      if (!isExamActiveRef.current) return;
 
       // Upload audio — MUST await so file is on server before scoring
+      if (!uri || !attemptId) {
+        setLoadError('No recording file was produced, so this answer cannot be scored. Please retry the exam.');
+        setPhase('error');
+        isStoppingRecordingRef.current = false;
+        return;
+      }
+
       if (uri && attemptId) {
         const formData = new FormData();
         formData.append('file', {
@@ -382,21 +514,34 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
         try {
           const questionId = questions[currentIdx]?.id;
           await practiceAPI.uploadAudio(attemptId, formData, currentIdx + 1, questionId);
+          uploadedPartCountRef.current += 1;
         } catch (e: any) {
           console.log('Upload error:', e?.message);
+          if (isExamActiveRef.current) {
+            showError('Upload Failed', 'Your recording could not be uploaded, so this answer cannot be scored.');
+            setLoadError('Your recording upload failed, so this test was not submitted for AI scoring. Please retry the exam.');
+            setPhase('error');
+          }
+          isStoppingRecordingRef.current = false;
+          return;
         }
       }
     } catch (e) {
       console.error('Stop recording error:', e);
       recordingRef.current = null;
+      setLoadError('Could not finish saving your recording. Please retry the exam.');
+      setPhase('error');
+      isStoppingRecordingRef.current = false;
+      return;
     }
 
     isStoppingRecordingRef.current = false;
-    handleNextOrFinish();
+    if (isExamActiveRef.current) handleNextOrFinish();
   };
 
   // ──── Next Question or Finish ────
   const handleNextOrFinish = async () => {
+    if (!isExamActiveRef.current) return;
     const nextIdx = currentIdx + 1;
 
     if (nextIdx >= questions.length) {
@@ -404,35 +549,41 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       setPhase('transition');
       const doneText = FILLERS_DONE[Math.floor(Math.random() * FILLERS_DONE.length)];
       await speakAndWait(doneText);
+      if (!isExamActiveRef.current) return;
       finishExam();
     } else {
       // Transition filler
       setPhase('transition');
       const filler = FILLERS_NEXT[Math.floor(Math.random() * FILLERS_NEXT.length)];
       await speakAndWait(filler);
+      if (!isExamActiveRef.current) return;
       askQuestion(nextIdx, questions);
     }
   };
 
   // ──── Finish Exam ────
   const finishExam = async () => {
+    if (!isExamActiveRef.current) return;
     setPhase('complete');
+    setAllowRemove(true);
 
-    // Submit for scoring
-    if (attemptId) {
-      try {
-        await practiceAPI.submit(attemptId);
-      } catch (e) {
-        console.log('Submit error:', e);
-      }
-    }
-
-    // Navigate to results
-    if (!attemptId) {
-      setLoadError('The practice attempt could not be submitted. Please retry the exam.');
+    if (!attemptId || uploadedPartCountRef.current === 0) {
+      setLoadError('No recorded answer was uploaded, so there is nothing to score. Please retry the exam.');
       setPhase('error');
       return;
     }
+
+    // Submit for scoring
+    try {
+      await practiceAPI.submit(attemptId);
+    } catch (e) {
+      console.log('Submit error:', e);
+      setLoadError('The practice attempt could not be submitted for AI scoring. Please retry the exam.');
+      setPhase('error');
+      return;
+    }
+
+    if (!isExamActiveRef.current) return;
 
     if (isFullTest && safeIeltsPart !== 'part3') {
       const nextPart = safeIeltsPart === 'part1' ? 'part2' : 'part3';
@@ -451,22 +602,6 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
         duration: recordSeconds,
       });
     }
-  };
-
-  // ──── Helpers ────
-  const clearAllTimers = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (prepTimerRef.current) clearInterval(prepTimerRef.current);
-  };
-
-  const cleanupRecording = async () => {
-    if (recordingRef.current) {
-      try {
-        await recordingRef.current.stopAndUnloadAsync();
-      } catch {}
-      recordingRef.current = null;
-    }
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: false }).catch(() => {});
   };
 
   const getIntroText = () => {
@@ -525,8 +660,21 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
                 {loadError}
               </Text>
               <View style={styles.errorActions}>
-                <OutlineButton title="Go Back" onPress={() => navigation.goBack()} />
-                <TouchableOpacity style={[styles.retryExamBtn, { backgroundColor: colors.accent }]} onPress={initExam}>
+                <OutlineButton
+                  title="Go Back"
+                  onPress={async () => {
+                    await exitExam();
+                    setAllowRemove(true);
+                    setTimeout(() => navigation.goBack(), 0);
+                  }}
+                />
+                <TouchableOpacity
+                  style={[styles.retryExamBtn, { backgroundColor: colors.accent }]}
+                  onPress={async () => {
+                    await exitExam();
+                    initExam();
+                  }}
+                >
                   <Text style={styles.retryExamText}>Retry</Text>
                 </TouchableOpacity>
               </View>
@@ -547,10 +695,9 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
           style={[styles.backBtn, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
           onPress={() => {
             showConfirm('Leave Exam?', 'Your progress will be lost. Do you want to quit this test?', async () => {
-              await stopAllAudio();
-              clearAllTimers();
-              await cleanupRecording();
-              navigation.goBack();
+              await exitExam();
+              setAllowRemove(true);
+              setTimeout(() => navigation.goBack(), 0);
             }, { confirmText: 'Quit', cancelText: 'Stay', destructive: true });
           }}
         >
@@ -604,8 +751,17 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
               <Text style={[Typography.captionSm, { color: colors.accent, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }]}>
                 Question {currentIdx + 1} of {questions.length}
               </Text>
-              <TouchableOpacity onPress={() => speakAndWait(currentQuestion.question_text)}>
-                <Ionicons name={isSpeaking ? "volume-high" : "volume-medium"} size={20} color={isSpeaking ? colors.accent : colors.textMuted} />
+              <TouchableOpacity
+                disabled={phase === 'recording'}
+                onPress={() => {
+                  if (phase !== 'recording') speakAndWait(currentQuestion.question_text);
+                }}
+              >
+                <Ionicons
+                  name={isSpeaking ? "volume-high" : "volume-medium"}
+                  size={20}
+                  color={phase === 'recording' ? colors.textMuted : isSpeaking ? colors.accent : colors.textMuted}
+                />
               </TouchableOpacity>
             </View>
             <Text style={[Typography.body, { color: colors.textPrimary, lineHeight: 22 }]}>

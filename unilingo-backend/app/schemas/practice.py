@@ -70,6 +70,7 @@ class PartResultResponse(BaseModel):
     part_id: uuid.UUID
     part_number: int
     question_text: str | None = None
+    has_audio: bool = False
     transcript: str | None
     duration_seconds: int | None
     scoring: "AIScoringResponse | None"

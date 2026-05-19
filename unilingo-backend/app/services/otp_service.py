@@ -120,6 +120,7 @@ def _send_with_sendgrid(email: str, subject: str, text: str, html: str) -> bool:
     api_key = settings.SENDGRID_API_KEY.strip()
     from_email = (settings.SENDGRID_FROM_EMAIL or settings.SMTP_FROM_EMAIL).strip()
     if not api_key or not from_email:
+        print("⚠️ SendGrid skipped: SENDGRID_API_KEY or SENDGRID_FROM_EMAIL is missing.", flush=True)
         return False
 
     from_payload = {"email": from_email}
@@ -146,8 +147,14 @@ def _send_with_sendgrid(email: str, subject: str, text: str, html: str) -> bool:
             timeout=10,
         )
         response.raise_for_status()
-        print("✅ OTP email sent successfully via SendGrid.", flush=True)
+        message_id = response.headers.get("x-message-id", "unknown")
+        print(f"✅ OTP email accepted by SendGrid. message_id={message_id}", flush=True)
         return True
+    except httpx.HTTPStatusError as exc:
+        body = exc.response.text[:500] if exc.response is not None else ""
+        status_code = exc.response.status_code if exc.response is not None else "unknown"
+        print(f"❌ SendGrid rejected OTP email. status={status_code} body={body}", flush=True)
+        return False
     except Exception as exc:
         print(f"❌ Failed to send OTP email via SendGrid: {str(exc)}", flush=True)
         return False
@@ -181,7 +188,7 @@ def _send_with_smtp(email: str, subject: str, text: str) -> bool:
         return False
 
 
-def generate_and_send_otp(email: str, prefix: str = "register") -> str:
+def generate_and_send_otp(email: str, prefix: str = "register", raise_on_email_failure: bool = False) -> str:
     """Generate a 6-digit OTP, store in Redis for 5 minutes, and 'send' email."""
     email_clean = email.strip().lower()
     otp = str(random.randint(100000, 999999))
@@ -200,6 +207,8 @@ def generate_and_send_otp(email: str, prefix: str = "register") -> str:
         sent = _send_with_smtp(email_clean, subject, text)
     if not sent:
         print("⚠️ Email provider credentials not found or sending failed; OTP is available in logs.", flush=True)
+        if raise_on_email_failure:
+            raise RuntimeError("OTP email could not be sent")
     
     return otp
 
