@@ -281,6 +281,17 @@
               <input name="excerpt" />
             </div>
             <div class="field">
+              <label>Forecast skill</label>
+              <select name="forecast_skill">
+                <option value="listening">listening</option>
+                <option value="reading">reading</option>
+                <option value="writing">writing</option>
+                <option value="speaking">speaking</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid">
+            <div class="field">
               <label>Cover image URL</label>
               <input type="url" name="cover_image_url" placeholder="https://..." maxlength="1000" pattern="https?://.+" title="Must be a valid HTTP/HTTPS URL, not a base64 string." />
             </div>
@@ -492,6 +503,10 @@
     function fillForm(form, data) {
       Array.from(form.elements).forEach((input) => {
         if (!input.name) return;
+        if (input.name === "forecast_skill") {
+          input.value = getForecastSkill(data?.tags) || "speaking";
+          return;
+        }
         if (input.type === "checkbox") input.checked = Boolean(data[input.name]);
         else input.value = data[input.name] ?? "";
       });
@@ -512,6 +527,11 @@
 
     function pill(value, kind = "") {
       return `<span class="pill ${kind}">${esc(value)}</span>`;
+    }
+
+    function getForecastSkill(tags) {
+      const values = Array.isArray(tags) ? tags.map(tag => String(tag).toLowerCase()) : [];
+      return ["listening", "reading", "writing", "speaking"].find(skill => values.includes(skill)) || "";
     }
 
     async function login(email, password) {
@@ -592,6 +612,7 @@
       $("#blogTable").innerHTML = table(state.blogs, [
         { label: "Title", render: b => `<strong>${esc(b.title)}</strong><br><span class="muted">${esc(b.slug)}</span>` },
         { label: "Category", render: b => pill(b.category) },
+        { label: "Skill", render: b => b.category === "forecast" ? pill(getForecastSkill(b.tags) || "general") : "" },
         { label: "State", render: b => `${b.is_published ? pill("published", "green") : pill("draft")} ${b.is_featured ? pill("featured") : ""}` },
         { label: "Views", key: "view_count" },
         { label: "Actions", render: b => `
@@ -737,6 +758,7 @@
         content: data.content,
         cover_image_url: data.cover_image_url || null,
         category: data.category,
+        tags: data.category === "forecast" && data.forecast_skill ? [data.forecast_skill] : null,
         read_time_minutes: Math.max(1, Math.ceil(String(data.content || "").split(/\s+/).length / 220)),
         is_featured: Boolean(data.is_featured),
         is_published: Boolean(data.is_published),
