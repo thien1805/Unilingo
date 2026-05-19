@@ -2,11 +2,13 @@
  * Results Screen — Band scores + AI feedback + transcript
  * Fully integrated with backend scoring pipeline
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Audio } from 'expo-av';
+import * as Speech from 'expo-speech';
 import { useThemeStore } from '../../store/themeStore';
 import { practiceAPI, ScoringResult } from '../../api/practice';
 import { vocabularyAPI, DictionaryResult } from '../../api/vocabulary';
@@ -38,6 +40,57 @@ export default function ResultsScreen({ navigation, route }: any) {
   const [savingVocab, setSavingVocab] = useState(false);
   const [addingFlashcard, setAddingFlashcard] = useState(false);
   const [dictActionMessage, setDictActionMessage] = useState<string | null>(null);
+  const [pronouncingKey, setPronouncingKey] = useState<string | null>(null);
+  const pronunciationSoundRef = useRef<Audio.Sound | null>(null);
+
+  const stopPronunciation = useCallback(async (resetState = true) => {
+    Speech.stop();
+    if (pronunciationSoundRef.current) {
+      await pronunciationSoundRef.current.unloadAsync().catch(() => {});
+      pronunciationSoundRef.current = null;
+    }
+    if (resetState && mountedRef.current) {
+      setPronouncingKey(null);
+    }
+  }, []);
+
+  const playPronunciation = useCallback(async (word: string, audioUrl?: string | null, key = word) => {
+    if (!word.trim()) return;
+
+    await stopPronunciation();
+    setPronouncingKey(key);
+
+    if (audioUrl) {
+      try {
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: audioUrl },
+          { shouldPlay: true }
+        );
+        pronunciationSoundRef.current = sound;
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (!status.isLoaded) return;
+          if (status.didJustFinish) {
+            sound.unloadAsync().catch(() => {});
+            if (pronunciationSoundRef.current === sound) {
+              pronunciationSoundRef.current = null;
+            }
+            setPronouncingKey((current) => current === key ? null : current);
+          }
+        });
+        return;
+      } catch {
+        // Fall back to device text-to-speech below.
+      }
+    }
+
+    Speech.speak(word, {
+      language: 'en-US',
+      onDone: () => setPronouncingKey((current) => current === key ? null : current),
+      onStopped: () => setPronouncingKey((current) => current === key ? null : current),
+      onError: () => setPronouncingKey((current) => current === key ? null : current),
+    });
+  }, [stopPronunciation]);
 
   const handleLookup = async (word: string, source: 'script' | 'sample' = 'script') => {
     // Clean punctuation from word
@@ -229,8 +282,9 @@ export default function ResultsScreen({ navigation, route }: any) {
     return () => {
       mountedRef.current = false;
       stopPolling();
+      stopPronunciation(false);
     };
-  }, [attemptId]);
+  }, [attemptId, stopPronunciation]);
 
   const loadResult = async () => {
     stopPolling();
@@ -696,7 +750,7 @@ export default function ResultsScreen({ navigation, route }: any) {
         <SafeAreaView style={[{ flex: 1, backgroundColor: colors.bgBody }]}>
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Dictionary</Text>
-            <TouchableOpacity onPress={() => setSelectedWord(null)}>
+            <TouchableOpacity onPress={() => { stopPronunciation(); setSelectedWord(null); }}>
               <Ionicons name="close" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
@@ -707,10 +761,23 @@ export default function ResultsScreen({ navigation, route }: any) {
             ) : dictResult ? (
               <View style={[styles.dictCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <View style={styles.dictWordRow}>
-                  <Text style={[styles.dictWord, { color: colors.textPrimary }]}>{dictResult.word}</Text>
-                  {dictResult.phonetic && (
-                    <Text style={[styles.dictPhonetic, { color: colors.accent }]}>{dictResult.phonetic}</Text>
-                  )}
+                  <View style={styles.dictWordInfo}>
+                    <Text style={[styles.dictWord, { color: colors.textPrimary }]}>{dictResult.word}</Text>
+                    {dictResult.phonetic && (
+                      <Text style={[styles.dictPhonetic, { color: colors.accent }]}>{dictResult.phonetic}</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.pronounceBtn, { backgroundColor: colors.accentBg }]}
+                    onPress={() => playPronunciation(dictResult.word, dictResult.audio_url, `result-${dictResult.word}`)}
+                    disabled={pronouncingKey === `result-${dictResult.word}`}
+                  >
+                    {pronouncingKey === `result-${dictResult.word}` ? (
+                      <ActivityIndicator size="small" color={colors.accent} />
+                    ) : (
+                      <Ionicons name="volume-high-outline" size={22} color={colors.accent} />
+                    )}
+                  </TouchableOpacity>
                 </View>
 
                 {dictResult.meanings?.map((meaning, mIdx) => (
@@ -819,9 +886,11 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 30, borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
   modalTitle: { fontSize: 20, fontWeight: '700' },
   dictCard: { borderRadius: 12, padding: 16, borderWidth: 1 },
-  dictWordRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  dictWordRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  dictWordInfo: { flex: 1 },
   dictWord: { fontSize: 24, fontWeight: '700' },
   dictPhonetic: { fontSize: 16 },
+  pronounceBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   pos: { fontSize: 14, fontStyle: 'italic', marginBottom: 8, fontWeight: '600' },
   defRow: { flexDirection: 'row', gap: 8 },
   defNum: { fontSize: 14, width: 14 },

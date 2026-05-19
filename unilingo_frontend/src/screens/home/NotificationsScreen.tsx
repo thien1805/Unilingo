@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -28,7 +27,6 @@ export default function NotificationsScreen({ navigation }: any) {
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -43,14 +41,6 @@ export default function NotificationsScreen({ navigation }: any) {
   useEffect(() => {
     loadNotifications().catch(() => setLoading(false));
   }, [loadNotifications]);
-
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 260,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -144,7 +134,7 @@ export default function NotificationsScreen({ navigation }: any) {
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
           >
-          <Animated.View style={{ opacity: fadeAnim }}>
+          <View>
             {items.length === 0 ? (
               <View style={[styles.emptyCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <Ionicons name="notifications-off-outline" size={28} color={colors.textMuted} />
@@ -196,7 +186,7 @@ export default function NotificationsScreen({ navigation }: any) {
                 ))}
               </View>
             )}
-          </Animated.View>
+          </View>
           </ScrollView>
         )}
       </SafeAreaView>

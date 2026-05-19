@@ -12,6 +12,8 @@ import {
   Modal,
   TextInput,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -185,6 +187,10 @@ export default function FlashcardDecksScreen({ navigation }: any) {
 
         {/* Create Deck Modal */}
         <Modal visible={showCreate} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={styles.modalKeyboard}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <View style={styles.modalHeader}>
@@ -230,6 +236,7 @@ export default function FlashcardDecksScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
         </View>
+        </KeyboardAvoidingView>
         </Modal>
 
         {/* App Modal */}
@@ -294,6 +301,7 @@ const styles = StyleSheet.create({
   retryBtn: { marginTop: 14, borderWidth: 1, borderRadius: 18, paddingHorizontal: 18, paddingVertical: 9 },
   retryText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 13 },
   // Modal
+  modalKeyboard: { flex: 1 },
   modalOverlay: {
     flex: 1, justifyContent: 'flex-end',
     backgroundColor: '#111827',

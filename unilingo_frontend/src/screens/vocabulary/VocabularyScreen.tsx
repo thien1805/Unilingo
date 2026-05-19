@@ -12,11 +12,14 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Swipeable } from 'react-native-gesture-handler';
+import { Audio } from 'expo-av';
+import * as Speech from 'expo-speech';
 import { useThemeStore } from '../../store/themeStore';
 import { vocabularyAPI, VocabularyItem, DictionaryResult } from '../../api/vocabulary';
 import { flashcardsAPI, FlashcardDeck } from '../../api/flashcards';
@@ -57,6 +60,7 @@ export default function VocabularyScreen({ navigation }: any) {
   const [dictLoading, setDictLoading] = useState(false);
   const [showDict, setShowDict] = useState(false);
   const [addingWord, setAddingWord] = useState(false);
+  const [pronouncingKey, setPronouncingKey] = useState<string | null>(null);
 
   // Add to Flashcard Deck
   const [showDeckPicker, setShowDeckPicker] = useState(false);
@@ -78,6 +82,60 @@ export default function VocabularyScreen({ navigation }: any) {
   }, [search]);
 
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
+  const pronunciationSoundRef = useRef<Audio.Sound | null>(null);
+
+  const stopPronunciation = useCallback(async () => {
+    Speech.stop();
+    if (pronunciationSoundRef.current) {
+      await pronunciationSoundRef.current.unloadAsync().catch(() => {});
+      pronunciationSoundRef.current = null;
+    }
+    setPronouncingKey(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopPronunciation();
+    };
+  }, [stopPronunciation]);
+
+  const playPronunciation = useCallback(async (word: string, audioUrl?: string | null, key = word) => {
+    if (!word.trim()) return;
+
+    await stopPronunciation();
+    setPronouncingKey(key);
+
+    if (audioUrl) {
+      try {
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: audioUrl },
+          { shouldPlay: true }
+        );
+        pronunciationSoundRef.current = sound;
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (!status.isLoaded) return;
+          if (status.didJustFinish) {
+            sound.unloadAsync().catch(() => {});
+            if (pronunciationSoundRef.current === sound) {
+              pronunciationSoundRef.current = null;
+            }
+            setPronouncingKey((current) => current === key ? null : current);
+          }
+        });
+        return;
+      } catch {
+        // Fall back to device text-to-speech below.
+      }
+    }
+
+    Speech.speak(word, {
+      language: 'en-US',
+      onDone: () => setPronouncingKey((current) => current === key ? null : current),
+      onStopped: () => setPronouncingKey((current) => current === key ? null : current),
+      onError: () => setPronouncingKey((current) => current === key ? null : current),
+    });
+  }, [stopPronunciation]);
 
   const loadWords = useCallback(async () => {
     try {
@@ -157,9 +215,20 @@ export default function VocabularyScreen({ navigation }: any) {
     }
   };
 
+  const closeDeckPicker = () => {
+    setShowDeckPicker(false);
+    setPendingWord(null);
+    setPendingVocabItem(null);
+  };
+
   const openDeckPicker = (word: DictionaryResult) => {
+    Keyboard.dismiss();
     setPendingWord(word);
-    setShowDeckPicker(true);
+    setPendingVocabItem(null);
+    setShowDict(false);
+    setDictResult(null);
+    setDictSearch('');
+    setTimeout(() => setShowDeckPicker(true), 250);
     loadDecks();
   };
 
@@ -207,9 +276,7 @@ export default function VocabularyScreen({ navigation }: any) {
         front_content: frontContent,
         back_content: backContent,
       });
-      setShowDeckPicker(false);
-      setPendingWord(null);
-      setPendingVocabItem(null);
+      closeDeckPicker();
       showSuccess('Added to Deck!', `"${frontContent}" has been added to the flashcard deck.`);
     } catch (error: any) {
       const msg = error.response?.data?.detail || 'Failed to add card';
@@ -248,6 +315,7 @@ export default function VocabularyScreen({ navigation }: any) {
   };
 
   const handleAddVocabToDeck = (item: VocabularyItem) => {
+    setPendingWord(null);
     setPendingVocabItem(item);
     setShowDeckPicker(true);
     loadDecks();
@@ -454,10 +522,23 @@ export default function VocabularyScreen({ navigation }: any) {
             {dictResult && (
               <View style={[styles.dictCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <View style={styles.dictWordRow}>
-                  <Text style={[styles.dictWord, { color: colors.textPrimary }]}>{dictResult.word}</Text>
-                  {dictResult.phonetic && (
-                    <Text style={[styles.dictPhonetic, { color: colors.accent }]}>{dictResult.phonetic}</Text>
-                  )}
+                  <View style={styles.dictWordInfo}>
+                    <Text style={[styles.dictWord, { color: colors.textPrimary }]}>{dictResult.word}</Text>
+                    {dictResult.phonetic && (
+                      <Text style={[styles.dictPhonetic, { color: colors.accent }]}>{dictResult.phonetic}</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.pronounceBtn, { backgroundColor: colors.accentBg }]}
+                    onPress={() => playPronunciation(dictResult.word, dictResult.audio_url, `dict-${dictResult.word}`)}
+                    disabled={pronouncingKey === `dict-${dictResult.word}`}
+                  >
+                    {pronouncingKey === `dict-${dictResult.word}` ? (
+                      <ActivityIndicator size="small" color={colors.accent} />
+                    ) : (
+                      <Ionicons name="volume-high-outline" size={22} color={colors.accent} />
+                    )}
+                  </TouchableOpacity>
                 </View>
 
                 {dictResult.meanings?.map((meaning, mi) => (
@@ -512,13 +593,13 @@ export default function VocabularyScreen({ navigation }: any) {
           <View style={[styles.deckPickerCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <View style={styles.deckPickerHeader}>
               <Text style={[styles.deckPickerTitle, { color: colors.textPrimary }]}>Choose a Deck</Text>
-              <TouchableOpacity onPress={() => { setShowDeckPicker(false); setPendingWord(null); }}>
+              <TouchableOpacity onPress={closeDeckPicker}>
                 <Ionicons name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
-            {pendingWord && (
+            {(pendingWord || pendingVocabItem) && (
               <Text style={[styles.deckPickerSubtitle, { color: colors.textSecondary }]}>
-                Adding "{pendingWord.word}" to a flashcard deck
+                Adding "{(pendingWord || pendingVocabItem)?.word}" to a flashcard deck
               </Text>
             )}
             {decksLoading ? (
@@ -575,10 +656,23 @@ export default function VocabularyScreen({ navigation }: any) {
             {selectedWord && (
               <View style={[styles.dictCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
                 <View style={styles.dictWordRow}>
-                  <Text style={[styles.dictWord, { color: colors.textPrimary }]}>{selectedWord.word}</Text>
-                  {selectedWord.phonetic && (
-                    <Text style={[styles.dictPhonetic, { color: colors.accent }]}>{selectedWord.phonetic}</Text>
-                  )}
+                  <View style={styles.dictWordInfo}>
+                    <Text style={[styles.dictWord, { color: colors.textPrimary }]}>{selectedWord.word}</Text>
+                    {selectedWord.phonetic && (
+                      <Text style={[styles.dictPhonetic, { color: colors.accent }]}>{selectedWord.phonetic}</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.pronounceBtn, { backgroundColor: colors.accentBg }]}
+                    onPress={() => playPronunciation(selectedWord.word, selectedWord.audio_url, `saved-${selectedWord.id}`)}
+                    disabled={pronouncingKey === `saved-${selectedWord.id}`}
+                  >
+                    {pronouncingKey === `saved-${selectedWord.id}` ? (
+                      <ActivityIndicator size="small" color={colors.accent} />
+                    ) : (
+                      <Ionicons name="volume-high-outline" size={22} color={colors.accent} />
+                    )}
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.meaningBlock}>
@@ -676,9 +770,11 @@ const styles = StyleSheet.create({
   dictSearchRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   lookupBtn: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   dictCard: { borderRadius: 16, borderWidth: 1, padding: 20 },
-  dictWordRow: { marginBottom: 16 },
+  dictWordRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  dictWordInfo: { flex: 1 },
   dictWord: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 28 },
   dictPhonetic: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 16, marginTop: 4 },
+  pronounceBtn: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
   meaningBlock: { marginBottom: 16 },
   pos: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 14, fontStyle: 'italic', marginBottom: 8 },
   defRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },

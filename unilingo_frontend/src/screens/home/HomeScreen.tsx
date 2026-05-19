@@ -1,7 +1,7 @@
 /**
  * HomeScreen — Dashboard with REAL data from API
  */
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,6 @@ import {
   RefreshControl,
   ActivityIndicator,
   Image,
-  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,6 +36,13 @@ const BLOG_CATEGORIES = [
   { key: 'news', label: 'News' },
 ];
 
+const FORECAST_SKILLS = [
+  { key: 'listening', label: 'Listening', icon: 'headset-outline', color: '#2563EB' },
+  { key: 'reading', label: 'Reading', icon: 'book-outline', color: '#059669' },
+  { key: 'writing', label: 'Writing', icon: 'create-outline', color: '#D97706' },
+  { key: 'speaking', label: 'Speaking', icon: 'mic-outline', color: '#E11D48' },
+] as const;
+
 const dailyMascotImage = require('../../../assets/mascot/mascot_lie.png');
 const partImages = {
   part1: require('../../../assets/mascot/part1.png'),
@@ -56,10 +62,9 @@ export default function HomeScreen({ navigation }: any) {
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [featuredBlogs, setFeaturedBlogs] = useState<BlogPostSummary[]>([]);
   const [categoryBlogs, setCategoryBlogs] = useState<BlogPostSummary[]>([]);
+  const [forecastBlogs, setForecastBlogs] = useState<BlogPostSummary[]>([]);
   const [selectedBlogCategory, setSelectedBlogCategory] = useState('all');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(18)).current;
 
   const checkStreakModal = (currentUserData: any) => {
     // Show onboarding modal if user hasn't set a goal target
@@ -90,6 +95,9 @@ export default function HomeScreen({ navigation }: any) {
         blogAPI.getFeatured(3)
           .then((blogs) => setFeaturedBlogs(blogs || []))
           .catch(() => {}),
+        blogAPI.getPosts(1, 12, 'forecast')
+          .then((data) => setForecastBlogs(data.items || []))
+          .catch(() => setForecastBlogs([])),
         notificationsAPI.getUnreadCount()
           .then((unread) => setUnreadNotifications(unread || 0))
           .catch(() => {}),
@@ -105,21 +113,6 @@ export default function HomeScreen({ navigation }: any) {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 420,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 420,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [fadeAnim, slideAnim]);
 
   useEffect(() => {
     const category = selectedBlogCategory === 'all' ? undefined : selectedBlogCategory;
@@ -153,6 +146,7 @@ export default function HomeScreen({ navigation }: any) {
 
   // Initials for avatar
   const initials = userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  const latestForecast = forecastBlogs[0];
 
   const getGreeting = () => {
     const hr = new Date().getHours();
@@ -180,6 +174,12 @@ export default function HomeScreen({ navigation }: any) {
     return category.trim().replace(/_/g, ' ').toUpperCase();
   };
 
+  const getForecastPostForSkill = (skill: string) => {
+    const matchedPost = forecastBlogs.find(blog => getForecastSkill(blog) === skill);
+    const generalDailyForecast = latestForecast && !getForecastSkill(latestForecast) ? latestForecast : undefined;
+    return matchedPost || generalDailyForecast;
+  };
+
   if (loading) {
     return (
       <AppBackground>
@@ -201,7 +201,7 @@ export default function HomeScreen({ navigation }: any) {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         >
-        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+        <View>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -403,6 +403,45 @@ export default function HomeScreen({ navigation }: any) {
           </View>
         )}
 
+        {/* Daily Forecast */}
+        <View style={styles.forecastSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginBottom: 0 }]}>Daily Forecast</Text>
+            <Text style={[styles.forecastSource, { color: colors.textMuted }]}>Admin CMS</Text>
+          </View>
+          <View style={styles.forecastGrid}>
+            {FORECAST_SKILLS.map((skill) => {
+              const post = getForecastPostForSkill(skill.key);
+              return (
+                <TouchableOpacity
+                  key={skill.key}
+                  style={[
+                    styles.forecastCard,
+                    {
+                      backgroundColor: colors.bgCard,
+                      borderColor: post ? colors.border : colors.bgSecondary,
+                      opacity: post ? 1 : 0.72,
+                    },
+                  ]}
+                  activeOpacity={post ? 0.75 : 1}
+                  onPress={() => post && navigation.navigate('BlogDetail', { slug: post.slug })}
+                >
+                  <View style={[styles.forecastIcon, { backgroundColor: `${skill.color}18` }]}>
+                    <Ionicons name={skill.icon} size={20} color={skill.color} />
+                  </View>
+                  <View style={styles.forecastTextWrap}>
+                    <Text style={[styles.forecastSkill, { color: colors.textPrimary }]}>{skill.label}</Text>
+                    <Text style={[styles.forecastTitle, { color: colors.textSecondary }]} numberOfLines={2}>
+                      {post ? post.title : 'Waiting for admin forecast'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={post ? colors.textMuted : colors.border} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
         {/* Blog Posts */}
         {(featuredBlogs.length > 0 || categoryBlogs.length > 0) && (
           <View style={{ marginTop: 24 }}>
@@ -434,9 +473,10 @@ export default function HomeScreen({ navigation }: any) {
             </ScrollView>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.blogScroll}>
               {(categoryBlogs.length > 0 ? categoryBlogs : featuredBlogs).map(blog => (
-                <ScalePressable
+                <TouchableOpacity
                   key={blog.id}
                   style={[styles.blogCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+                  activeOpacity={0.75}
                   onPress={() => navigation.navigate('BlogDetail', { slug: blog.slug })}
                 >
                   <View style={[styles.blogImagePlaceholder, { backgroundColor: colors.bgInput }]}>
@@ -447,7 +487,7 @@ export default function HomeScreen({ navigation }: any) {
                     )}
                   </View>
                   <View style={styles.blogContent}>
-                    <Text style={[styles.blogCategory, { color: colors.accent }]}>{blog.category.toUpperCase()}</Text>
+                    <Text style={[styles.blogCategory, { color: colors.accent }]}>{formatBlogCategory(blog.category)}</Text>
                     <Text style={[styles.blogTitle, { color: colors.textPrimary }]} numberOfLines={2}>
                       {blog.title}
                     </Text>
@@ -455,12 +495,12 @@ export default function HomeScreen({ navigation }: any) {
                       {blog.read_time_minutes} min read | {blog.view_count} views
                     </Text>
                   </View>
-                </ScalePressable>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
         )}
-        </Animated.View>
+        </View>
       </ScrollView>
 
         <StreakModal 
@@ -469,32 +509,6 @@ export default function HomeScreen({ navigation }: any) {
         />
       </SafeAreaView>
     </AppBackground>
-  );
-}
-
-function ScalePressable({ children, style, onPress }: any) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const animate = (toValue: number) => {
-    Animated.spring(scale, {
-      toValue,
-      useNativeDriver: true,
-      speed: 22,
-      bounciness: 6,
-    }).start();
-  };
-
-  return (
-    <Animated.View style={[style, { transform: [{ scale }] }]}>
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPressIn={() => animate(0.97)}
-        onPressOut={() => animate(1)}
-        onPress={onPress}
-      >
-        {children}
-      </TouchableOpacity>
-    </Animated.View>
   );
 }
 
@@ -510,6 +524,16 @@ function timeAgo(dateStr: string): string {
   const diffDay = Math.floor(diffHr / 24);
   if (diffDay < 7) return diffDay === 1 ? 'Yesterday' : `${diffDay} days ago`;
   return date.toLocaleDateString();
+}
+
+function getForecastSkill(blog: BlogPostSummary) {
+  const content = [
+    ...(blog.tags || []),
+    blog.title,
+    blog.excerpt || '',
+  ].join(' ').toLowerCase();
+
+  return FORECAST_SKILLS.find(skill => content.includes(skill.key))?.key;
 }
 
 const styles = StyleSheet.create({
@@ -610,6 +634,28 @@ const styles = StyleSheet.create({
   activityTime: { fontFamily: 'PlusJakartaSans-Medium', fontSize: 11 },
   emptyCard: { alignItems: 'center', padding: 32, borderRadius: 16, borderWidth: 1 },
   emptyText: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 14, textAlign: 'center' },
+  forecastSection: { marginTop: 18, marginBottom: 24 },
+  forecastSource: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 12 },
+  forecastGrid: { gap: 10 },
+  forecastCard: {
+    minHeight: 76,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  forecastIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  forecastTextWrap: { flex: 1 },
+  forecastSkill: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 14, marginBottom: 3 },
+  forecastTitle: { fontFamily: 'PlusJakartaSans-Regular', fontSize: 12, lineHeight: 17 },
   categoryScroll: { gap: 8, paddingBottom: 12 },
   categoryChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, borderWidth: 1 },
   categoryChipText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 12 },

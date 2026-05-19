@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, CameraView } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,6 +34,7 @@ const formatTime = (seconds: number) => {
 
 export default function MockSpeakingTestScreen({ navigation, route }: any) {
   const { colors } = useThemeStore();
+  const { height: windowHeight } = useWindowDimensions();
   const cameraEnabled = route?.params?.cameraEnabled !== false;
   const testTitle = route?.params?.title || (cameraEnabled ? 'IELTS Speaking Mock Test' : 'Full IELTS Speaking Test');
   const { modal, hideModal, showConfirm, showError } = useAppModal();
@@ -112,6 +113,7 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
 
   const mascotState: AnimatedMascotState =
     phase === 'recording' ? 'speaking' : phase === 'completed' ? 'happy' : 'idle';
+  const cameraFrameHeight = Math.max(280, Math.round(windowHeight * 0.5));
 
   useEffect(() => {
     if (!cameraEnabled) {
@@ -366,14 +368,14 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
           {cameraEnabled && (
             <View style={[styles.cameraCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
               {cameraGranted ? (
-                <CameraView facing="front" mirror style={styles.cameraPreview}>
+                <CameraView facing="front" mirror style={[styles.cameraPreview, { height: cameraFrameHeight }]}>
                   <View style={styles.cameraPill}>
                     <View style={styles.cameraDot} />
                     <Text style={styles.cameraPillText}>Camera active</Text>
                   </View>
                 </CameraView>
               ) : (
-                <View style={[styles.cameraFallback, { backgroundColor: colors.bgInput }]}>
+                <View style={[styles.cameraFallback, { backgroundColor: colors.bgInput, height: cameraFrameHeight }]}>
                   <Ionicons name="videocam-off-outline" size={28} color={colors.textMuted} />
                   <Text style={[Typography.caption, { color: colors.textSecondary }]}>
                     Camera permission is not active.
@@ -567,13 +569,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cameraPreview: {
-    height: 160,
     borderRadius: BorderRadius.lg,
     overflow: 'hidden',
     justifyContent: 'flex-end',
   },
   cameraFallback: {
-    height: 160,
     borderRadius: BorderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',

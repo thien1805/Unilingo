@@ -13,6 +13,8 @@ import {
   TextInput,
   RefreshControl,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -223,6 +225,10 @@ export default function FlashcardDeckDetailScreen({ navigation, route }: any) {
 
         {/* Add Card Modal */}
         <Modal visible={showAddCard} animationType="slide" transparent>
+        <KeyboardAvoidingView
+          style={styles.modalKeyboard}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <View style={styles.modalHeader}>
@@ -276,6 +282,7 @@ export default function FlashcardDeckDetailScreen({ navigation, route }: any) {
             </TouchableOpacity>
           </View>
         </View>
+        </KeyboardAvoidingView>
         </Modal>
 
         {/* App Modal */}
@@ -341,6 +348,7 @@ const styles = StyleSheet.create({
   },
   emptyBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15, color: '#1F2937' },
   // Modal
+  modalKeyboard: { flex: 1 },
   modalOverlay: {
     flex: 1, justifyContent: 'flex-end',
     backgroundColor: '#111827',

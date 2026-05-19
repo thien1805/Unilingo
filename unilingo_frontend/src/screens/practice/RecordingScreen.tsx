@@ -6,14 +6,6 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  Easing,
-} from 'react-native-reanimated';
 import { useThemeStore } from '../../store/themeStore';
 import { practiceAPI } from '../../api/practice';
 import { Card, Mascot } from '../../components/common';
@@ -33,9 +25,6 @@ export default function RecordingScreen({ navigation, route }: any) {
   const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isStoppingRef = useRef(false);
-
-  // Animated recording pulse
-  const pulseScale = useSharedValue(1);
 
   useEffect(() => {
     let isMounted = true;
@@ -151,25 +140,6 @@ export default function RecordingScreen({ navigation, route }: any) {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isRecording, isPaused]);
-
-  // Pulse animation when recording
-  useEffect(() => {
-    if (isRecording && !isPaused) {
-      pulseScale.value = withRepeat(
-        withSequence(
-          withTiming(1.15, { duration: 800, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1
-      );
-    } else {
-      pulseScale.value = withTiming(1, { duration: 300 });
-    }
-  }, [isRecording, isPaused]);
-
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseScale.value }],
-  }));
 
   const handlePauseResume = async () => {
     if (!recordingRef.current) return;
@@ -336,9 +306,7 @@ export default function RecordingScreen({ navigation, route }: any) {
         <Mascot mood="closedEyes" size={130} animated />
         {/* Recording indicator */}
         <View style={styles.recLabel}>
-          <Animated.View style={pulseStyle}>
-            <View style={[styles.recDot, { backgroundColor: isPaused ? colors.textMuted : colors.rose }]} />
-          </Animated.View>
+          <View style={[styles.recDot, { backgroundColor: isPaused ? colors.textMuted : colors.rose }]} />
           <Text style={[Typography.bodyMedium, { color: isPaused ? colors.textMuted : colors.rose }]}>
             {isPaused ? 'Paused' : 'Recording'}
           </Text>

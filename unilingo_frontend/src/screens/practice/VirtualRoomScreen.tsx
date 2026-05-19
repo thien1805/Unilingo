@@ -17,10 +17,6 @@ import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { usePreventRemove } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, {
-  useSharedValue, useAnimatedStyle, withRepeat,
-  withSequence, withTiming, Easing,
-} from 'react-native-reanimated';
 import { useThemeStore } from '../../store/themeStore';
 import { practiceAPI } from '../../api/practice';
 import { Card, MascotIcon, OutlineButton } from '../../components/common';
@@ -99,12 +95,6 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   const speechFinishRef = useRef<(() => void) | null>(null);
   const delayedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadedPartCountRef = useRef(0);
-
-  // Animation
-  const pulseScale = useSharedValue(1);
-  const pulseStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pulseScale.value }],
-  }));
 
   // ──── Stop All Audio (TTS + native speech) ────
   const stopAllAudio = useCallback(async () => {
@@ -199,19 +189,6 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       { confirmText: 'Quit', cancelText: 'Stay', destructive: true }
     );
   });
-
-  useEffect(() => {
-    if (isRecording) {
-      pulseScale.value = withRepeat(
-        withSequence(
-          withTiming(1.2, { duration: 700, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) }),
-        ), -1,
-      );
-    } else {
-      pulseScale.value = withTiming(1, { duration: 200 });
-    }
-  }, [isRecording]);
 
   // ──── Init Exam ────
   const initExam = async () => {
@@ -855,9 +832,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
         {phase === 'recording' && (
           <TouchableOpacity style={{ flex: 1 }} onPress={stopRecording}>
             <LinearGradient colors={['#F43F5E', '#E11D48']} style={styles.recordBtn}>
-              <Animated.View style={pulseStyle}>
-                <Ionicons name="stop" size={18} color="#fff" />
-              </Animated.View>
+              <Ionicons name="stop" size={18} color="#fff" />
               <Text style={[Typography.button, { color: '#fff' }]}>
                 Stop Recording
               </Text>
