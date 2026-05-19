@@ -25,6 +25,8 @@ import { BASE_URL } from '../../api/client';
 import { usersAPI } from '../../api/users';
 import { Typography, FontFamily } from '../../theme/typography';
 
+const NAVY = '#3350B2';
+
 export default function LoginScreen({ navigation }: any) {
   const { colors } = useThemeStore();
   const { setTokens, setUser, logout, hydrate } = useAuthStore();
@@ -197,7 +199,7 @@ export default function LoginScreen({ navigation }: any) {
               style={styles.logoIcon}
               resizeMode="contain"
             />
-            <Text style={[styles.logoText, { color: colors.textPrimary }]}>Unilingo</Text>
+            <Text style={[styles.logoText, { color: NAVY }]}>Unilingo</Text>
           </View>
 
           {/* Heading */}

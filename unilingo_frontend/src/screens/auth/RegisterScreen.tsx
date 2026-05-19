@@ -22,6 +22,8 @@ import { useThemeStore } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
 import { authAPI } from '../../api/auth';
 
+const NAVY = '#3350B2';
+
 export default function RegisterScreen({ navigation }: any) {
   const { colors } = useThemeStore();
   const { logout } = useAuthStore();
@@ -134,7 +136,7 @@ export default function RegisterScreen({ navigation }: any) {
               style={styles.logoIcon}
               resizeMode="contain"
             />
-            <Text style={[styles.logoText, { color: colors.textPrimary }]}>Unilingo</Text>
+            <Text style={[styles.logoText, { color: NAVY }]}>Unilingo</Text>
           </View>
 
           {/* Heading */}
