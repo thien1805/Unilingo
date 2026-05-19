@@ -19,6 +19,29 @@ from app.schemas.topic import (
 router = APIRouter(prefix="/topics", tags=["Topics"])
 
 
+def _parse_cue_card_points(cue_card_content: str | None) -> list[str]:
+    if not cue_card_content:
+        return []
+
+    import json
+
+    try:
+        parsed = json.loads(cue_card_content)
+        if isinstance(parsed, dict):
+            points = parsed.get("points")
+            if isinstance(points, list):
+                return [str(point).strip() for point in points if str(point).strip()]
+    except Exception:
+        pass
+
+    points: list[str] = []
+    for line in cue_card_content.split("\n"):
+        line = line.strip()
+        if line.startswith("- "):
+            points.append(line[2:].strip())
+    return points
+
+
 @router.get("/mock-test")
 async def get_mock_test(
     db: AsyncSession = Depends(get_db),
@@ -33,76 +56,77 @@ async def get_mock_test(
     
     Each call returns a different combination, just like a real IELTS exam.
     """
-    import random
-
-    # Fetch ALL active topics with their questions
-    result = await db.execute(
-        select(Topic)
-        .options(selectinload(Topic.questions))
-        .where(Topic.is_active == True)
+    part1_result = await db.execute(
+        select(Question.question_text)
+        .join(Topic, Question.topic_id == Topic.id)
+        .where(
+            Topic.is_active == True,
+            Question.is_active == True,
+            Question.ielts_part == "part1",
+        )
+        .order_by(func.random())
+        .limit(4)
     )
-    topics = result.scalars().all()
+    part1_questions = [row[0] for row in part1_result.all()]
 
-    # Group topics by ielts_part
-    part1_topics = [t for t in topics if t.ielts_part == "part1"]
-    part2_topics = [t for t in topics if t.ielts_part == "part2"]
-    part3_topics = [t for t in topics if t.ielts_part == "part3"]
+    part2_result = await db.execute(
+        select(Question, Topic.category)
+        .join(Topic, Question.topic_id == Topic.id)
+        .where(
+            Topic.is_active == True,
+            Question.is_active == True,
+            Question.ielts_part == "part2",
+        )
+        .order_by(func.random())
+        .limit(1)
+    )
+    part2_row = part2_result.first()
+    selected_category = part2_row[1] if part2_row else None
+    selected_part2_question = part2_row[0] if part2_row else None
+    part2_data = {
+        "topic": selected_part2_question.question_text if selected_part2_question else "No Part 2 topic available",
+        "points": _parse_cue_card_points(selected_part2_question.cue_card_content) if selected_part2_question else [],
+        "preparationTime": 60,
+        "speakingTime": 120,
+    }
 
-    # ── Part 1: collect all active questions, shuffle, pick 4 ──
-    all_part1_qs = []
-    for t in part1_topics:
-        all_part1_qs.extend([q.question_text for q in t.questions if q.is_active])
-    random.shuffle(all_part1_qs)
-    part1_questions = all_part1_qs[:4] if len(all_part1_qs) >= 4 else all_part1_qs
-
-    # ── Part 2: pick 1 random cue card topic ──
-    part2_data = None
-    selected_category = None
-    if part2_topics:
-        chosen_topic = random.choice(part2_topics)
-        selected_category = chosen_topic.category
-        active_qs = [q for q in chosen_topic.questions if q.is_active]
-        if active_qs:
-            q = random.choice(active_qs)
-            points = []
-            if q.cue_card_content:
-                for line in q.cue_card_content.split("\n"):
-                    line = line.strip()
-                    if line.startswith("- "):
-                        points.append(line[2:])
-            part2_data = {
-                "topic": q.question_text,
-                "points": points,
-                "preparationTime": 60,
-                "speakingTime": 120,
-            }
-
-    # ── Part 3: prefer questions from same category as Part 2 (coherent theme) ──
-    all_part3_qs = []
-    # First, try to get questions from matching category
+    part3_questions: list[str] = []
     if selected_category:
-        matching = [t for t in part3_topics if t.category == selected_category]
-        for t in matching:
-            all_part3_qs.extend([q.question_text for q in t.questions if q.is_active])
-    # If not enough, supplement with other part3 questions
-    if len(all_part3_qs) < 4:
-        other_qs = []
-        for t in part3_topics:
-            if t.category != selected_category:
-                other_qs.extend([q.question_text for q in t.questions if q.is_active])
-        random.shuffle(other_qs)
-        all_part3_qs.extend(other_qs)
-    random.shuffle(all_part3_qs)
-    part3_questions = all_part3_qs[:4] if len(all_part3_qs) >= 4 else all_part3_qs
+        matching_part3 = await db.execute(
+            select(Question.question_text)
+            .join(Topic, Question.topic_id == Topic.id)
+            .where(
+                Topic.is_active == True,
+                Topic.category == selected_category,
+                Question.is_active == True,
+                Question.ielts_part == "part3",
+            )
+            .order_by(func.random())
+            .limit(4)
+        )
+        part3_questions.extend([row[0] for row in matching_part3.all()])
+
+    if len(part3_questions) < 4:
+        other_part3_filters = [
+            Topic.is_active == True,
+            Question.is_active == True,
+            Question.ielts_part == "part3",
+        ]
+        if selected_category:
+            other_part3_filters.append(Topic.category != selected_category)
+
+        other_part3 = await db.execute(
+            select(Question.question_text)
+            .join(Topic, Question.topic_id == Topic.id)
+            .where(*other_part3_filters)
+            .order_by(func.random())
+            .limit(4 - len(part3_questions))
+        )
+        part3_questions.extend([row[0] for row in other_part3.all()])
 
     return {
         "part1": part1_questions,
-        "part2": part2_data or {
-            "topic": "No Part 2 topic available",
-            "points": [],
-            "preparationTime": 60,
-            "speakingTime": 120,
-        },
+        "part2": part2_data,
         "part3": part3_questions,
         "limits": {
             "part1Question": 30,
@@ -120,7 +144,22 @@ async def list_topics(
     current_user: User = Depends(get_current_user),
 ):
     """List all active topics with optional filters."""
-    query = select(Topic).where(Topic.is_active == True).order_by(Topic.order_index)
+    question_counts = (
+        select(
+            Question.topic_id.label("topic_id"),
+            func.count(Question.id).label("question_count"),
+        )
+        .where(Question.is_active == True)
+        .group_by(Question.topic_id)
+        .subquery()
+    )
+
+    query = (
+        select(Topic, func.coalesce(question_counts.c.question_count, 0).label("question_count"))
+        .outerjoin(question_counts, Topic.id == question_counts.c.topic_id)
+        .where(Topic.is_active == True)
+        .order_by(Topic.order_index)
+    )
 
     if ielts_part:
         query = query.where(Topic.ielts_part == ielts_part)
@@ -129,21 +168,13 @@ async def list_topics(
     if difficulty:
         query = query.where(Topic.difficulty == difficulty)
 
-    result = await db.execute(query)
-    topics = result.scalars().all()
-
-    # Get question counts
     topic_responses = []
-    for topic in topics:
-        count_result = await db.execute(
-            select(func.count(Question.id)).where(
-                Question.topic_id == topic.id,
-                Question.is_active == True,
-            )
-        )
-        question_count = count_result.scalar() or 0
+    result = await db.execute(query)
+    rows = result.all()
+
+    for topic, question_count in rows:
         topic_dict = TopicResponse.model_validate(topic)
-        topic_dict.question_count = question_count
+        topic_dict.question_count = int(question_count or 0)
         topic_responses.append(topic_dict)
 
     return TopicListResponse(items=topic_responses, total=len(topic_responses))

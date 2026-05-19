@@ -12,15 +12,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const CHECKLIST = [
   'Find a quiet place',
-  'Keep your face visible',
   'Keep your phone stable',
   'Answer naturally',
 ];
 
-export default function MockTestIntroScreen({ navigation }: any) {
+export default function MockTestIntroScreen({ navigation, route }: any) {
   const { colors } = useThemeStore();
+  const cameraEnabled = route?.params?.cameraEnabled !== false;
+  const testTitle = route?.params?.title || (cameraEnabled ? 'IELTS Speaking Mock Test' : 'Full IELTS Speaking Test');
   const [isRequesting, setIsRequesting] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
+  const checklist = cameraEnabled ? ['Keep your face visible', ...CHECKLIST] : CHECKLIST;
 
   const requestPermissionsAndStart = async () => {
     setIsRequesting(true);
@@ -29,19 +31,24 @@ export default function MockTestIntroScreen({ navigation }: any) {
     try {
       const [microphone, camera] = await Promise.all([
         Audio.requestPermissionsAsync(),
-        Camera.requestCameraPermissionsAsync(),
+        cameraEnabled ? Camera.requestCameraPermissionsAsync() : Promise.resolve({ granted: true }),
       ]);
 
       if (!microphone.granted || !camera.granted) {
         setPermissionError(
-          'Camera and microphone permissions are required for the mock speaking test. Please allow both permissions and try again.'
+          cameraEnabled
+            ? 'Camera and microphone permissions are required for this mock speaking test. Please allow both permissions and try again.'
+            : 'Microphone permission is required for this speaking test. Please allow microphone access and try again.'
         );
         return;
       }
 
-      navigation.navigate('MockSpeakingTest');
+      navigation.navigate('MockSpeakingTest', { cameraEnabled, title: testTitle });
     } catch {
-      setPermissionError('Could not request camera or microphone permission. Please try again.');
+      setPermissionError(cameraEnabled
+        ? 'Could not request camera or microphone permission. Please try again.'
+        : 'Could not request microphone permission. Please try again.'
+      );
     } finally {
       setIsRequesting(false);
     }
@@ -57,7 +64,7 @@ export default function MockTestIntroScreen({ navigation }: any) {
           >
             <Ionicons name="arrow-back" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
-          <Text style={[Typography.bodyMedium, { color: colors.textPrimary }]}>Mock Test</Text>
+          <Text style={[Typography.bodyMedium, { color: colors.textPrimary }]}>{cameraEnabled ? 'Mock Test' : 'Full Test'}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -68,16 +75,17 @@ export default function MockTestIntroScreen({ navigation }: any) {
               <Text style={[styles.badgeText, { color: colors.error }]}>Hardcore</Text>
             </View>
             <Text style={[Typography.h2, styles.title, { color: colors.textPrimary }]}>
-              IELTS Speaking Mock Test
+              {testTitle}
             </Text>
             <Text style={[Typography.body, styles.description, { color: colors.textSecondary }]}>
-              This mode simulates a real IELTS Speaking test. Your voice will be recorded and
-              your camera will be used to monitor your speaking environment.
+              {cameraEnabled
+                ? 'This mode simulates a real IELTS Speaking test. Your voice will be recorded and your camera will be used to monitor your speaking environment.'
+                : 'This mode uses the same full IELTS Speaking mock flow and questions, with voice recording only.'}
             </Text>
           </View>
 
           <View style={styles.checklist}>
-            {CHECKLIST.map((item) => (
+            {checklist.map((item) => (
               <View key={item} style={styles.checkItem}>
                 <View style={[styles.checkIcon, { backgroundColor: colors.successBg }]}>
                   <Ionicons name="checkmark" size={15} color={colors.success} />
@@ -106,8 +114,8 @@ export default function MockTestIntroScreen({ navigation }: any) {
                 <ActivityIndicator color="#1F2937" />
               ) : (
                 <>
-                  <Ionicons name="videocam" size={18} color="#1F2937" />
-                  <Text style={styles.startButtonText}>Start Mock Test</Text>
+                  <Ionicons name={cameraEnabled ? 'videocam' : 'mic'} size={18} color="#1F2937" />
+                  <Text style={styles.startButtonText}>{cameraEnabled ? 'Start Mock Test' : 'Start Full Test'}</Text>
                 </>
               )}
             </LinearGradient>

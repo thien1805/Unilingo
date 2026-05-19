@@ -2,6 +2,7 @@
  * Topics & Questions API service
  */
 import apiClient from './client';
+import { MockTestData, normalizeMockTestData } from '../data/mockSpeakingTest';
 
 export interface Topic {
   id: string;
@@ -52,5 +53,10 @@ export const topicsAPI = {
   getRecommended: async (): Promise<Topic[]> => {
     const { data } = await apiClient.get('/topics/recommended');
     return data;
+  },
+
+  getMockTest: async (): Promise<MockTestData> => {
+    const { data } = await apiClient.get('/topics/mock-test', { timeout: 8000 });
+    return normalizeMockTestData(data);
   },
 };

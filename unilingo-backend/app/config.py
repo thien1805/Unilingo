@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     # ─── Application ───
     APP_NAME: str = "Unilingo"
     APP_VERSION: str = "1.0.0"
+    ENVIRONMENT: str = "production"
     DEBUG: bool = False
     SECRET_KEY: str = "change-me-in-production"
     API_V1_PREFIX: str = "/api/v1"
@@ -48,6 +49,9 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
 
     # ─── SMTP Email ───
+    SENDGRID_API_KEY: str = ""
+    SENDGRID_FROM_EMAIL: str = ""
+    SENDGRID_FROM_NAME: str = "Unilingo"
     SMTP_SERVER: str = ""
     SMTP_PORT: int = 465
     SMTP_USERNAME: str = ""

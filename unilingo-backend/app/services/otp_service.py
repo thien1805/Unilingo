@@ -3,6 +3,7 @@ import random
 import os
 import smtplib
 import time
+import httpx
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional, Dict, Tuple
@@ -40,27 +41,152 @@ class _InMemoryOTPStore:
         self._store.pop(key, None)
 
 
+_memory_store = _InMemoryOTPStore()
+
+
 def _build_redis_client():
     redis_url = settings.REDIS_URL or os.getenv("REDIS_URL", "redis://localhost:6379/0")
     if not _redis_module:
         print("⚠️ redis package not available, using in-memory OTP store.", flush=True)
-        return _InMemoryOTPStore()
+        return _memory_store
 
     try:
-        return _redis_module.from_url(redis_url, decode_responses=True)
+        client = _redis_module.from_url(
+            redis_url,
+            decode_responses=True,
+            socket_connect_timeout=2,
+            socket_timeout=2,
+        )
+        client.ping()
+        return client
     except Exception as exc:
         print(f"⚠️ Failed to connect to Redis at {redis_url}: {exc}. Using in-memory OTP store.", flush=True)
-        return _InMemoryOTPStore()
+        return _memory_store
 
 
 redis_client = _build_redis_client()
+
+
+def _use_memory_store_after_error(exc: Exception) -> None:
+    global redis_client
+    if redis_client is not _memory_store:
+        print(f"⚠️ OTP store failed: {exc}. Falling back to in-memory OTP store.", flush=True)
+        redis_client = _memory_store
+
+
+def _store_otp(key: str, ttl_seconds: int, otp: str) -> None:
+    try:
+        redis_client.setex(key, ttl_seconds, otp)
+    except Exception as exc:
+        _use_memory_store_after_error(exc)
+        redis_client.setex(key, ttl_seconds, otp)
+
+
+def _get_otp(key: str) -> Optional[str]:
+    try:
+        return redis_client.get(key)
+    except Exception as exc:
+        _use_memory_store_after_error(exc)
+        return redis_client.get(key)
+
+
+def _delete_otp(key: str) -> None:
+    try:
+        redis_client.delete(key)
+    except Exception as exc:
+        _use_memory_store_after_error(exc)
+        redis_client.delete(key)
+
+
+def _build_otp_email(prefix: str, otp: str) -> tuple[str, str, str]:
+    subject = f"[{prefix.upper()}] Your Unilingo Verification Code"
+    text = (
+        "Hello,\n\n"
+        f"Your verification code is: {otp}\n\n"
+        "This code will expire in 5 minutes.\n\n"
+        "Thank you,\n"
+        "Unilingo Team"
+    )
+    html = (
+        "<p>Hello,</p>"
+        f"<p>Your verification code is: <strong>{otp}</strong></p>"
+        "<p>This code will expire in 5 minutes.</p>"
+        "<p>Thank you,<br/>Unilingo Team</p>"
+    )
+    return subject, text, html
+
+
+def _send_with_sendgrid(email: str, subject: str, text: str, html: str) -> bool:
+    api_key = settings.SENDGRID_API_KEY.strip()
+    from_email = (settings.SENDGRID_FROM_EMAIL or settings.SMTP_FROM_EMAIL).strip()
+    if not api_key or not from_email:
+        return False
+
+    from_payload = {"email": from_email}
+    if settings.SENDGRID_FROM_NAME.strip():
+        from_payload["name"] = settings.SENDGRID_FROM_NAME.strip()
+
+    payload = {
+        "personalizations": [{"to": [{"email": email}], "subject": subject}],
+        "from": from_payload,
+        "content": [
+            {"type": "text/plain", "value": text},
+            {"type": "text/html", "value": html},
+        ],
+    }
+
+    try:
+        response = httpx.post(
+            "https://api.sendgrid.com/v3/mail/send",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=10,
+        )
+        response.raise_for_status()
+        print("✅ OTP email sent successfully via SendGrid.", flush=True)
+        return True
+    except Exception as exc:
+        print(f"❌ Failed to send OTP email via SendGrid: {str(exc)}", flush=True)
+        return False
+
+
+def _send_with_smtp(email: str, subject: str, text: str) -> bool:
+    if not (settings.SMTP_SERVER and settings.SMTP_USERNAME and settings.SMTP_PASSWORD):
+        return False
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = settings.SMTP_FROM_EMAIL or settings.SMTP_USERNAME
+        msg['To'] = email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(text, 'plain'))
+
+        # Using SMTP_SSL for port 465, or SMTP with starttls for port 587
+        if settings.SMTP_PORT == 465:
+            server = smtplib.SMTP_SSL(settings.SMTP_SERVER, settings.SMTP_PORT, timeout=10)
+        else:
+            server = smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT, timeout=10)
+            server.starttls()
+
+        server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        print("✅ OTP email sent successfully via SMTP.", flush=True)
+        return True
+    except Exception as exc:
+        print(f"❌ Failed to send OTP email via SMTP: {str(exc)}", flush=True)
+        return False
+
 
 def generate_and_send_otp(email: str, prefix: str = "register") -> str:
     """Generate a 6-digit OTP, store in Redis for 5 minutes, and 'send' email."""
     email_clean = email.strip().lower()
     otp = str(random.randint(100000, 999999))
     key = f"otp:{prefix}:{email_clean}"
-    redis_client.setex(key, 300, otp)  # Valid for 5 minutes
+    _store_otp(key, 300, otp)  # Valid for 5 minutes
     
     # Print to console for dev/debugging
     print(f"\n" + "="*50, flush=True)
@@ -68,32 +194,12 @@ def generate_and_send_otp(email: str, prefix: str = "register") -> str:
     print(f"🔑 Your {prefix.upper()} OTP is: {otp}", flush=True)
     print(f"="*50 + "\n", flush=True)
 
-    # Real SMTP email sending
-    if settings.SMTP_SERVER and settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
-        try:
-            msg = MIMEMultipart()
-            msg['From'] = settings.SMTP_FROM_EMAIL
-            msg['To'] = email
-            msg['Subject'] = f"[{prefix.upper()}] Your Unilingo Verification Code"
-            
-            body = f"Hello,\n\nYour verification code is: {otp}\n\nThis code will expire in 5 minutes.\n\nThank you,\nUnilingo Team"
-            msg.attach(MIMEText(body, 'plain'))
-            
-            # Using SMTP_SSL for port 465, or SMTP with starttls for port 587
-            if settings.SMTP_PORT == 465:
-                server = smtplib.SMTP_SSL(settings.SMTP_SERVER, settings.SMTP_PORT)
-            else:
-                server = smtplib.SMTP(settings.SMTP_SERVER, settings.SMTP_PORT)
-                server.starttls()
-                
-            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-            server.send_message(msg)
-            server.quit()
-            print("✅ Real email sent successfully via SMTP.", flush=True)
-        except Exception as e:
-            print(f"❌ Failed to send real email: {str(e)}", flush=True)
-    else:
-        print("⚠️ SMTP credentials not found, email sending skipped.", flush=True)
+    subject, text, html = _build_otp_email(prefix, otp)
+    sent = _send_with_sendgrid(email_clean, subject, text, html)
+    if not sent:
+        sent = _send_with_smtp(email_clean, subject, text)
+    if not sent:
+        print("⚠️ Email provider credentials not found or sending failed; OTP is available in logs.", flush=True)
     
     return otp
 
@@ -101,10 +207,10 @@ def verify_otp(email: str, otp: str, prefix: str = "register") -> bool:
     """Verify the OTP from Redis and consume it."""
     email_clean = email.strip().lower()
     key = f"otp:{prefix}:{email_clean}"
-    stored_otp = redis_client.get(key)
+    stored_otp = _get_otp(key)
     
     if stored_otp and stored_otp == otp:
-        redis_client.delete(key)  # OTP used
+        _delete_otp(key)  # OTP used
         return True
     return False
 
@@ -112,7 +218,7 @@ def verify_otp_only(email: str, otp: str, prefix: str = "register") -> bool:
     """Verify the OTP from Redis WITHOUT consuming it (for multi-step flows)."""
     email_clean = email.strip().lower()
     key = f"otp:{prefix}:{email_clean}"
-    stored_otp = redis_client.get(key)
+    stored_otp = _get_otp(key)
     
     if stored_otp and stored_otp == otp:
         return True

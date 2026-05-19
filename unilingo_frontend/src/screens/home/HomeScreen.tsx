@@ -69,32 +69,37 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   const loadData = useCallback(async () => {
+    const revealTimer = setTimeout(() => setLoading(false), 1200);
+
     try {
-      const [dash, history, reviewWords, blogs, unread] = await Promise.allSettled([
-        usersAPI.getDashboard(),
-        practiceAPI.getHistory({ per_page: 5 }),
-        vocabularyAPI.getReviewDue(),
-        blogAPI.getFeatured(3),
-        notificationsAPI.getUnreadCount(),
-      ]);
-      if (dash.status === 'fulfilled') {
-        setDashboard(dash.value);
-        checkStreakModal(dash.value.user);
-      }
-      if (history.status === 'fulfilled') setRecentActivity(history.value?.items || []);
-      if (reviewWords.status === 'fulfilled') {
-        const val = reviewWords.value;
-        setReviewDue(Array.isArray(val) ? val.length : 0);
-      }
-      if (blogs.status === 'fulfilled') {
-        setFeaturedBlogs(blogs.value || []);
-      }
-      if (unread.status === 'fulfilled') {
-        setUnreadNotifications(unread.value || 0);
-      }
+      const dashboardRequest = usersAPI.getDashboard()
+        .then((dash) => {
+          setDashboard(dash);
+          checkStreakModal(dash.user);
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+
+      const secondaryRequests = [
+        practiceAPI.getHistory({ per_page: 5 })
+          .then((history) => setRecentActivity(history?.items || []))
+          .catch(() => {}),
+        vocabularyAPI.getReviewDue()
+          .then((val) => setReviewDue(Array.isArray(val) ? val.length : 0))
+          .catch(() => {}),
+        blogAPI.getFeatured(3)
+          .then((blogs) => setFeaturedBlogs(blogs || []))
+          .catch(() => {}),
+        notificationsAPI.getUnreadCount()
+          .then((unread) => setUnreadNotifications(unread || 0))
+          .catch(() => {}),
+      ];
+
+      await Promise.allSettled([dashboardRequest, ...secondaryRequests]);
     } catch {
       // Silently fail, use whatever data we got
     } finally {
+      clearTimeout(revealTimer);
       setLoading(false);
     }
   }, []);

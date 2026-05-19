@@ -77,11 +77,11 @@ export default function LoginScreen({ navigation }: any) {
     }
 
     if (error?.code === 'ECONNABORTED') {
-      return `Request timed out while connecting to ${BASE_URL}.`;
+      return `Request timed out while connecting to ${BASE_URL}. The Railway backend may still be starting up; please try again in a moment.`;
     }
 
     if (!error?.response && (error?.request || error?.message === 'Network Error')) {
-      return `Cannot connect to API server at ${BASE_URL}. Make sure the backend is running and your iPhone is on the same network.`;
+      return `Cannot connect to API server at ${BASE_URL}. Make sure the deployed backend is running and reachable.`;
     }
 
     return fallback;

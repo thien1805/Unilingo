@@ -1,15 +1,16 @@
 /**
  * Practice Screen — Part selector + Topic grid
  */
-import React, { useEffect, useState } from 'react';
-import { Image, View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Image, View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useQuery } from '@tanstack/react-query';
 import { useThemeStore } from '../../store/themeStore';
-import { topicsAPI, Topic } from '../../api/topics';
-import { Card, Badge, SectionTitle, Mascot, MascotIcon } from '../../components/common';
+import { topicsAPI } from '../../api/topics';
+import { Badge, SectionTitle, Mascot, MascotIcon } from '../../components/common';
 import AppBackground from '../../components/common/AppBackground';
-import { Gradients, Typography, Spacing, BorderRadius } from '../../theme';
+import { Gradients, Typography } from '../../theme';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -28,25 +29,18 @@ const PARTS = [
 export default function PracticeScreen({ navigation, route }: any) {
   const { colors } = useThemeStore();
   const [selectedPart, setSelectedPart] = useState<string | null>(route?.params?.selectedPart || null);
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [topicError, setTopicError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (selectedPart) {
-      loadTopics(selectedPart);
-    }
-  }, [selectedPart]);
-
-  const loadTopics = async (part: string) => {
-    try {
-      setTopicError(null);
-      const result = await topicsAPI.list({ ielts_part: part });
-      setTopics(result.items);
-    } catch {
-      setTopics([]);
-      setTopicError('Topics could not be loaded. Please check the backend CMS content.');
-    }
-  };
+  const {
+    data: topicsResult,
+    isFetching: topicsLoading,
+    isError: topicsError,
+  } = useQuery({
+    queryKey: ['topics', selectedPart],
+    queryFn: () => topicsAPI.list({ ielts_part: selectedPart! }),
+    enabled: !!selectedPart,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+  });
+  const topics = topicsResult?.items || [];
 
   return (
     <AppBackground>
@@ -74,7 +68,10 @@ export default function PracticeScreen({ navigation, route }: any) {
             { backgroundColor: colors.bgCard, borderColor: colors.border },
           ]}
           activeOpacity={0.8}
-          onPress={() => navigation.navigate('MockTestIntro')}
+          onPress={() => navigation.navigate('MockTestIntro', {
+            cameraEnabled: true,
+            title: 'IELTS Speaking Mock Test',
+          })}
         >
           <LinearGradient colors={Gradients.primary} style={styles.mockIcon}>
             <Ionicons name="videocam" size={24} color="#1F2937" />
@@ -102,24 +99,28 @@ export default function PracticeScreen({ navigation, route }: any) {
           </View>
         </TouchableOpacity>
 
-        {/* Virtual Room - Full Test */}
-        <SectionTitle title="Mock Test (Virtual Room)" />
+        {/* Full Test without camera */}
+        <SectionTitle title="Full IELTS Speaking Test" />
         <TouchableOpacity
           style={[
             styles.partCard,
             { backgroundColor: colors.bgCard, borderColor: colors.border, marginBottom: 20 },
           ]}
           activeOpacity={0.7}
-          onPress={() => navigation.navigate('VirtualRoom', { isFullTest: true })}
+          onPress={() => navigation.navigate('MockTestIntro', {
+            cameraEnabled: false,
+            title: 'Full IELTS Speaking Test',
+          })}
         >
           <View style={[styles.partIcon, { backgroundColor: colors.accentBg }]}>
             <MascotIcon mood="cheer" size={52} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[Typography.h4, { color: colors.textPrimary, marginBottom: 3 }]}>Full IELTS Speaking Test</Text>
-            <Text style={[Typography.caption, { color: colors.textSecondary, lineHeight: 18 }]}>Practice all 3 parts consecutively in a simulated exam environment.</Text>
+            <Text style={[Typography.caption, { color: colors.textSecondary, lineHeight: 18 }]}>Practice the same 3-part mock flow with microphone only, no camera.</Text>
             <View style={styles.partMeta}>
               <Text style={[Typography.captionSm, { color: colors.textMuted }]}>11-14 mins</Text>
+              <Text style={[Typography.captionSm, { color: colors.textMuted }]}>Mic only</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -171,7 +172,14 @@ export default function PracticeScreen({ navigation, route }: any) {
             title={`${selectedPart.replace('part', 'Part ')} Topics`}
           />
           <View style={styles.topicGrid}>
-            {topics.map(
+            {topicsLoading && topics.length === 0 ? (
+              <View style={[styles.emptyTopics, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+                <ActivityIndicator color={colors.accent} />
+                <Text style={[Typography.caption, { color: colors.textSecondary, textAlign: 'center' }]}>
+                  Loading topics...
+                </Text>
+              </View>
+            ) : topics.map(
               (topic, i) => (
                 <TouchableOpacity
                   key={topic.id || i}
@@ -205,11 +213,11 @@ export default function PracticeScreen({ navigation, route }: any) {
               )
             )}
           </View>
-          {topics.length === 0 && (
+          {!topicsLoading && topics.length === 0 && (
             <View style={[styles.emptyTopics, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
               <Ionicons name="albums-outline" size={22} color={colors.textMuted} />
               <Text style={[Typography.caption, { color: colors.textSecondary, textAlign: 'center' }]}>
-                {topicError || 'No active topics yet. Add them in the admin CMS.'}
+                {topicsError ? 'Topics could not be loaded. Please check the backend CMS content.' : 'No active topics yet. Add them in the admin CMS.'}
               </Text>
             </View>
           )}

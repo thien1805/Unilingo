@@ -9,28 +9,13 @@ import { AppModal, useAppModal } from '../../components/common/AppModal';
 import { useThemeStore } from '../../store/themeStore';
 import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import { useMockTestTimer } from '../../hooks/useMockTestTimer';
-import { MockTestPart, RecordedMockAnswer } from '../../data/mockSpeakingTest';
+import { MockTestData, MockTestPart, RecordedMockAnswer, normalizeMockTestData } from '../../data/mockSpeakingTest';
+import { topicsAPI } from '../../api/topics';
 import { BorderRadius, Gradients, Spacing, Typography } from '../../theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import apiClient from '../../api/client';
 import { practiceAPI } from '../../api/practice';
 
 type TestPhase = 'loading' | 'ready' | 'preparing' | 'recording' | 'completed';
-
-type MockTestData = {
-  part1: string[];
-  part2: {
-    topic: string;
-    points: string[];
-    preparationTime: number;
-    speakingTime: number;
-  };
-  part3: string[];
-  limits: {
-    part1Question: number;
-    part3Question: number;
-  };
-};
 
 type ActiveQuestion = {
   part: MockTestPart;
@@ -47,8 +32,10 @@ const formatTime = (seconds: number) => {
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 };
 
-export default function MockSpeakingTestScreen({ navigation }: any) {
+export default function MockSpeakingTestScreen({ navigation, route }: any) {
   const { colors } = useThemeStore();
+  const cameraEnabled = route?.params?.cameraEnabled !== false;
+  const testTitle = route?.params?.title || (cameraEnabled ? 'IELTS Speaking Mock Test' : 'Full IELTS Speaking Test');
   const { modal, hideModal, showConfirm, showError } = useAppModal();
   const { timeLeft, start: startTimer, stop: stopTimer, reset: resetTimer } = useMockTestTimer();
   const {
@@ -73,26 +60,33 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
   const isStoppingRef = useRef(false);
   const autoAdvancePendingRef = useRef(false);
 
-  // Fetch mock test data from API
+  // API-first: use backend questions when available, fallback only after request failure.
   useEffect(() => {
     let mounted = true;
     const fetchMockTest = async () => {
+      setPhase('loading');
+      setLoadError(null);
       try {
-        const response = await apiClient.get('/topics/mock-test');
-        if (mounted) {
-          setTestData(response.data);
-          setPhase('ready');
-        }
+        const data = await topicsAPI.getMockTest();
+        if (!mounted) return;
+
+        setTestData(data);
+        resetTimer(data.limits.part1Question);
+        setPhase('ready');
       } catch (err: any) {
         console.error('Failed to load mock test:', err);
         if (mounted) {
-          setLoadError(err?.response?.data?.detail || 'Failed to load mock test questions');
+          const fallback = normalizeMockTestData();
+          setTestData(fallback);
+          resetTimer(fallback.limits.part1Question);
+          setLoadError('Using built-in mock questions because the backend is not responding.');
+          setPhase('ready');
         }
       }
     };
     fetchMockTest();
     return () => { mounted = false; };
-  }, []);
+  }, [resetTimer]);
 
   // Helper functions that read from API data
   const getQuestion = useCallback((p: MockTestPart, idx: number) => {
@@ -120,10 +114,15 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
     phase === 'recording' ? 'speaking' : phase === 'completed' ? 'happy' : 'idle';
 
   useEffect(() => {
+    if (!cameraEnabled) {
+      setCameraGranted(null);
+      return;
+    }
+
     Camera.getCameraPermissionsAsync()
       .then((permission) => setCameraGranted(permission.granted))
       .catch(() => setCameraGranted(false));
-  }, []);
+  }, [cameraEnabled]);
 
   useEffect(() => {
     if (phase === 'ready') {
@@ -225,8 +224,9 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
     stopTimer();
     navigation.replace('MockTestResult', {
       recordedAnswers: recordedAnswersRef.current,
+      title: testTitle,
     });
-  }, [navigation, stopTimer]);
+  }, [navigation, stopTimer, testTitle]);
 
   const handleNext = useCallback(() => {
     if (phase !== 'completed' || !testData) return;
@@ -283,11 +283,12 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
         }
         navigation.replace('MockTestResult', {
           recordedAnswers: recordedAnswersRef.current,
+          title: testTitle,
         });
       },
       { confirmText: 'End Test', cancelText: 'Continue' }
     );
-  }, [isRecording, navigation, showConfirm, stopCurrentRecording, stopTimer]);
+  }, [isRecording, navigation, showConfirm, stopCurrentRecording, stopTimer, testTitle]);
 
   useEffect(() => {
     return () => {
@@ -352,7 +353,7 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
           </TouchableOpacity>
           <View style={{ alignItems: 'center' }}>
             <Text style={[Typography.bodyMedium, { color: colors.textPrimary }]}>
-              IELTS Speaking Mock Test
+              {testTitle}
             </Text>
             <Text style={[Typography.captionSm, { color: colors.textMuted }]}>
               {getPartLabel(part)} • {phaseLabel}
@@ -362,27 +363,41 @@ export default function MockSpeakingTestScreen({ navigation }: any) {
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <View style={[styles.cameraCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-            {cameraGranted ? (
-              // TODO: Add real face detection here if the app later adopts a stable face detection pipeline.
-              <CameraView facing="front" style={styles.cameraPreview}>
-                <View style={styles.cameraPill}>
-                  <View style={styles.cameraDot} />
-                  <Text style={styles.cameraPillText}>Camera active</Text>
+          {cameraEnabled && (
+            <View style={[styles.cameraCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              {cameraGranted ? (
+                <CameraView facing="front" mirror style={styles.cameraPreview}>
+                  <View style={styles.cameraPill}>
+                    <View style={styles.cameraDot} />
+                    <Text style={styles.cameraPillText}>Camera active</Text>
+                  </View>
+                </CameraView>
+              ) : (
+                <View style={[styles.cameraFallback, { backgroundColor: colors.bgInput }]}>
+                  <Ionicons name="videocam-off-outline" size={28} color={colors.textMuted} />
+                  <Text style={[Typography.caption, { color: colors.textSecondary }]}>
+                    Camera permission is not active.
+                  </Text>
                 </View>
-              </CameraView>
-            ) : (
-              <View style={[styles.cameraFallback, { backgroundColor: colors.bgInput }]}>
-                <Ionicons name="videocam-off-outline" size={28} color={colors.textMuted} />
-                <Text style={[Typography.caption, { color: colors.textSecondary }]}>
-                  Camera permission is not active.
-                </Text>
-              </View>
-            )}
-            <Text style={[Typography.captionSm, { color: colors.textMuted }]}>
-              Face should stay inside the frame
-            </Text>
-          </View>
+              )}
+              <Text style={[Typography.captionSm, { color: colors.textMuted }]}>
+                Face should stay inside the frame
+              </Text>
+            </View>
+          )}
+
+          {loadError && phase === 'ready' && (
+            <View style={[styles.syncBanner, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+              <Ionicons
+                name="cloud-offline-outline"
+                size={16}
+                color={colors.warning}
+              />
+              <Text style={[Typography.captionSm, { color: colors.textSecondary, flex: 1 }]}>
+                {loadError}
+              </Text>
+            </View>
+          )}
 
           <View style={[styles.statusCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <View style={styles.statusTop}>
@@ -585,6 +600,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: 'PlusJakartaSans-Bold',
     fontSize: 11,
+  },
+  syncBanner: {
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   statusCard: {
     borderRadius: BorderRadius.xl,

@@ -13,6 +13,7 @@ export default function MockTestResultScreen({ navigation, route }: any) {
   const { colors } = useThemeStore();
   const [showRecordings, setShowRecordings] = useState(false);
   const recordedAnswers: RecordedMockAnswer[] = route.params?.recordedAnswers || [];
+  const testTitle = route.params?.title || 'IELTS Speaking Mock Test';
 
   const completedParts = [1, 2, 3].map((part) => ({
     part,
@@ -26,7 +27,7 @@ export default function MockTestResultScreen({ navigation, route }: any) {
           <View style={[styles.summaryCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
             <AnimatedMascot state="happy" size={132} />
             <Text style={[Typography.h2, styles.title, { color: colors.textPrimary }]}>
-              Mock Test Completed
+              {testTitle} Completed
             </Text>
             <Text style={[Typography.body, styles.subtitle, { color: colors.textSecondary }]}>
               {recordedAnswers.length} audio answers were saved and converted into scripts for evaluation.
