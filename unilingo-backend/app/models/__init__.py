@@ -9,6 +9,7 @@ from app.models.flashcard import FlashcardDeck, Flashcard, FlashcardReview
 from app.models.leaderboard import LeaderboardCache
 from app.models.blog import BlogPost
 from app.models.notification import NotificationCampaign, UserNotification
+from app.models.forecast import DailyForecast
 
 __all__ = [
     "User", "UserDevice", "NotificationSetting", "DailyStreak",
@@ -19,4 +20,5 @@ __all__ = [
     "LeaderboardCache",
     "BlogPost",
     "NotificationCampaign", "UserNotification",
+    "DailyForecast",
 ]

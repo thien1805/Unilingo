@@ -48,4 +48,3 @@ unilingo-backend/app/uploads/
 unilingo-backend/firebase-service-account.json
 
 # SQL seed & backup files
-unilingo-backend/*.sql

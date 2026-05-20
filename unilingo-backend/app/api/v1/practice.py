@@ -461,7 +461,7 @@ async def get_tts(text: str = Query(...)):
 async def upload_audio(
     attempt_id: UUID,
     file: UploadFile = File(...),
-    part_number: int = Query(default=1, ge=1, le=3),
+    part_number: int = Query(default=1, ge=1, le=20),
     question_id: UUID | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),

@@ -200,18 +200,30 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
       speechFinishRef.current = finish;
       setIsExaminerSpeaking(true);
 
+      // Prevent infinite hangs if both fallback and native speech fail
+      timeout = setTimeout(finish, Math.max(8000, speechText.length * 90));
+
       try {
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
           playsInSilentModeIOS: true,
         });
 
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: practiceAPI.getTTSUrl(speechText) },
-          { shouldPlay: true, volume: 1.0 }
-        );
+        const url = practiceAPI.getTTSUrl(speechText);
+        
+        // Race network TTS with a 5s timeout to force fallback if network is bad or cleartext HTTP hangs
+        const soundPromise = Audio.Sound.createAsync({ uri: url }, { shouldPlay: true, volume: 1.0 });
+        soundPromise.catch(() => {}); // Prevent unhandled promise rejection if it fails after timeout
+        const networkTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('TTS network timeout')), 5000));
+        
+        const { sound } = await Promise.race([soundPromise, networkTimeout]) as any;
+
+        if (resolved) {
+          sound.unloadAsync().catch(() => {});
+          return;
+        }
+
         examinerSoundRef.current = sound;
-        timeout = setTimeout(finish, Math.max(8000, speechText.length * 90));
 
         sound.setOnPlaybackStatusUpdate((status) => {
           if (status.isLoaded && status.didJustFinish) {
@@ -226,18 +238,17 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
         console.log('[MockSpeakingTest] Backend examiner TTS failed, using native speech:', error);
         examinerSoundRef.current = null;
 
+        if (timeout) clearTimeout(timeout);
+        // Tight timeout for native speech because onDone is unreliable on Android
+        timeout = setTimeout(finish, Math.max(3000, speechText.length * 75 + 1500));
+
         try {
-          await Audio.setAudioModeAsync({
-            allowsRecordingIOS: false,
-            playsInSilentModeIOS: true,
-          });
           const voices = await Speech.getAvailableVoicesAsync();
           const bestVoice = voices.find(v =>
             v.language.startsWith('en') &&
             (v.quality === Speech.VoiceQuality.Enhanced || v.name.toLowerCase().includes('network'))
           ) || voices.find(v => v.language.startsWith('en'));
 
-          timeout = setTimeout(finish, Math.max(7000, speechText.length * 85));
           Speech.speak(speechText, {
             language: 'en-US',
             voice: bestVoice?.identifier,

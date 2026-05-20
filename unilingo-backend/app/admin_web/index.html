@@ -462,6 +462,24 @@
           <button class="secondary" id="searchUsersBtn">Search</button>
         </div>
         <div class="table-wrap" id="userTable"></div>
+        <h3 style="margin-top:24px;">Create Admin Account</h3>
+        <form id="createAdminForm">
+          <div class="grid-3">
+            <div class="field">
+              <label>Full Name</label>
+              <input name="full_name" required placeholder="Admin Name" />
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <input name="email" type="email" required placeholder="admin@example.com" />
+            </div>
+            <div class="field">
+              <label>Password</label>
+              <input name="password" type="password" required placeholder="Strong password" minlength="6" />
+            </div>
+          </div>
+          <button type="submit" class="success">Create Admin</button>
+        </form>
       </section>
     </div>
   </main>
@@ -877,6 +895,22 @@
         await loadForecasts();
       } catch (error) {
         setStatus("#forecastStatus", error.message, "err");
+      }
+    });
+
+    $("#createAdminForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const data = formValues(form);
+      try {
+        setStatus("#userStatus", "Creating admin...");
+        const res = await api("/users/admin/create", { method: "POST", body: JSON.stringify(data) });
+        setStatus("#userStatus", "Admin created successfully", "ok");
+        showToast("Admin account created successfully", "success");
+        form.reset();
+        await loadUsers();
+      } catch (error) {
+        setStatus("#userStatus", error.message, "err");
         showToast(error.message, "error");
       }
     });

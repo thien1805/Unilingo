@@ -260,9 +260,13 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       }
 
       let resolved = false;
+      let timeout: ReturnType<typeof setTimeout> | null = null;
+      
       const finish = () => {
         if (resolved) return;
         resolved = true;
+        if (timeout) clearTimeout(timeout);
+        timeout = null;
         speechFinishRef.current = null;
         setIsSpeaking(false);
         resolve();
@@ -271,18 +275,29 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       speechFinishRef.current = finish;
       setIsSpeaking(true);
       
+      // Prevent infinite hangs if both fallback and native speech fail
+      timeout = setTimeout(finish, Math.max(8000, text.length * 90));
+      
       try {
-        // Prepare Audio mode for playback
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
           playsInSilentModeIOS: true,
         });
 
         const url = practiceAPI.getTTSUrl(text);
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: url },
-          { shouldPlay: true }
-        );
+        
+        // Race network TTS with a 5s timeout to force fallback if network is bad or cleartext HTTP hangs
+        const soundPromise = Audio.Sound.createAsync({ uri: url }, { shouldPlay: true, volume: 1.0 });
+        soundPromise.catch(() => {}); // Prevent unhandled promise rejection if it fails after timeout
+        const networkTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('TTS network timeout')), 5000));
+        
+        const { sound } = await Promise.race([soundPromise, networkTimeout]) as any;
+
+        if (resolved) {
+          sound.unloadAsync().catch(() => {});
+          return;
+        }
+
         soundRef.current = sound;
 
         sound.setOnPlaybackStatusUpdate((status) => {
@@ -299,6 +314,11 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
         }
         console.log('[TTS] Backend TTS failed, falling back to native:', err);
         soundRef.current = null;
+        
+        if (timeout) clearTimeout(timeout);
+        // Tight timeout for native speech because onDone is unreliable on Android
+        timeout = setTimeout(finish, Math.max(3000, text.length * 75 + 1500));
+
         // Fallback to native speech if network TTS fails
         try {
           const voices = await Speech.getAvailableVoicesAsync();
@@ -314,6 +334,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
             pitch: 1.0,
             onDone: finish,
             onError: finish,
+            onStopped: finish,
           });
         } catch {
           finish();
@@ -402,11 +423,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       if (!isExamActiveRef.current) return;
 
       const { recording } = await Audio.Recording.createAsync(
-        {
-          android: { extension: '.m4a', outputFormat: Audio.AndroidOutputFormat.MPEG_4, audioEncoder: Audio.AndroidAudioEncoder.AAC, sampleRate: 44100, numberOfChannels: 1, bitRate: 128000 },
-          ios: { extension: '.m4a', outputFormat: Audio.IOSOutputFormat.MPEG4AAC, audioQuality: Audio.IOSAudioQuality.HIGH, sampleRate: 44100, numberOfChannels: 1, bitRate: 128000 },
-          web: { mimeType: 'audio/webm', bitsPerSecond: 128000 },
-        },
+        Audio.RecordingOptionsPresets.HIGH_QUALITY,
         (status) => {
           if (isExamActiveRef.current && status.isRecording && status.metering !== undefined) setMetering(status.metering);
         },
@@ -471,11 +488,15 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   };
 
   const handleUploadFailure = (error: any) => {
-    console.log('Upload error:', error?.message || error);
+    console.log('Upload error message:', error?.message || error);
+    if (error?.response) {
+      console.log('Upload error response data:', JSON.stringify(error.response.data));
+      console.log('Upload error response status:', error.response.status);
+    }
     uploadFailedRef.current = true;
     if (isExamActiveRef.current) {
       showError('Upload Failed', 'Your recording could not be uploaded, so this answer cannot be scored.');
-      setLoadError('Your recording upload failed, so this test was not submitted for AI scoring. Please retry the exam.');
+      setLoadError(`Upload failed (${error?.response?.status || 'network'}). Please retry the exam.`);
       setPhase('error');
     }
   };
@@ -764,9 +785,9 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
                 Question {currentIdx + 1} of {questions.length}
               </Text>
               <TouchableOpacity
-                disabled={phase === 'recording'}
+                disabled={phase === 'recording' || isSpeaking}
                 onPress={() => {
-                  if (phase !== 'recording') speakAndWait(currentQuestion.question_text);
+                  if (phase !== 'recording' && !isSpeaking) speakAndWait(currentQuestion.question_text);
                 }}
               >
                 <Ionicons
