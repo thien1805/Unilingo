@@ -1,17 +1,17 @@
 /**
  * HomeScreen — Dashboard with REAL data from API
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  RefreshControl,
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,12 +52,11 @@ const partImages = {
 
 export default function HomeScreen({ navigation }: any) {
   const { colors } = useThemeStore();
-  const { user } = useAuthStore();
+  const { user, setUser } = useAuthStore();
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [recentActivity, setRecentActivity] = useState<PracticeHistoryItem[]>([]);
   const [reviewDue, setReviewDue] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [featuredBlogs, setFeaturedBlogs] = useState<BlogPostSummary[]>([]);
@@ -65,25 +64,27 @@ export default function HomeScreen({ navigation }: any) {
   const [forecastBlogs, setForecastBlogs] = useState<BlogPostSummary[]>([]);
   const [selectedBlogCategory, setSelectedBlogCategory] = useState('all');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const streakModalShownRef = useRef(false);
 
   const checkStreakModal = (currentUserData: any) => {
     // Show onboarding modal if user hasn't set a goal target
-    if (currentUserData && currentUserData.goal_target == null) {
+    if (currentUserData && currentUserData.goal_target == null && !streakModalShownRef.current) {
+      streakModalShownRef.current = true;
       setShowStreakModal(true);
     }
   };
 
-  const loadData = useCallback(async () => {
-    const revealTimer = setTimeout(() => setLoading(false), 1200);
+  const loadData = useCallback(async (showInitialLoader = false) => {
+    const revealTimer = showInitialLoader ? setTimeout(() => setLoading(false), 1200) : null;
 
     try {
       const dashboardRequest = usersAPI.getDashboard()
         .then((dash) => {
           setDashboard(dash);
+          setUser(dash.user);
           checkStreakModal(dash.user);
         })
-        .catch(() => {})
-        .finally(() => setLoading(false));
+        .catch(() => {});
 
       const secondaryRequests = [
         practiceAPI.getHistory({ per_page: 5 })
@@ -107,12 +108,20 @@ export default function HomeScreen({ navigation }: any) {
     } catch {
       // Silently fail, use whatever data we got
     } finally {
-      clearTimeout(revealTimer);
+      if (revealTimer) clearTimeout(revealTimer);
       setLoading(false);
     }
-  }, []);
+  }, [setUser]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadData(true); }, [loadData]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData(false);
+      const interval = setInterval(() => loadData(false), 30000);
+      return () => clearInterval(interval);
+    }, [loadData])
+  );
 
   useEffect(() => {
     const category = selectedBlogCategory === 'all' ? undefined : selectedBlogCategory;
@@ -120,12 +129,6 @@ export default function HomeScreen({ navigation }: any) {
       .then((data) => setCategoryBlogs(data.items || []))
       .catch(() => setCategoryBlogs([]));
   }, [selectedBlogCategory]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
-  }, [loadData]);
 
   // Data from dashboard or user profile
   const userName = user?.full_name || 'Student';
@@ -199,7 +202,6 @@ export default function HomeScreen({ navigation }: any) {
           contentContainerStyle={styles.scrollContent}
           style={{ backgroundColor: 'transparent' }}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         >
         <View>
         {/* Header */}

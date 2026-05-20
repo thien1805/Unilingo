@@ -83,7 +83,11 @@ function PracticeStackNavigator() {
   return (
     <PracticeStack.Navigator screenOptions={{ headerShown: false }}>
       <PracticeStack.Screen name="PracticeMain" component={PracticeScreen} />
-      <PracticeStack.Screen name="VirtualRoom" component={VirtualRoomScreen} />
+      <PracticeStack.Screen
+        name="VirtualRoom"
+        component={VirtualRoomScreen}
+        options={{ gestureEnabled: false }}
+      />
       <PracticeStack.Screen name="Recording" component={RecordingScreen} />
       <PracticeStack.Screen name="Results" component={ResultsScreen} />
       <PracticeStack.Screen name="PracticeHistory" component={PracticeHistoryScreen} />

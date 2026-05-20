@@ -4,7 +4,7 @@ Notification API routes
 from datetime import datetime, timezone
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -283,3 +283,26 @@ async def list_notification_campaigns(
         "page": page,
         "per_page": per_page,
     }
+
+
+@router.delete("/admin/campaigns/{campaign_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_notification_campaign(
+    campaign_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_admin_user),
+):
+    """Delete an admin campaign and all in-app notifications created from it."""
+    result = await db.execute(
+        select(NotificationCampaign).where(NotificationCampaign.id == campaign_id)
+    )
+    campaign = result.scalar_one_or_none()
+    if not campaign:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Notification campaign not found",
+        )
+
+    await db.execute(
+        delete(UserNotification).where(UserNotification.campaign_id == campaign_id)
+    )
+    await db.delete(campaign)

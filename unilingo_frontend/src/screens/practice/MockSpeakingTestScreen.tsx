@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, CameraView } from 'expo-camera';
+import { Audio } from 'expo-av';
+import * as Speech from 'expo-speech';
 import { Ionicons } from '@expo/vector-icons';
 import AppBackground from '../../components/common/AppBackground';
 import AnimatedMascot, { AnimatedMascotState } from '../../components/common/AnimatedMascot';
@@ -55,11 +57,38 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  const [isExaminerSpeaking, setIsExaminerSpeaking] = useState(false);
 
   const recordedAnswersRef = useRef<RecordedMockAnswer[]>([]);
   const activeQuestionRef = useRef<ActiveQuestion | null>(null);
   const isStoppingRef = useRef(false);
   const autoAdvancePendingRef = useRef(false);
+  const examinerSoundRef = useRef<Audio.Sound | null>(null);
+  const speechFinishRef = useRef<(() => void) | null>(null);
+  const screenActiveRef = useRef(true);
+  const spokenQuestionKeyRef = useRef<string | null>(null);
+
+  const stopExaminerAudio = useCallback(async () => {
+    Speech.stop();
+
+    const finishSpeech = speechFinishRef.current;
+    if (finishSpeech) {
+      speechFinishRef.current = null;
+      finishSpeech();
+    }
+
+    if (examinerSoundRef.current) {
+      try {
+        await examinerSoundRef.current.stopAsync();
+        await examinerSoundRef.current.unloadAsync();
+      } catch {}
+      examinerSoundRef.current = null;
+    }
+
+    if (screenActiveRef.current) {
+      setIsExaminerSpeaking(false);
+    }
+  }, []);
 
   // API-first: use backend questions when available, fallback only after request failure.
   useEffect(() => {
@@ -104,6 +133,133 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
     return testData.limits.part3Question;
   }, [testData]);
 
+  const getExaminerPrompt = useCallback((
+    targetPart: MockTestPart,
+    targetIndex: number,
+    includeIntro = false
+  ) => {
+    const question = getQuestion(targetPart, targetIndex);
+    if (!question) return '';
+
+    const intro = (() => {
+      if (!includeIntro) return '';
+      if (targetPart === 1 && targetIndex === 0) {
+        return "Welcome to the IELTS Speaking test. This is Part 1. I'm going to ask you some questions about familiar topics.";
+      }
+      if (targetPart === 2) {
+        return "Now let's move on to Part 2. I'm going to give you a topic and you will have one minute to prepare.";
+      }
+      if (targetPart === 3 && targetIndex === 0) {
+        return "Now let's move on to Part 3. In this part, I'll ask you some more abstract questions related to the topic.";
+      }
+      return '';
+    })();
+
+    if (targetPart !== 2) {
+      return [intro, question].filter(Boolean).join(' ');
+    }
+
+    const cuePoints = testData?.part2.points?.length
+      ? `You should say: ${testData.part2.points.join('. ')}.`
+      : '';
+    return [intro, question, cuePoints, 'Your preparation time starts now.']
+      .filter(Boolean)
+      .join(' ');
+  }, [getQuestion, testData]);
+
+  const speakAndWait = useCallback((text: string): Promise<void> => {
+    return new Promise(async (resolve) => {
+      const speechText = text.trim();
+      if (!speechText || !screenActiveRef.current) {
+        resolve();
+        return;
+      }
+
+      await stopExaminerAudio();
+      if (!screenActiveRef.current) {
+        resolve();
+        return;
+      }
+
+      let resolved = false;
+      let timeout: ReturnType<typeof setTimeout> | null = null;
+      const finish = () => {
+        if (resolved) return;
+        resolved = true;
+        if (timeout) clearTimeout(timeout);
+        timeout = null;
+        speechFinishRef.current = null;
+        if (screenActiveRef.current) {
+          setIsExaminerSpeaking(false);
+        }
+        resolve();
+      };
+
+      speechFinishRef.current = finish;
+      setIsExaminerSpeaking(true);
+
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+        });
+
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: practiceAPI.getTTSUrl(speechText) },
+          { shouldPlay: true, volume: 1.0 }
+        );
+        examinerSoundRef.current = sound;
+        timeout = setTimeout(finish, Math.max(8000, speechText.length * 90));
+
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if (status.isLoaded && status.didJustFinish) {
+            sound.unloadAsync().catch(() => {});
+            if (examinerSoundRef.current === sound) {
+              examinerSoundRef.current = null;
+            }
+            finish();
+          }
+        });
+      } catch (error) {
+        console.log('[MockSpeakingTest] Backend examiner TTS failed, using native speech:', error);
+        examinerSoundRef.current = null;
+
+        try {
+          await Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+            playsInSilentModeIOS: true,
+          });
+          const voices = await Speech.getAvailableVoicesAsync();
+          const bestVoice = voices.find(v =>
+            v.language.startsWith('en') &&
+            (v.quality === Speech.VoiceQuality.Enhanced || v.name.toLowerCase().includes('network'))
+          ) || voices.find(v => v.language.startsWith('en'));
+
+          timeout = setTimeout(finish, Math.max(7000, speechText.length * 85));
+          Speech.speak(speechText, {
+            language: 'en-US',
+            voice: bestVoice?.identifier,
+            rate: 0.92,
+            pitch: 1.0,
+            onDone: finish,
+            onStopped: finish,
+            onError: finish,
+          });
+        } catch {
+          finish();
+        }
+      }
+    });
+  }, [stopExaminerAudio]);
+
+  const speakExaminerPrompt = useCallback((
+    targetPart: MockTestPart = part,
+    targetIndex = questionIndex,
+    includeIntro = false
+  ) => {
+    return speakAndWait(getExaminerPrompt(targetPart, targetIndex, includeIntro));
+  }, [getExaminerPrompt, part, questionIndex, speakAndWait]);
+
   const currentQuestion = useMemo(() => getQuestion(part, questionIndex), [part, questionIndex, getQuestion]);
   const currentLimit = getLimit(part);
   const isPart2 = part === 2;
@@ -131,6 +287,20 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
       resetTimer(currentLimit);
     }
   }, [currentLimit, phase, resetTimer]);
+
+  useEffect(() => {
+    if (phase !== 'ready' || !testData || isTranscribing) return;
+
+    const questionKey = `${part}-${questionIndex}`;
+    if (spokenQuestionKeyRef.current === questionKey) return;
+    spokenQuestionKeyRef.current = questionKey;
+
+    const timeout = setTimeout(() => {
+      speakExaminerPrompt(part, questionIndex, true).catch(() => {});
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [isTranscribing, part, phase, questionIndex, speakExaminerPrompt, testData]);
 
   const appendRecordedAnswer = useCallback((answer: RecordedMockAnswer) => {
     const next = [...recordedAnswersRef.current, answer];
@@ -191,6 +361,7 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
     const limit = getLimit(targetPart);
 
     isStoppingRef.current = false;
+    await stopExaminerAudio();
     const started = await startRecording();
     if (!started) {
       showError('Recording Error', recorderError || 'Could not start recording. Please try again.');
@@ -209,26 +380,32 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
       autoAdvancePendingRef.current = true;
       stopCurrentRecording();
     });
-  }, [part, questionIndex, getQuestion, getLimit, recorderError, showError, startRecording, startTimer, stopCurrentRecording]);
+  }, [part, questionIndex, getQuestion, getLimit, recorderError, showError, startRecording, startTimer, stopCurrentRecording, stopExaminerAudio]);
 
-  const startPart2Preparation = useCallback(() => {
+  const startPart2Preparation = useCallback(async () => {
     if (!testData) return;
     stopTimer();
+    await stopExaminerAudio();
+    spokenQuestionKeyRef.current = '2-0';
     setPart(2);
     setQuestionIndex(0);
     setPhase('preparing');
+    resetTimer(testData.part2.preparationTime);
+    await speakExaminerPrompt(2, 0, true);
+    if (!screenActiveRef.current) return;
     startTimer(testData.part2.preparationTime, () => {
       startQuestionRecording(2, 0);
     });
-  }, [testData, startQuestionRecording, startTimer, stopTimer]);
+  }, [resetTimer, speakExaminerPrompt, startQuestionRecording, startTimer, stopExaminerAudio, stopTimer, testData]);
 
   const finishTest = useCallback(() => {
     stopTimer();
+    stopExaminerAudio();
     navigation.replace('MockTestResult', {
       recordedAnswers: recordedAnswersRef.current,
       title: testTitle,
     });
-  }, [navigation, stopTimer, testTitle]);
+  }, [navigation, stopExaminerAudio, stopTimer, testTitle]);
 
   const handleNext = useCallback(() => {
     if (phase !== 'completed' || !testData) return;
@@ -279,6 +456,7 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
       'End Mock Test?',
       'Are you sure you want to end this mock test?',
       async () => {
+        await stopExaminerAudio();
         stopTimer();
         if (isRecording) {
           await stopCurrentRecording();
@@ -290,13 +468,15 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
       },
       { confirmText: 'End Test', cancelText: 'Continue' }
     );
-  }, [isRecording, navigation, showConfirm, stopCurrentRecording, stopTimer, testTitle]);
+  }, [isRecording, navigation, showConfirm, stopCurrentRecording, stopExaminerAudio, stopTimer, testTitle]);
 
   useEffect(() => {
     return () => {
+      screenActiveRef.current = false;
       stopTimer();
+      stopExaminerAudio();
     };
-  }, [stopTimer]);
+  }, [stopExaminerAudio, stopTimer]);
 
   // Loading state
   if (phase === 'loading' || !testData) {
@@ -329,6 +509,7 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
   }
 
   const phaseLabel = (() => {
+    if (isExaminerSpeaking) return 'Examiner speaking';
     if (phase === 'preparing') return 'Preparation time';
     if (phase === 'recording') return 'Recording';
     if (phase === 'completed') return 'Answer saved';
@@ -416,17 +597,19 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
 
             <View style={[styles.recordingStatus, { backgroundColor: phase === 'recording' ? colors.roseBg : colors.bgSecondary }]}>
               <Ionicons
-                name={isTranscribing ? 'document-text-outline' : phase === 'recording' ? 'radio-button-on' : phase === 'completed' ? 'checkmark-circle' : 'time-outline'}
+                name={isExaminerSpeaking ? 'volume-high' : isTranscribing ? 'document-text-outline' : phase === 'recording' ? 'radio-button-on' : phase === 'completed' ? 'checkmark-circle' : 'time-outline'}
                 size={18}
-                color={isTranscribing ? colors.accent : phase === 'recording' ? colors.rose : phase === 'completed' ? colors.success : colors.textSecondary}
+                color={isExaminerSpeaking ? colors.accent : isTranscribing ? colors.accent : phase === 'recording' ? colors.rose : phase === 'completed' ? colors.success : colors.textSecondary}
               />
               <Text
                 style={[
                   Typography.bodySm,
-                  { color: isTranscribing ? colors.accent : phase === 'recording' ? colors.rose : phase === 'completed' ? colors.success : colors.textSecondary },
+                  { color: isExaminerSpeaking ? colors.accent : isTranscribing ? colors.accent : phase === 'recording' ? colors.rose : phase === 'completed' ? colors.success : colors.textSecondary },
                 ]}
               >
-                {isTranscribing
+                {isExaminerSpeaking
+                  ? 'Listen to the examiner before you answer'
+                  : isTranscribing
                   ? 'Converting your audio answer into script...'
                   : phase === 'recording'
                   ? 'Recording your answer'
@@ -440,9 +623,25 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
           </View>
 
           <View style={[styles.questionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-            <Text style={[Typography.caption, { color: colors.accent }]}>
-              {part === 2 ? 'Cue Card Task' : 'Current Question'}
-            </Text>
+            <View style={styles.questionHeader}>
+              <Text style={[Typography.caption, { color: colors.accent, flex: 1 }]}>
+                {part === 2 ? 'Cue Card Task' : 'Current Question'}
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.replayButton,
+                  { backgroundColor: colors.bgSecondary, opacity: phase !== 'recording' && !isTranscribing ? 1 : 0.45 },
+                ]}
+                disabled={phase === 'recording' || isTranscribing}
+                onPress={() => speakExaminerPrompt(part, questionIndex, false).catch(() => {})}
+              >
+                <Ionicons
+                  name={isExaminerSpeaking ? 'volume-high' : 'volume-medium-outline'}
+                  size={18}
+                  color={isExaminerSpeaking ? colors.accent : colors.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
             <Text style={[Typography.h4, styles.questionText, { color: colors.textPrimary }]}>
               {currentQuestion}
             </Text>
@@ -483,9 +682,9 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
           <View style={styles.actions}>
             <TouchableOpacity
               activeOpacity={0.85}
-              disabled={phase !== 'ready' || isTranscribing}
+              disabled={phase !== 'ready' || isTranscribing || isExaminerSpeaking}
               onPress={() => startQuestionRecording()}
-              style={{ opacity: phase === 'ready' && !isTranscribing ? 1 : 0.5 }}
+              style={{ opacity: phase === 'ready' && !isTranscribing && !isExaminerSpeaking ? 1 : 0.5 }}
             >
               <LinearGradient colors={Gradients.primary} style={styles.primaryButton}>
                 <Ionicons name="mic" size={18} color="#1F2937" />
@@ -639,6 +838,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.lg,
     gap: 10,
+  },
+  questionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  replayButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   questionText: {
     lineHeight: 26,

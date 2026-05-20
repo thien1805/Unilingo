@@ -9,6 +9,13 @@ import { useAuthStore } from '../store/authStore';
 const DEFAULT_API_URL = 'http://localhost:8000/api/v1';
 
 const isLoopbackUrl = (url?: string) => !!url && /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url);
+const normalizeBaseUrl = (url: string) => url.replace(/\/+$/, '');
+
+const getExplicitBaseUrl = () => {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+  const extraUrl = (Constants.expoConfig?.extra as any)?.apiUrl?.trim?.();
+  return envUrl || extraUrl || '';
+};
 
 const getDebuggerHost = () => {
   const manifest: any = Constants.manifest;
@@ -34,10 +41,14 @@ const getPackagerHostUrl = () => {
 };
 
 const getDefaultBaseUrl = () => {
-  const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+  const explicitUrl = getExplicitBaseUrl();
 
-  // If explicit non-loopback env URL is set, always use it (e.g. production)
-  if (envUrl && !isLoopbackUrl(envUrl)) return envUrl;
+  // If explicit non-loopback env URL is set, always use it (e.g. Railway production)
+  if (explicitUrl && !isLoopbackUrl(explicitUrl)) return normalizeBaseUrl(explicitUrl);
+
+  if (!__DEV__) {
+    throw new Error('EXPO_PUBLIC_API_URL is required for release builds.');
+  }
 
   // For physical devices (Android & iOS), auto-detect the dev machine IP
   // from the Metro bundler connection — no hardcoded IPs needed
@@ -47,7 +58,7 @@ const getDefaultBaseUrl = () => {
   // Emulator fallbacks
   if (Platform.OS === 'android') return 'http://10.0.2.2:8000/api/v1';
 
-  return envUrl || DEFAULT_API_URL;
+  return explicitUrl || DEFAULT_API_URL;
 };
 
 const BASE_URL = getDefaultBaseUrl();

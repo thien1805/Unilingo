@@ -603,6 +603,7 @@
         { label: "Recipients", key: "total_recipients" },
         { label: "Push", render: r => `${esc(r.sent_count)} sent / ${esc(r.failed_count)} failed` },
         { label: "Status", key: "status" },
+        { label: "Actions", render: r => `<button class="danger" data-campaign-delete="${esc(r.id)}">Delete</button>` },
       ]);
     }
 
@@ -863,9 +864,15 @@
       const topicDelete = target.dataset?.topicDelete;
       const questionEdit = target.dataset?.questionEdit;
       const questionDelete = target.dataset?.questionDelete;
+      const campaignDelete = target.dataset?.campaignDelete;
       const userToggle = target.dataset?.userToggle;
 
       try {
+        if (campaignDelete && confirm("Delete this notification campaign and all delivered in-app notifications?")) {
+          await api(`/notifications/admin/campaigns/${campaignDelete}`, { method: "DELETE" });
+          await loadCampaigns();
+          showToast("Notification deleted successfully", "success");
+        }
         if (blogEdit) {
           const blog = state.blogs.find(item => item.id === blogEdit);
           fillForm($("#blogForm"), blog);
@@ -874,6 +881,7 @@
         if (blogDelete && confirm("Delete this blog post?")) {
           await api(`/blog/admin/${blogDelete}`, { method: "DELETE" });
           await loadBlogs();
+          showToast("Blog deleted successfully", "success");
         }
         if (topicEdit) {
           const topic = state.topics.find(item => item.id === topicEdit);
@@ -883,6 +891,7 @@
         if (topicDelete && confirm("Delete this topic and its questions?")) {
           await api(`/admin/topics/${topicDelete}`, { method: "DELETE" });
           await Promise.all([loadTopics(), loadQuestions()]);
+          showToast("Topic deleted successfully", "success");
         }
         if (questionEdit) {
           const question = state.questions.find(item => item.id === questionEdit);
@@ -892,6 +901,7 @@
         if (questionDelete && confirm("Delete this question?")) {
           await api(`/admin/questions/${questionDelete}`, { method: "DELETE" });
           await Promise.all([loadQuestions(), loadTopics()]);
+          showToast("Question deleted successfully", "success");
         }
         if (userToggle) {
           await api(`/admin/users/${userToggle}/status?is_active=${target.dataset.active}`, { method: "PATCH" });

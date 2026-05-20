@@ -53,6 +53,15 @@ const parseReminderTime = (value: string) => {
   };
 };
 
+const getExpoProjectId = () => {
+  const constants = Constants as typeof Constants & {
+    easConfig?: { projectId?: string };
+    expoConfig?: { extra?: { eas?: { projectId?: string } } };
+  };
+
+  return constants.easConfig?.projectId || constants.expoConfig?.extra?.eas?.projectId;
+};
+
 export const registerDeviceForPush = async () => {
   if (Platform.OS === 'web') return;
 
@@ -60,10 +69,36 @@ export const registerDeviceForPush = async () => {
   if (!hasPermission) return;
 
   try {
-    const token = await Notifications.getDevicePushTokenAsync();
-    if (!token?.data) return;
+    const projectId = getExpoProjectId();
+    let pushToken = '';
+
+    if (Platform.OS === 'android') {
+      try {
+        const nativeToken = await Notifications.getDevicePushTokenAsync();
+        pushToken = nativeToken?.data ? String(nativeToken.data) : '';
+      } catch (nativeTokenError) {
+        console.log('Native push token unavailable', nativeTokenError);
+      }
+    }
+
+    if (!pushToken) {
+      try {
+        const expoToken = await Notifications.getExpoPushTokenAsync(
+          projectId ? { projectId } : undefined
+        );
+        pushToken = expoToken?.data ? String(expoToken.data) : '';
+      } catch (expoTokenError) {
+        console.log('Expo push token unavailable', expoTokenError);
+      }
+    }
+
+    if (!pushToken) {
+      console.log('Push token registration skipped: no compatible push token available.');
+      return;
+    }
+
     await notificationsAPI.registerDevice({
-      fcm_token: String(token.data),
+      fcm_token: pushToken,
       device_type: Platform.OS === 'ios' ? 'ios' : 'android',
       device_name: `${Platform.OS} device`,
     });

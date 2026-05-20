@@ -50,11 +50,15 @@ type ExamPhase =
   | 'prep'        // Part 2 only
   | 'recording'
   | 'transition'
+  | 'saving'
   | 'complete'
   | 'error';
 
 export default function VirtualRoomScreen({ navigation, route }: any) {
   const { topicId, topicTitle, ieltsPart, isFullTest } = route.params || {};
+  const incomingFullTestAttemptIds = Array.isArray(route.params?.fullTestAttemptIds)
+    ? route.params.fullTestAttemptIds
+    : [];
   const { colors } = useThemeStore();
   const { modal, showConfirm, hideModal, showError } = useAppModal();
   const safeIeltsPart = ieltsPart || 'part1';
@@ -95,6 +99,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   const speechFinishRef = useRef<(() => void) | null>(null);
   const delayedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadedPartCountRef = useRef(0);
+  const uploadFailedRef = useRef(false);
 
   // ──── Stop All Audio (TTS + native speech) ────
   const stopAllAudio = useCallback(async () => {
@@ -196,6 +201,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
     isExitingRef.current = false;
     isQuestionActiveRef.current = false;
     uploadedPartCountRef.current = 0;
+    uploadFailedRef.current = false;
     setAllowRemove(false);
     setPhase('loading');
     setLoadError(null);
@@ -447,6 +453,33 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
     }
   };
 
+  const uploadRecordedAnswer = async (uri: string, questionIndex: number) => {
+    if (!attemptId) {
+      throw new Error('Attempt is not ready');
+    }
+
+    const formData = new FormData();
+    formData.append('file', {
+      uri,
+      type: 'audio/m4a',
+      name: `recording_${attemptId}_q${questionIndex + 1}.m4a`,
+    } as any);
+
+    const questionId = questions[questionIndex]?.id;
+    await practiceAPI.uploadAudio(attemptId, formData, questionIndex + 1, questionId);
+    uploadedPartCountRef.current += 1;
+  };
+
+  const handleUploadFailure = (error: any) => {
+    console.log('Upload error:', error?.message || error);
+    uploadFailedRef.current = true;
+    if (isExamActiveRef.current) {
+      showError('Upload Failed', 'Your recording could not be uploaded, so this answer cannot be scored.');
+      setLoadError('Your recording upload failed, so this test was not submitted for AI scoring. Please retry the exam.');
+      setPhase('error');
+    }
+  };
+
   const stopRecording = async () => {
     if (!isExamActiveRef.current) return;
     if (isStoppingRecordingRef.current) return;
@@ -467,6 +500,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
     }
 
     try {
+      setPhase('saving');
       await recordingRef.current.stopAndUnloadAsync();
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
       const uri = recordingRef.current.getURI();
@@ -481,28 +515,10 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
         return;
       }
 
-      if (uri && attemptId) {
-        const formData = new FormData();
-        formData.append('file', {
-          uri,
-          type: 'audio/m4a',
-          name: `recording_${attemptId}_q${currentIdx + 1}.m4a`,
-        } as any);
-        try {
-          const questionId = questions[currentIdx]?.id;
-          await practiceAPI.uploadAudio(attemptId, formData, currentIdx + 1, questionId);
-          uploadedPartCountRef.current += 1;
-        } catch (e: any) {
-          console.log('Upload error:', e?.message);
-          if (isExamActiveRef.current) {
-            showError('Upload Failed', 'Your recording could not be uploaded, so this answer cannot be scored.');
-            setLoadError('Your recording upload failed, so this test was not submitted for AI scoring. Please retry the exam.');
-            setPhase('error');
-          }
-          isStoppingRecordingRef.current = false;
-          return;
-        }
-      }
+      const uploadPromise = uploadRecordedAnswer(uri, currentIdx);
+      isStoppingRecordingRef.current = false;
+      if (isExamActiveRef.current) await handleNextOrFinish(uploadPromise);
+      return;
     } catch (e) {
       console.error('Stop recording error:', e);
       recordingRef.current = null;
@@ -513,12 +529,14 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
     }
 
     isStoppingRecordingRef.current = false;
-    if (isExamActiveRef.current) handleNextOrFinish();
   };
 
   // ──── Next Question or Finish ────
-  const handleNextOrFinish = async () => {
+  const handleNextOrFinish = async (uploadPromise?: Promise<void>) => {
     if (!isExamActiveRef.current) return;
+    const uploadResult = uploadPromise
+      ?.then(() => null)
+      .catch((error) => error);
     const nextIdx = currentIdx + 1;
 
     if (nextIdx >= questions.length) {
@@ -527,12 +545,23 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       const doneText = FILLERS_DONE[Math.floor(Math.random() * FILLERS_DONE.length)];
       await speakAndWait(doneText);
       if (!isExamActiveRef.current) return;
+      const uploadError = await uploadResult;
+      if (uploadError) {
+        handleUploadFailure(uploadError);
+        return;
+      }
       finishExam();
     } else {
       // Transition filler
       setPhase('transition');
       const filler = FILLERS_NEXT[Math.floor(Math.random() * FILLERS_NEXT.length)];
       await speakAndWait(filler);
+      if (!isExamActiveRef.current) return;
+      const uploadError = await uploadResult;
+      if (uploadError) {
+        handleUploadFailure(uploadError);
+        return;
+      }
       if (!isExamActiveRef.current) return;
       askQuestion(nextIdx, questions);
     }
@@ -544,7 +573,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
     setPhase('complete');
     setAllowRemove(true);
 
-    if (!attemptId || uploadedPartCountRef.current === 0) {
+    if (!attemptId || uploadedPartCountRef.current === 0 || uploadFailedRef.current) {
       setLoadError('No recorded answer was uploaded, so there is nothing to score. Please retry the exam.');
       setPhase('error');
       return;
@@ -569,10 +598,15 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
         topicTitle,
         ieltsPart: nextPart,
         isFullTest: true,
+        fullTestAttemptIds: [...incomingFullTestAttemptIds, attemptId],
       });
     } else {
+      const fullTestAttemptIds = isFullTest
+        ? [...incomingFullTestAttemptIds, attemptId]
+        : undefined;
       navigation.replace('Results', {
         attemptId,
+        fullTestAttemptIds,
         ieltsPart: safeIeltsPart,
         topicTitle,
         duration: recordSeconds,
@@ -717,6 +751,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
           {phase === 'intro' || phase === 'asking' ? 'Examiner Speaking...'
             : phase === 'prep' ? `Preparation Time - ${formatTime(prepTime)}`
             : phase === 'recording' ? `Recording - Q${currentIdx + 1}/${questions.length}`
+            : phase === 'saving' ? 'Saving Answer...'
             : phase === 'transition' ? 'Transitioning...'
             : phase === 'complete' ? 'Exam Complete' : ''}
         </Text>

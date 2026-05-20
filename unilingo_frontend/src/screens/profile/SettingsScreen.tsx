@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
@@ -27,10 +26,12 @@ import { notificationsAPI, NotificationSettings } from '../../api/notifications'
 import { syncNotificationPreferences } from '../../services/NotificationService';
 import { Gradients } from '../../theme';
 import AppBackground from '../../components/common/AppBackground';
+import { AppModal, useAppModal } from '../../components/common/AppModal';
 
 export default function SettingsScreen({ navigation }: any) {
-  const { colors, isDark, toggleTheme } = useThemeStore();
+  const { colors } = useThemeStore();
   const { user, setUser, logout } = useAuthStore();
+  const { modal, showConfirm, showError, showSuccess, hideModal } = useAppModal();
 
   // Profile fields
   const [fullName, setFullName] = useState(user?.full_name || '');
@@ -83,10 +84,10 @@ export default function SettingsScreen({ navigation }: any) {
       const updated = await notificationsAPI.updateSettings(notificationSettings);
       setNotificationSettings(updated);
       await syncNotificationPreferences(updated);
-      Alert.alert('Success', 'Notification preferences updated!');
+      showSuccess('Saved', 'Notification preferences updated.');
     } catch (error: any) {
       const msg = error.response?.data?.detail || 'Failed to update notification settings';
-      Alert.alert('Error', typeof msg === 'string' ? msg : JSON.stringify(msg));
+      showError('Could not save', typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setSavingNotifications(false);
     }
@@ -109,11 +110,11 @@ export default function SettingsScreen({ navigation }: any) {
       } else {
         setUser(updated);
       }
-      
-      Alert.alert('Success', 'Profile updated!');
+
+      showSuccess('Saved', 'Profile updated.');
     } catch (error: any) {
       const msg = error.response?.data?.detail || 'Failed to update profile';
-      Alert.alert('Error', typeof msg === 'string' ? msg : JSON.stringify(msg));
+      showError('Could not save', typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setSaving(false);
     }
@@ -121,44 +122,43 @@ export default function SettingsScreen({ navigation }: any) {
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword) {
-      Alert.alert('Error', 'Please fill in all password fields');
+      showError('Missing fields', 'Please fill in all password fields.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'New passwords do not match');
+      showError('Passwords do not match', 'New passwords do not match.');
       return;
     }
     if (newPassword.length < 8) {
-      Alert.alert('Error', 'New password must be at least 8 characters');
+      showError('Password too short', 'New password must be at least 8 characters.');
       return;
     }
     setChangingPwd(true);
     try {
       await usersAPI.changePassword(currentPassword, newPassword);
-      Alert.alert('Success', 'Password changed!');
+      showSuccess('Saved', 'Password changed.');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setShowPwdSection(false);
     } catch (error: any) {
       const msg = error.response?.data?.detail || 'Failed to change password';
-      Alert.alert('Error', typeof msg === 'string' ? msg : JSON.stringify(msg));
+      showError('Could not change password', typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setChangingPwd(false);
     }
   };
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout', style: 'destructive',
-        onPress: async () => {
-          try { await authAPI.logout(); } catch {}
-          logout();
-        },
+    showConfirm(
+      'Logout',
+      'Are you sure?',
+      async () => {
+        try { await authAPI.logout(); } catch {}
+        logout();
       },
-    ]);
+      { confirmText: 'Logout', cancelText: 'Cancel', destructive: true }
+    );
   };
 
   return (
@@ -308,20 +308,6 @@ export default function SettingsScreen({ navigation }: any) {
             </View>
           )}
 
-          {/* App Settings */}
-          <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>App</Text>
-          <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-            <TouchableOpacity style={styles.settingRow} onPress={toggleTheme}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Ionicons name={isDark ? 'moon' : 'sunny'} size={20} color={colors.accent} />
-                <Text style={[styles.settingText, { color: colors.textPrimary }]}>Dark Mode</Text>
-              </View>
-              <View style={[styles.toggle, isDark && styles.toggleOn, { borderColor: isDark ? colors.accent : colors.border }]}>
-                <View style={[styles.toggleDot, isDark && styles.toggleDotOn, { backgroundColor: isDark ? colors.accent : colors.textMuted }]} />
-              </View>
-            </TouchableOpacity>
-          </View>
-
           {/* Notification Settings */}
           <Text style={[styles.sectionLabel, { color: colors.textPrimary }]}>Notifications</Text>
           <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
@@ -432,6 +418,7 @@ export default function SettingsScreen({ navigation }: any) {
           </TouchableOpacity>
         </ScrollView>
         </KeyboardAvoidingView>
+        <AppModal config={modal} onDismiss={hideModal} />
       </SafeAreaView>
     </AppBackground>
   );
@@ -534,7 +521,6 @@ const styles = StyleSheet.create({
   saveBtnText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15, color: '#1F2937' },
   pwdToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   pwdInputRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, paddingBottom: 8 },
-  settingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
   settingText: { fontFamily: 'PlusJakartaSans-Medium', fontSize: 15 },
   notificationRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 7 },
   notificationBlock: { paddingVertical: 8 },
@@ -542,10 +528,6 @@ const styles = StyleSheet.create({
   miniSwitch: { flex: 1, minHeight: 38, borderRadius: 12, borderWidth: 1, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', gap: 5, flexDirection: 'row' },
   miniSwitchText: { fontFamily: 'PlusJakartaSans-SemiBold', fontSize: 12 },
   divider: { height: 1, marginVertical: 10 },
-  toggle: { width: 44, height: 24, borderRadius: 12, borderWidth: 1.5, justifyContent: 'center', paddingHorizontal: 2 },
-  toggleOn: {},
-  toggleDot: { width: 18, height: 18, borderRadius: 9 },
-  toggleDotOn: { alignSelf: 'flex-end' },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 48, borderRadius: 24, borderWidth: 1.5, marginTop: 8, marginBottom: 32 },
   logoutText: { fontFamily: 'PlusJakartaSans-Bold', fontSize: 15 },
 });

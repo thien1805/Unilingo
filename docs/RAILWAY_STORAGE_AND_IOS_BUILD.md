@@ -106,6 +106,14 @@ Set your production API URL for EAS builds:
 npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_API_URL --value https://<your-api>.up.railway.app/api/v1 --visibility plaintext
 ```
 
+For local release builds, create `unilingo_frontend/.env` from `.env.example`:
+
+```env
+EXPO_PUBLIC_API_URL=https://<your-api>.up.railway.app/api/v1
+```
+
+Development builds still auto-detect the Metro host for local backend testing. Release builds intentionally require `EXPO_PUBLIC_API_URL` so the app never falls back to a local machine IP.
+
 Build for TestFlight/App Store:
 
 ```bash

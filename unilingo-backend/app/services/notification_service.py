@@ -17,6 +17,11 @@ def _stringify_data(data: dict[str, Any] | None) -> dict[str, str]:
     return {str(key): "" if value is None else str(value) for key, value in data.items()}
 
 
+def is_expo_push_token(token: str) -> bool:
+    """Return whether a token belongs to Expo Push Service."""
+    return token.startswith("ExponentPushToken[") or token.startswith("ExpoPushToken[")
+
+
 def send_push_to_tokens(
     tokens: list[str],
     title: str,
@@ -32,7 +37,7 @@ def send_push_to_tokens(
     if not cleaned_tokens:
         return {"sent": 0, "failed": 0, "skipped": True, "reason": "no_tokens"}
 
-    expo_tokens = [t for t in cleaned_tokens if t.startswith("ExponentPushToken[") or t.startswith("ExpoPushToken[")]
+    expo_tokens = [t for t in cleaned_tokens if is_expo_push_token(t)]
     fcm_tokens = [t for t in cleaned_tokens if t not in expo_tokens]
 
     sent = 0
@@ -208,9 +213,15 @@ async def dispatch_notification_campaign(
     target_user_ids = [user.id for user in target_users]
     if target_user_ids:
         token_result = await db.execute(
-            select(UserDevice.fcm_token).where(UserDevice.user_id.in_(target_user_ids))
+            select(UserDevice.fcm_token, UserDevice.device_type).where(
+                UserDevice.user_id.in_(target_user_ids)
+            )
         )
-        tokens = [row[0] for row in token_result.all()]
+        tokens = [
+            token
+            for token, device_type in token_result.all()
+            if not (device_type == "ios" and not is_expo_push_token(token))
+        ]
 
     push_result = send_push_to_tokens(
         tokens=tokens,
@@ -226,7 +237,7 @@ async def dispatch_notification_campaign(
 
     push_sent = int(push_result.get("sent") or 0)
     push_failed = int(push_result.get("failed") or 0)
-    campaign.sent_count = len(notifications)
+    campaign.sent_count = push_sent
     campaign.failed_count = push_failed
     if push_result.get("skipped"):
         campaign.status = "stored"

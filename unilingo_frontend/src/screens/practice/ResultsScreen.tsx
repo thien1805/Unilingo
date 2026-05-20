@@ -21,8 +21,57 @@ import { formatBand, normalizeBand } from '../../utils/bandScore';
 
 const TABS = ['Script', 'Feedback', 'Sample', 'Grammar'];
 
+const averageScore = (values: Array<number | null | undefined>) => {
+  const valid = values.filter((value): value is number => typeof value === 'number');
+  if (valid.length === 0) return null;
+  return normalizeBand(valid.reduce((sum, value) => sum + value, 0) / valid.length);
+};
+
+const combineScoringResults = (results: ScoringResult[]): ScoringResult => {
+  if (results.length === 1) return results[0];
+
+  const parts = results.flatMap((item, resultIndex) =>
+    (item.parts || []).map((part: any) => ({
+      ...part,
+      part_number: resultIndex + 1,
+      question_text: `${(item as any).ielts_part ? (item as any).ielts_part.replace('part', 'Part ') : `Part ${resultIndex + 1}`} - ${part.question_text || 'Topic Question'}`,
+    }))
+  );
+
+  const status = results.some((item) => item.status === 'failed')
+    ? 'failed'
+    : results.some((item) => item.status === 'in_progress')
+      ? 'in_progress'
+    : results.every((item) => item.status === 'completed')
+      ? 'completed'
+      : 'scoring';
+
+  return {
+    ...results[results.length - 1],
+    attempt_id: results.map((item) => item.attempt_id).join(','),
+    status,
+    overall_band: averageScore(results.map((item) => item.overall_band)),
+    fluency_score: averageScore(results.map((item) => item.fluency_score)),
+    lexical_score: averageScore(results.map((item) => item.lexical_score)),
+    grammar_score: averageScore(results.map((item) => item.grammar_score)),
+    pronunciation_score: averageScore(results.map((item) => item.pronunciation_score)),
+    duration_seconds: results.reduce((sum, item) => sum + (item.duration_seconds || 0), 0),
+    xp_earned: results.reduce((sum, item) => sum + (item.xp_earned || 0), 0),
+    parts,
+  };
+};
+
 export default function ResultsScreen({ navigation, route }: any) {
   const { attemptId, ieltsPart, topicTitle } = route.params;
+  const attemptIds = React.useMemo(() => {
+    const fullTestIds = route.params?.fullTestAttemptIds;
+    const ids = Array.isArray(fullTestIds) && fullTestIds.length > 0
+      ? fullTestIds
+      : [attemptId];
+    return ids.filter(Boolean);
+  }, [attemptId, route.params?.fullTestAttemptIds]);
+  const attemptIdsKey = attemptIds.join('|');
+  const resultSourceAttemptId = attemptIds[attemptIds.length - 1] || attemptId;
   const { colors } = useThemeStore();
   const [activeTab, setActiveTab] = useState(0);
   const [result, setResult] = useState<ScoringResult | null>(null);
@@ -152,7 +201,7 @@ export default function ResultsScreen({ navigation, route }: any) {
         ),
         examples: firstDefinition?.example ? [firstDefinition.example] : undefined,
         source_context: selectedLookupSource === 'sample' ? 'sample_answer' : 'practice_script',
-        source_attempt_id: attemptId,
+        source_attempt_id: resultSourceAttemptId,
         tags: ['practice-result', selectedLookupSource],
       });
       return saved.id;
@@ -216,7 +265,7 @@ export default function ResultsScreen({ navigation, route }: any) {
         vocabulary_id: vocabularyId,
         extra_info: {
           source: selectedLookupSource,
-          source_attempt_id: attemptId,
+          source_attempt_id: resultSourceAttemptId,
         },
       });
       setDictActionMessage(`Added "${dictResult.word}" to Practice Vocabulary flashcards.`);
@@ -246,6 +295,21 @@ export default function ResultsScreen({ navigation, route }: any) {
     }
   };
 
+  const fetchCombinedResult = async () => {
+    const results = await Promise.all(attemptIds.map((id) => practiceAPI.getResult(id)));
+    return combineScoringResults(results);
+  };
+
+  const recoverSubmit = () => {
+    if (submitRecoveryStartedRef.current) return;
+    submitRecoveryStartedRef.current = true;
+    attemptIds.forEach((id) => {
+      practiceAPI.submit(id, { waitForResult: false, timeoutSeconds: 5 }).catch((error) => {
+        console.log('[Results] Submit recovery failed:', error);
+      });
+    });
+  };
+
   const handleResultData = (data: ScoringResult) => {
     if (!mountedRef.current) return;
 
@@ -270,11 +334,8 @@ export default function ResultsScreen({ navigation, route }: any) {
       return;
     }
 
-    if (data.status === 'in_progress' && !submitRecoveryStartedRef.current) {
-      submitRecoveryStartedRef.current = true;
-      practiceAPI.submit(attemptId, { waitForResult: false, timeoutSeconds: 5 }).catch((error) => {
-        console.log('[Results] Submit recovery failed:', error);
-      });
+    if ((data.status === 'in_progress' || data.status === 'scoring') && !submitRecoveryStartedRef.current) {
+      recoverSubmit();
     }
 
     setResultError(null);
@@ -292,14 +353,14 @@ export default function ResultsScreen({ navigation, route }: any) {
       stopPolling();
       stopPronunciation(false);
     };
-  }, [attemptId, stopPronunciation]);
+  }, [attemptIdsKey, stopPronunciation]);
 
   const loadResult = async () => {
     stopPolling();
     setLoading(true);
     setResultError(null);
     try {
-      const data = await practiceAPI.getResult(attemptId);
+      const data = await fetchCombinedResult();
       handleResultData(data);
     } catch (err) {
       console.log('[Results] Error loading result:', err);
@@ -323,7 +384,7 @@ export default function ResultsScreen({ navigation, route }: any) {
       }
       retries++;
       try {
-        const data = await practiceAPI.getResult(attemptId);
+        const data = await fetchCombinedResult();
         if (!mountedRef.current) return;
 
         setResult(data);
@@ -347,11 +408,8 @@ export default function ResultsScreen({ navigation, route }: any) {
           return;
         }
 
-        if (data.status === 'in_progress' && !submitRecoveryStartedRef.current) {
-          submitRecoveryStartedRef.current = true;
-          practiceAPI.submit(attemptId, { waitForResult: false, timeoutSeconds: 5 }).catch((error) => {
-            console.log('[Results] Submit recovery failed:', error);
-          });
+        if ((data.status === 'in_progress' || data.status === 'scoring') && !submitRecoveryStartedRef.current) {
+          recoverSubmit();
         }
 
         if (retries >= maxRetries) {
