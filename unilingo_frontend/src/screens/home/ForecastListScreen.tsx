@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
@@ -34,7 +34,7 @@ export default function ForecastListScreen({ route, navigation }: any) {
   const renderContent = () => {
     if (selectedForecast) {
       return (
-        <View style={styles.detailContainer}>
+        <ScrollView style={styles.detailContainer} showsVerticalScrollIndicator={false}>
           <TouchableOpacity style={styles.backButton} onPress={() => setSelectedForecast(null)}>
             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
             <Text style={[styles.backText, { color: colors.textPrimary }]}>Back to list</Text>
@@ -43,12 +43,12 @@ export default function ForecastListScreen({ route, navigation }: any) {
           <Text style={[styles.detailDate, { color: colors.textMuted }]}>
             {new Date(selectedForecast.created_at).toLocaleDateString()}
           </Text>
-          <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border, padding: 16, marginTop: 16 }]}>
+          <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border, padding: 16, marginTop: 16, marginBottom: 40 }]}>
              <Markdown style={{ body: { color: colors.textPrimary, fontSize: 15, lineHeight: 24 } }}>
                {selectedForecast.content}
              </Markdown>
           </View>
-        </View>
+        </ScrollView>
       );
     }
 

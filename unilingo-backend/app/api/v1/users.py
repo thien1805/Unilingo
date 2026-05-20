@@ -256,3 +256,33 @@ async def change_password(
     current_user.hashed_password = hash_password(request.new_password)
     await db.flush()
     return {"message": "Password changed successfully"}
+
+@router.post("/admin/create")
+async def create_admin_account(
+    email: str,
+    full_name: str,
+    password: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a new admin account (super-admin only)."""
+    from app.services.auth_service import hash_password
+    
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+        
+    # Check if email exists
+    result = await db.execute(select(User).where(User.email == email))
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Email already registered")
+        
+    new_admin = User(
+        email=email,
+        full_name=full_name,
+        hashed_password=hash_password(password),
+        is_admin=True,
+    )
+    db.add(new_admin)
+    await db.commit()
+    
+    return {"message": "Admin account created successfully", "email": email}

@@ -77,10 +77,16 @@ def transcribe_audio_file(audio_path: str) -> str:
     import os
     settings = get_settings()
     if not settings.GROQ_API_KEY:
-        return "[Mock transcript] Speech-to-text is not configured yet. Add GROQ_API_KEY to enable real transcription."
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Speech-to-text is not configured. Set GROQ_API_KEY and restart the backend.",
+        )
 
     if not os.path.exists(audio_path):
-        return f"[Transcription failed] Audio file not found: {audio_path}"
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Uploaded audio file could not be found for transcription.",
+        )
 
     try:
         from groq import Groq
@@ -97,7 +103,10 @@ def transcribe_audio_file(audio_path: str) -> str:
         return str(transcription).strip() or "No speech could be recognized."
     except Exception as exc:
         print(f"Mock test transcription failed: {exc}")
-        return f"[Transcription failed] {exc}"
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Speech-to-text provider failed while transcribing this answer.",
+        ) from exc
 
 
 async def get_or_create_ai_topic(db: AsyncSession, ielts_part: str) -> Topic:
@@ -461,7 +470,7 @@ async def get_tts(text: str = Query(...)):
 async def upload_audio(
     attempt_id: UUID,
     file: UploadFile = File(...),
-    part_number: int = Query(default=1, ge=1, le=3),
+    part_number: int = Query(default=1, ge=1, le=20),
     question_id: UUID | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),

@@ -6,9 +6,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   Dimensions,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
@@ -88,7 +88,12 @@ export default function BlogDetailScreen({ route, navigation }: any) {
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {post.cover_image_url && (
-          <Image source={{ uri: post.cover_image_url }} style={styles.coverImage} />
+          <Image 
+            source={{ uri: post.cover_image_url }} 
+            style={styles.coverImage} 
+            contentFit="cover"
+            transition={300}
+          />
         )}
         
         <View style={styles.contentPadding}>

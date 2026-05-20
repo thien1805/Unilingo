@@ -88,6 +88,12 @@
     .metric { padding: 24px; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 12px; }
     .metric strong { display: block; margin-bottom: 6px; font-size: 32px; font-weight: 800; font-variant-numeric: tabular-nums; }
     .metric span { color: var(--muted); font-size: 15px; }
+    .health-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; }
+    .health-card { padding: 16px; background: var(--panel-soft); border: 1px solid var(--line); border-radius: 12px; }
+    .health-title { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 800; }
+    .health-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--red); }
+    .health-dot.ok { background: var(--green); }
+    .health-meta { color: var(--muted); font-size: 14px; line-height: 1.45; }
     table { width: 100%; border-collapse: collapse; font-size: 15px; }
     th, td { padding: 14px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
     th { color: var(--muted); font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
@@ -124,7 +130,7 @@
     @media (max-width:980px) {
       main { grid-template-columns: 1fr; }
       aside { position: static; }
-      .cards, .grid, .grid-3 { grid-template-columns: 1fr; }
+      .cards, .grid, .grid-3, .health-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -184,6 +190,8 @@
           <span class="status" id="dashboardStatus"></span>
         </div>
         <div class="cards" id="metrics"></div>
+        <h3>System health</h3>
+        <div class="health-grid" id="systemHealthCards"></div>
       </section>
 
       <section id="notifications" class="panel hidden">
@@ -462,6 +470,24 @@
           <button class="secondary" id="searchUsersBtn">Search</button>
         </div>
         <div class="table-wrap" id="userTable"></div>
+        <h3 style="margin-top:24px;">Create Admin Account</h3>
+        <form id="createAdminForm">
+          <div class="grid-3">
+            <div class="field">
+              <label>Full Name</label>
+              <input name="full_name" required placeholder="Admin Name" />
+            </div>
+            <div class="field">
+              <label>Email</label>
+              <input name="email" type="email" required placeholder="admin@example.com" />
+            </div>
+            <div class="field">
+              <label>Password</label>
+              <input name="password" type="password" required placeholder="Strong password" minlength="6" />
+            </div>
+          </div>
+          <button type="submit" class="success">Create Admin</button>
+        </form>
       </section>
     </div>
   </main>
@@ -475,6 +501,7 @@
       forecasts: [],
       topics: [],
       questions: [],
+      systemHealth: null,
     };
     const $ = (selector) => document.querySelector(selector);
     const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -612,6 +639,39 @@
       setStatus("#dashboardStatus", "Updated", "ok");
     }
 
+    async function loadSystemHealth() {
+      const data = await api("/admin/system-health");
+      state.systemHealth = data;
+      const services = data.services || {};
+      const ordered = [
+        ["tts", "Examiner TTS"],
+        ["speech_to_text", "Speech to Text"],
+        ["scoring", "AI Scoring"],
+        ["pronunciation", "Pronunciation"],
+        ["storage", "Audio Storage"],
+        ["inline_scoring", "Scoring Runtime"],
+      ];
+      $("#systemHealthCards").innerHTML = ordered.map(([key, label]) => {
+        const item = services[key] || {};
+        const ok = Boolean(item.configured);
+        const details = [
+          item.provider,
+          item.model ? `model: ${item.model}` : "",
+          item.voice ? `voice: ${item.voice}` : "",
+          item.region ? `region: ${item.region}` : "",
+          item.detail_mode ? `mode: ${item.detail_mode}` : "",
+          item.timeout_seconds ? `timeout: ${item.timeout_seconds}s` : "",
+          !ok && item.required_env ? `missing: ${item.required_env}` : "",
+        ].filter(Boolean).join("<br>");
+        return `
+          <div class="health-card">
+            <div class="health-title"><span class="health-dot ${ok ? "ok" : ""}"></span>${esc(label)} ${ok ? pill("ready", "green") : pill("needs config", "red")}</div>
+            <div class="health-meta">${details || "No details available"}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
     async function loadUsers(search = "") {
       setStatus("#userStatus", "Loading...");
       const q = search ? `&search=${encodeURIComponent(search)}` : "";
@@ -725,7 +785,7 @@
       }
       setStatus("#globalStatus", "Refreshing...");
       const results = await Promise.allSettled([
-        loadDashboard(), loadUsers(), loadCampaigns(), loadBlogs(), loadForecasts(), loadTopics(), loadQuestions(),
+        loadDashboard(), loadSystemHealth(), loadUsers(), loadCampaigns(), loadBlogs(), loadForecasts(), loadTopics(), loadQuestions(),
       ]);
       const failed = results.find(r => r.status === "rejected");
       if (failed) {
@@ -877,6 +937,22 @@
         await loadForecasts();
       } catch (error) {
         setStatus("#forecastStatus", error.message, "err");
+      }
+    });
+
+    $("#createAdminForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const data = formValues(form);
+      try {
+        setStatus("#userStatus", "Creating admin...");
+        const res = await api("/users/admin/create", { method: "POST", body: JSON.stringify(data) });
+        setStatus("#userStatus", "Admin created successfully", "ok");
+        showToast("Admin account created successfully", "success");
+        form.reset();
+        await loadUsers();
+      } catch (error) {
+        setStatus("#userStatus", error.message, "err");
         showToast(error.message, "error");
       }
     });

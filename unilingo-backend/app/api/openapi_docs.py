@@ -351,7 +351,11 @@ OPERATION_DOCS: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("GET", "/api/v1/practice/tts"): {
         "summary": "Text-to-Speech audio",
-        "description": "Gọi Azure Neural TTS và stream MP3 audio. Cần cấu hình AZURE_SPEECH_KEY.",
+        "description": "Gọi Azure Neural TTS, cache theo text/voice/style và stream MP3 audio. Cần cấu hình AZURE_SPEECH_KEY.",
+    },
+    ("POST", "/api/v1/practice/transcribe-audio"): {
+        "summary": "Transcribe mock-test audio",
+        "description": "Upload một câu trả lời mock-test và trả transcript Groq Whisper. Trả 503 nếu thiếu GROQ_API_KEY.",
     },
     ("POST", "/api/v1/practice/{attempt_id}/upload-audio"): {
         "summary": "Upload audio ghi âm",
@@ -559,6 +563,10 @@ OPERATION_DOCS: dict[tuple[str, str], dict[str, Any]] = {
     ("GET", "/api/v1/admin/dashboard"): {
         "summary": "Admin dashboard",
         "description": "Tổng hợp số users, active users, completed tests, topics, questions và vocabulary saved.",
+    },
+    ("GET", "/api/v1/admin/system-health"): {
+        "summary": "Admin system health",
+        "description": "Trả trạng thái cấu hình không chứa secret cho TTS, STT, scoring, pronunciation, storage và scoring runtime.",
     },
     ("GET", "/api/v1/admin/users"): {
         "summary": "Admin list users",

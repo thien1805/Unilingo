@@ -9,9 +9,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Image,
   RefreshControl,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -66,6 +66,7 @@ export default function HomeScreen({ navigation }: any) {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const streakModalShownRef = useRef(false);
   const lastLoadAtRef = useRef(0);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const checkStreakModal = (currentUserData: any) => {
     // Show onboarding modal if user hasn't set a goal target
@@ -143,7 +144,7 @@ export default function HomeScreen({ navigation }: any) {
     ? formatBand((dashboard.skill_breakdown.fluency + dashboard.skill_breakdown.lexical +
       dashboard.skill_breakdown.grammar + dashboard.skill_breakdown.pronunciation) / 4)
     : '0.0';
-  const notificationBadge = unreadNotifications + reviewDue;
+  const notificationBadge = unreadNotifications;
 
   // Progress ring
   const progressPct = Math.min(todayTests / 3, 1);
@@ -195,6 +196,7 @@ export default function HomeScreen({ navigation }: any) {
     <AppBackground>
       <SafeAreaView style={[styles.safe, { backgroundColor: 'transparent' }]}> 
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
           style={{ backgroundColor: 'transparent' }}
           showsVerticalScrollIndicator={false}
@@ -256,7 +258,7 @@ export default function HomeScreen({ navigation }: any) {
               <Text style={styles.dailySub}>{todayTests} of 3 practices done today</Text>
             </View>
             <View style={styles.dailyMascotWrap}>
-              <Image source={dailyMascotImage} style={styles.dailyMascot} resizeMode="contain" />
+              <Image source={dailyMascotImage} style={styles.dailyMascot} contentFit="contain" />
             </View>
           </View>
           <View style={styles.statsRow}>
@@ -298,7 +300,7 @@ export default function HomeScreen({ navigation }: any) {
               })}
             >
               <View style={[styles.quickIcon, { backgroundColor: colors.bgSecondary }]}>
-                <Image source={part.image} style={styles.quickPartImage} resizeMode="contain" />
+                <Image source={part.image} style={styles.quickPartImage} contentFit="contain" />
               </View>
               <Text style={[styles.quickLabel, { color: colors.textPrimary }]}>{part.label}</Text>
               <Text style={[styles.quickDesc, { color: colors.textMuted }]}>{part.desc}</Text>
@@ -466,7 +468,12 @@ export default function HomeScreen({ navigation }: any) {
                       },
                     ]}
                     activeOpacity={0.8}
-                    onPress={() => setSelectedBlogCategory(category.key)}
+                    onPress={() => {
+                      setSelectedBlogCategory(category.key);
+                      if (category.key === 'forecast') {
+                        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+                      }
+                    }}
                   >
                     <Text style={[styles.categoryChipText, { color: selected ? '#fff' : colors.textSecondary }]}>
                       {category.label}
@@ -476,8 +483,19 @@ export default function HomeScreen({ navigation }: any) {
               })}
             </ScrollView>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.blogScroll}>
-              {(categoryBlogs.length > 0 ? categoryBlogs : featuredBlogs).map(blog => (
-                <TouchableOpacity
+              {(() => {
+                const blogsToShow = selectedBlogCategory === 'all' && categoryBlogs.length === 0 ? featuredBlogs : categoryBlogs;
+                if (selectedBlogCategory !== 'all' && blogsToShow.length === 0) {
+                  return (
+                    <View style={{ paddingHorizontal: 20, paddingVertical: 30, width: 300, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: 'PlusJakartaSans-Medium', fontSize: 14, color: colors.textMuted }}>
+                        No posts found for this category.
+                      </Text>
+                    </View>
+                  );
+                }
+                return blogsToShow.map(blog => (
+                  <TouchableOpacity
                   key={blog.id}
                   style={[styles.blogCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
                   activeOpacity={0.75}
@@ -485,7 +503,7 @@ export default function HomeScreen({ navigation }: any) {
                 >
                   <View style={[styles.blogImagePlaceholder, { backgroundColor: colors.bgInput }]}>
                     {blog.cover_image_url ? (
-                      <Image source={{ uri: blog.cover_image_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                      <Image source={{ uri: blog.cover_image_url }} style={{ width: '100%', height: '100%' }} contentFit="cover" transition={300} />
                     ) : (
                       <MascotIcon mood="idle" size={32} />
                     )}
@@ -500,7 +518,8 @@ export default function HomeScreen({ navigation }: any) {
                     </Text>
                   </View>
                 </TouchableOpacity>
-              ))}
+                ));
+              })()}
             </ScrollView>
           </View>
         )}

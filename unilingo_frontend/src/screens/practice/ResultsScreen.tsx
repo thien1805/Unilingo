@@ -726,21 +726,27 @@ export default function ResultsScreen({ navigation, route }: any) {
                 <Text style={[Typography.h4, { color: colors.textPrimary, marginBottom: 8 }]}>
                   Vocabulary Upgrades
                 </Text>
-                {vocabSuggestions.map((v: any, i: number) => (
+                {vocabSuggestions.map((v: any, i: number) => {
+                  const basicWord = typeof v === 'string' ? v : (v.basic_word || 'Unknown word');
+                  const alternatives = typeof v === 'string' ? [] : (v.better_alternatives || []);
+                  
+                  return (
                   <View key={i} style={[styles.vocabRow, { borderBottomColor: colors.border }]}>
                     <View style={[styles.vocabBadge, { backgroundColor: colors.errorBg }]}>
-                      <Text style={[Typography.captionSm, { color: colors.error }]}>{v.basic_word}</Text>
+                      <Text style={[Typography.captionSm, { color: colors.error }]}>{basicWord}</Text>
                     </View>
-                    <Ionicons name="arrow-forward" size={14} color={colors.textMuted} />
+                    {alternatives.length > 0 && (
+                      <Ionicons name="arrow-forward" size={14} color={colors.textMuted} />
+                    )}
                     <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap', flex: 1 }}>
-                      {v.better_alternatives?.map((alt: string, j: number) => (
+                      {alternatives.map((alt: string, j: number) => (
                         <View key={j} style={[styles.vocabBadge, { backgroundColor: colors.successBg }]}>
                           <Text style={[Typography.captionSm, { color: colors.success }]}>{alt}</Text>
                         </View>
                       ))}
                     </View>
                   </View>
-                ))}
+                )})}
               </Card>
             )}
           </View>
@@ -776,28 +782,37 @@ export default function ResultsScreen({ navigation, route }: any) {
         {activeTab === 3 && (
           <View style={{ gap: 8 }}>
             {grammarErrors.length > 0 ? (
-              grammarErrors.map((err: any, i: number) => (
+              grammarErrors.map((err: any, i: number) => {
+                const original = typeof err === 'string' ? err : err.original;
+                const corrected = typeof err === 'string' ? null : err.corrected;
+                const rule = typeof err === 'string' ? null : err.rule;
+                
+                return (
                 <Card key={i}>
                   <View style={styles.grammarRow}>
                     <View style={[styles.grammarOriginal, { backgroundColor: colors.errorBg }]}>
-                      <Text style={[Typography.bodySm, { color: colors.error, textDecorationLine: 'line-through' }]}>
-                        {err.original}
+                      <Text style={[Typography.bodySm, { color: colors.error, textDecorationLine: corrected ? 'line-through' : 'none' }]}>
+                        {original || 'Unknown error'}
                       </Text>
                     </View>
-                    <Ionicons name="arrow-down" size={16} color={colors.accent} />
-                    <View style={[styles.grammarCorrected, { backgroundColor: colors.successBg }]}>
-                      <Text style={[Typography.bodySm, { color: colors.success, fontWeight: '600' }]}>
-                        {err.corrected}
-                      </Text>
-                    </View>
-                    {err.rule && (
+                    {corrected && (
+                      <>
+                        <Ionicons name="arrow-down" size={16} color={colors.accent} />
+                        <View style={[styles.grammarCorrected, { backgroundColor: colors.successBg }]}>
+                          <Text style={[Typography.bodySm, { color: colors.success, fontWeight: '600' }]}>
+                            {corrected}
+                          </Text>
+                        </View>
+                      </>
+                    )}
+                    {rule && (
                       <Text style={[Typography.captionSm, { color: colors.textMuted, marginTop: 4, fontStyle: 'italic' }]}>
-                        Rule: {err.rule}
+                        Rule: {rule}
                       </Text>
                     )}
                   </View>
                 </Card>
-              ))
+              )})
             ) : (
               <Card>
                 <View style={{ alignItems: 'center', padding: 20 }}>

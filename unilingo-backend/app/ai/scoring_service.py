@@ -67,8 +67,7 @@ async def transcribe_audio(audio_url: str) -> str:
         Transcribed text
     """
     if not settings.AZURE_SPEECH_KEY:
-        # Mock response for development
-        return "[Mock transcript] I would like to talk about a place I visited recently. It was a beautiful beach in Da Nang, Vietnam. I went there last summer with my family. We spent three days there and it was really wonderful."
+        return ""
 
     import azure.cognitiveservices.speech as speechsdk
 

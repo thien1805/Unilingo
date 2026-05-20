@@ -953,8 +953,10 @@ Auth: Không yêu cầu trong code hiện tại.
 Xử lý:
 
 - Gọi Azure Neural TTS.
-- Voice: `en-US-JennyNeural`.
-- Output format: MP3 mono 24kHz.
+- Cache audio theo `region + voice + style + rate + output_format + text` trong `TTS_CACHE_DIR`.
+- Voice mặc định: `en-US-AvaMultilingualNeural`.
+- Style mặc định: `chat`; nếu Azure không hỗ trợ style đó, backend retry không dùng style.
+- Output format mặc định: `audio-48khz-96kbitrate-mono-mp3`.
 
 Response:
 
@@ -1019,6 +1021,45 @@ Lỗi chính:
 
 - `404`: Attempt không tồn tại.
 - `400`: Attempt không còn `in_progress`.
+
+### 6.4.1 Transcribe Audio Cho Mock Test
+
+```http
+POST /api/v1/practice/transcribe-audio
+```
+
+Auth: Bearer token.
+
+Content-Type:
+
+```txt
+multipart/form-data
+```
+
+Form data:
+
+| Field | Type | Required |
+|---|---|---:|
+| file | file | Yes |
+
+Xử lý:
+
+- Lưu file tạm vào `LOCAL_UPLOAD_DIR/mock_test_transcripts`.
+- Gọi Groq Whisper theo `GROQ_TRANSCRIPTION_MODEL`.
+- Endpoint này dùng cho màn full mock test để hiện script từng câu, không thay thế scoring pipeline của practice attempt.
+
+Response:
+
+```json
+{
+  "transcript": "I usually study in the evening because..."
+}
+```
+
+Lỗi chính:
+
+- `503`: Chưa cấu hình `GROQ_API_KEY`; frontend phải xem transcript là unavailable, không hiển thị lỗi cấu hình như lời nói của thí sinh.
+- `502`: Provider STT lỗi.
 
 ### 6.5 Submit Practice
 
@@ -2080,6 +2121,43 @@ Response:
   "total_topics": 20,
   "total_questions": 200,
   "total_vocabulary_saved": 1000
+}
+```
+
+### 12.1.1 Admin System Health
+
+```http
+GET /api/v1/admin/system-health
+```
+
+Mục đích:
+
+- Kiểm tra nhanh cấu hình runtime mà không lộ secret.
+- Admin web dùng endpoint này để báo `ready` hoặc `needs config` cho TTS, STT, scoring, pronunciation, storage và scoring runtime.
+
+Response:
+
+```json
+{
+  "environment": "production",
+  "debug": false,
+  "api_public_url": "https://api.example.com",
+  "services": {
+    "speech_to_text": {
+      "configured": true,
+      "provider": "Groq Whisper",
+      "model": "whisper-large-v3",
+      "required_env": "GROQ_API_KEY"
+    },
+    "tts": {
+      "configured": true,
+      "provider": "Azure Neural TTS",
+      "region": "eastus",
+      "voice": "en-US-AvaMultilingualNeural",
+      "style": "chat",
+      "required_env": "AZURE_SPEECH_KEY"
+    }
+  }
 }
 ```
 

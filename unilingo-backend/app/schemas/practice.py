@@ -80,19 +80,19 @@ class PartResultResponse(BaseModel):
 
 
 class AIScoringResponse(BaseModel):
-    fluency_band: float | None
-    lexical_band: float | None
-    grammar_band: float | None
-    pronunciation_band: float | None
-    overall_band: float | None
-    pronunciation_details: dict | None
-    feedback: dict | None
-    strengths: list[str] | None
-    weaknesses: list[str] | None
-    suggested_improvements: list[str] | None
-    sample_better_answer: dict | None
-    grammar_errors: list[dict] | None
-    vocabulary_suggestions: list[dict] | None
+    fluency_band: float | None = None
+    lexical_band: float | None = None
+    grammar_band: float | None = None
+    pronunciation_band: float | None = None
+    overall_band: float | None = None
+    pronunciation_details: dict | None = None
+    feedback: dict | None = None
+    strengths: list[str] | None = None
+    weaknesses: list[str] | None = None
+    suggested_improvements: list[str] | None = None
+    sample_better_answer: dict | None = None
+    grammar_errors: list | None = None
+    vocabulary_suggestions: list | None = None
 
     model_config = {"from_attributes": True}
 

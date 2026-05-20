@@ -4,6 +4,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator, Platform } from 'react-native';
 import { registerDeviceForPush } from '../services/NotificationService';
@@ -160,7 +161,28 @@ function MainTabNavigator() {
       })}
     >
       <Tab.Screen name="HomeTab" component={HomeStackNavigator} options={{ tabBarLabel: 'Home' }} />
-      <Tab.Screen name="PracticeTab" component={PracticeStackNavigator} options={{ tabBarLabel: 'Practice' }} />
+      <Tab.Screen 
+        name="PracticeTab" 
+        component={PracticeStackNavigator} 
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'PracticeMain';
+          const hiddenRoutes = ['VirtualRoom', 'MockSpeakingTest', 'Recording', 'MockTestIntro'];
+          
+          return {
+            tabBarLabel: 'Practice',
+            tabBarStyle: hiddenRoutes.includes(routeName) ? { display: 'none' } : {
+              backgroundColor: colors.tabBarBg,
+              borderTopColor: colors.border,
+              height: Platform.OS === 'ios' ? 88 : 70,
+              paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+              paddingTop: 8,
+              position: 'absolute',
+              borderTopWidth: 1,
+              elevation: 0,
+            }
+          };
+        }} 
+      />
       <Tab.Screen name="VocabTab" component={VocabStackNavigator} options={{ tabBarLabel: 'Vocab' }} />
       <Tab.Screen name="RankTab" component={LeaderboardScreen} options={{ tabBarLabel: 'Rank' }} />
       <Tab.Screen name="ProfileTab" component={ProfileStackNavigator} options={{ tabBarLabel: 'Profile' }} />

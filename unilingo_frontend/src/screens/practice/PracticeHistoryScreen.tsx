@@ -116,7 +116,12 @@ export default function PracticeHistoryScreen({ navigation }: any) {
           if (item.status === 'completed') {
             navigation.navigate('PracticeTab', {
               screen: 'Results',
-              params: { attemptId: item.attempt_id },
+              params: { 
+                attemptId: item.attempt_id,
+                ieltsPart: item.ielts_part,
+                topicTitle: item.topic_title,
+                duration: item.duration_seconds || 0,
+              },
             });
           }
         }}
