@@ -67,12 +67,15 @@ const PracticeStack = createNativeStackNavigator<PracticeStackParamList>();
 const ProfileStack = createNativeStackNavigator();
 const VocabStack = createNativeStackNavigator();
 
+import ForecastListScreen from '../screens/home/ForecastListScreen';
+
 // ─── Home Stack Navigator ───
 function HomeStackNavigator() {
   return (
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
       <HomeStack.Screen name="BlogDetail" component={BlogDetailScreen} />
+      <HomeStack.Screen name="ForecastList" component={ForecastListScreen} />
       <HomeStack.Screen name="Notifications" component={NotificationsScreen} />
     </HomeStack.Navigator>
   );
