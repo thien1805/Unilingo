@@ -2,6 +2,7 @@
  * Vocabulary API service
  */
 import apiClient from './client';
+import { getCached, makeCacheKey } from './cache';
 
 export interface VocabularyItem {
   id: string;
@@ -55,8 +56,10 @@ export const vocabularyAPI = {
     sort_by?: string;
     order?: string;
   }): Promise<{ items: VocabularyItem[]; total: number; page: number; per_page: number }> => {
-    const { data } = await apiClient.get('/vocabulary', { params });
-    return data;
+    return getCached(makeCacheKey('vocabulary:list', params), async () => {
+      const { data } = await apiClient.get('/vocabulary', { params });
+      return data;
+    }, 30_000);
   },
 
   add: async (payload: AddVocabularyPayload): Promise<VocabularyItem> => {
@@ -79,14 +82,19 @@ export const vocabularyAPI = {
   },
 
   getReviewDue: async () => {
-    const { data } = await apiClient.get('/vocabulary/review-due');
-    return data;
+    return getCached('vocabulary:review-due', async () => {
+      const { data } = await apiClient.get('/vocabulary/review-due');
+      return data;
+    }, 30_000);
   },
 
   lookupDictionary: async (word: string): Promise<DictionaryResult> => {
-    const { data } = await apiClient.get('/vocabulary/dictionary/lookup', {
-      params: { word },
-    });
-    return data;
+    const normalizedWord = word.trim().toLowerCase();
+    return getCached(makeCacheKey('vocabulary:dictionary', { word: normalizedWord }), async () => {
+      const { data } = await apiClient.get('/vocabulary/dictionary/lookup', {
+        params: { word: normalizedWord },
+      });
+      return data;
+    }, 10 * 60_000);
   },
 };

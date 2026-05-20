@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { getCached, makeCacheKey } from './cache';
 
 export interface BlogPost {
   id: string;
@@ -36,19 +37,26 @@ export interface BlogPostSummary {
 
 export const blogAPI = {
   getPosts: async (page = 1, perPage = 10, category?: string) => {
-    let url = `/blog?page=${page}&per_page=${perPage}`;
-    if (category) url += `&category=${category}`;
-    const { data } = await apiClient.get(url);
-    return data as { items: BlogPostSummary[]; total: number; page: number; per_page: number };
+    const params = { page, perPage, category };
+    return getCached(makeCacheKey('blog:list', params), async () => {
+      let url = `/blog?page=${page}&per_page=${perPage}`;
+      if (category) url += `&category=${category}`;
+      const { data } = await apiClient.get(url);
+      return data as { items: BlogPostSummary[]; total: number; page: number; per_page: number };
+    }, 60_000);
   },
 
   getFeatured: async (limit = 5) => {
-    const { data } = await apiClient.get(`/blog/featured?limit=${limit}`);
-    return data as BlogPostSummary[];
+    return getCached(makeCacheKey('blog:featured', { limit }), async () => {
+      const { data } = await apiClient.get(`/blog/featured?limit=${limit}`);
+      return data as BlogPostSummary[];
+    }, 60_000);
   },
 
   getPostBySlug: async (slug: string) => {
-    const { data } = await apiClient.get(`/blog/${slug}`);
-    return data as BlogPost;
+    return getCached(makeCacheKey('blog:detail', { slug }), async () => {
+      const { data } = await apiClient.get(`/blog/${slug}`);
+      return data as BlogPost;
+    }, 5 * 60_000);
   },
 };

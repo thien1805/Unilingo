@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 5
     DB_POOL_TIMEOUT: int = 30
+    SQLALCHEMY_ECHO: bool = False
 
     # ─── Redis ───
     REDIS_URL: str = "redis://localhost:6379/0"

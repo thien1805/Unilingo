@@ -2,6 +2,7 @@
  * Leaderboard API service
  */
 import apiClient from './client';
+import { getCached, makeCacheKey } from './cache';
 
 export interface LeaderboardEntry {
   rank: number;
@@ -22,12 +23,18 @@ export interface LeaderboardData {
 
 export const leaderboardAPI = {
   get: async (period: 'weekly' | 'monthly' | 'all_time' = 'weekly'): Promise<LeaderboardData> => {
-    const { data } = await apiClient.get('/leaderboard', { params: { period } });
-    return data;
+    const params = { period };
+    return getCached(makeCacheKey('leaderboard:list', params), async () => {
+      const { data } = await apiClient.get('/leaderboard', { params });
+      return data;
+    }, 30_000);
   },
 
   getMyRank: async (period: string = 'weekly') => {
-    const { data } = await apiClient.get('/leaderboard/me', { params: { period } });
-    return data;
+    const params = { period };
+    return getCached(makeCacheKey('leaderboard:me', params), async () => {
+      const { data } = await apiClient.get('/leaderboard/me', { params });
+      return data;
+    }, 30_000);
   },
 };

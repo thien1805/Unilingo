@@ -2,6 +2,7 @@
  * Practice API service
  */
 import apiClient from './client';
+import { getCached, makeCacheKey } from './cache';
 
 export interface StartPracticePayload {
   topic_id?: string;
@@ -182,13 +183,17 @@ export const practiceAPI = {
     per_page?: number;
     ielts_part?: string;
   }): Promise<{ items: PracticeHistoryItem[]; total: number; page: number; per_page: number }> => {
-    const { data } = await apiClient.get('/practice/history', { params });
-    return data;
+    return getCached(makeCacheKey('practice:history', params), async () => {
+      const { data } = await apiClient.get('/practice/history', { params });
+      return data;
+    }, 30_000);
   },
 
   getStats: async (): Promise<PracticeStats> => {
-    const { data } = await apiClient.get('/practice/stats');
-    return data;
+    return getCached('practice:stats', async () => {
+      const { data } = await apiClient.get('/practice/stats');
+      return data;
+    }, 30_000);
   },
 
   getTTSUrl: (text: string): string => {

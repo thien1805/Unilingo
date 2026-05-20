@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
 import { authAPI } from '../../api/auth';
+import { getApiBaseUrl } from '../../api/client';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 
 const NAVY = '#3350B2';
@@ -66,6 +67,14 @@ export default function RegisterScreen({ navigation }: any) {
         .join(', ');
     }
 
+    if (error?.code === 'ECONNABORTED') {
+      return `Request timed out while connecting to ${getApiBaseUrl()}. The backend may still be starting up; please try again in a moment.`;
+    }
+
+    if (!error?.response && (error?.request || error?.message === 'Network Error')) {
+      return `Cannot connect to API server at ${getApiBaseUrl()}. Make sure the backend is running and reachable.`;
+    }
+
     return fallback;
   };
 
@@ -87,6 +96,7 @@ export default function RegisterScreen({ navigation }: any) {
     try {
       await authAPI.registerSendOtp(email.trim().toLowerCase());
       setStep('otp');
+      setOtp('');
     } catch (error: any) {
       showError('Error', getErrorMessage(error, 'Could not send OTP. Please try again.'));
     } finally {
@@ -102,7 +112,12 @@ export default function RegisterScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      await authAPI.register({ email: email.trim().toLowerCase(), password, full_name: fullName, otp });
+      await authAPI.register({
+        email: email.trim().toLowerCase(),
+        password,
+        full_name: fullName.trim(),
+        otp,
+      });
       logout();
       setShowSuccessModal(true);
     } catch (error: any) {

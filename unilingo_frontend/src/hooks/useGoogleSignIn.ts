@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
 import { authAPI } from '../api/auth';
 import { usersAPI } from '../api/users';
 import { useAuthStore } from '../store/authStore';
@@ -14,19 +16,29 @@ export function useGoogleSignIn(onError?: (message: string) => void) {
   const { setTokens, setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
 
-  const config = useMemo(() => ({
-    webClientId: trimEnv(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID) || FALLBACK_CLIENT_ID,
-    iosClientId: trimEnv(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID) || FALLBACK_CLIENT_ID,
-    androidClientId: trimEnv(process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID) || FALLBACK_CLIENT_ID,
-    selectAccount: true,
-    scopes: ['openid', 'profile', 'email'],
+  const clientIds = useMemo(() => ({
+    web: trimEnv(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID),
+    ios: trimEnv(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID),
+    android: trimEnv(process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID),
   }), []);
 
-  const isConfigured = Boolean(
-    trimEnv(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID) ||
-    trimEnv(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID) ||
-    trimEnv(process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID)
-  );
+  const platformClientId = Platform.select({
+    ios: clientIds.ios,
+    android: clientIds.android,
+    default: clientIds.web,
+  });
+
+  const isExpoGoNative = Platform.OS !== 'web' && Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+  const config = useMemo(() => ({
+    webClientId: clientIds.web || FALLBACK_CLIENT_ID,
+    iosClientId: clientIds.ios || FALLBACK_CLIENT_ID,
+    androidClientId: clientIds.android || FALLBACK_CLIENT_ID,
+    selectAccount: true,
+    scopes: ['openid', 'profile', 'email'],
+  }), [clientIds.android, clientIds.ios, clientIds.web]);
+
+  const isConfigured = Boolean(platformClientId);
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest(config);
 
@@ -46,6 +58,13 @@ export function useGoogleSignIn(onError?: (message: string) => void) {
   }, [onError, setTokens, setUser]);
 
   useEffect(() => {
+    if (response?.type === 'error') {
+      setLoading(false);
+      const description = response.params?.error_description || response.error?.message;
+      onError?.(description || 'Google sign-in was rejected. Please check OAuth client configuration.');
+      return;
+    }
+
     if (response?.type !== 'success') return;
     const idToken = response.params?.id_token;
     if (!idToken) {
@@ -60,6 +79,10 @@ export function useGoogleSignIn(onError?: (message: string) => void) {
       onError?.('Google OAuth client IDs are not configured.');
       return;
     }
+    if (isExpoGoNative) {
+      onError?.('Google sign-in needs a development build for this app package. Expo Go uses a different app id, which Google rejects with a 400 error.');
+      return;
+    }
     if (!request) return;
 
     setLoading(true);
@@ -72,7 +95,7 @@ export function useGoogleSignIn(onError?: (message: string) => void) {
       setLoading(false);
       onError?.('Could not open Google sign-in.');
     }
-  }, [isConfigured, onError, promptAsync, request]);
+  }, [isConfigured, isExpoGoNative, onError, promptAsync, request]);
 
   return {
     googleLoading: loading,

@@ -5,10 +5,43 @@ import axios from 'axios';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { useAuthStore } from '../store/authStore';
+import { clearApiCache } from './cache';
 
 const DEFAULT_API_URL = 'http://localhost:8000/api/v1';
 
-const isLoopbackUrl = (url?: string) => !!url && /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url);
+const extractHostname = (uri?: string | null) => {
+  if (!uri) return null;
+
+  const trimmed = uri.trim();
+  if (!trimmed) return null;
+
+  const withoutProtocol = trimmed.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '');
+  const hostWithPort = withoutProtocol.split('/')[0].split('?')[0];
+
+  if (hostWithPort.startsWith('[')) {
+    const bracketEnd = hostWithPort.indexOf(']');
+    return bracketEnd > 0 ? hostWithPort.slice(1, bracketEnd) : null;
+  }
+
+  return hostWithPort.split(':')[0] || null;
+};
+
+const isLoopbackHost = (host?: string | null) => {
+  const normalized = host?.trim().toLowerCase();
+  return (
+    normalized === 'localhost' ||
+    normalized === '0.0.0.0' ||
+    normalized === '::1' ||
+    !!normalized?.startsWith('127.')
+  );
+};
+
+const isAndroidEmulatorHost = (host?: string | null) => {
+  const normalized = host?.trim();
+  return normalized === '10.0.2.2' || normalized === '10.0.3.2';
+};
+
+const isLoopbackUrl = (url?: string) => isLoopbackHost(extractHostname(url));
 const normalizeBaseUrl = (url: string) => url.replace(/\/+$/, '');
 
 const getExplicitBaseUrl = () => {
@@ -18,30 +51,42 @@ const getExplicitBaseUrl = () => {
 };
 
 const getDebuggerHost = () => {
+  const constants: any = Constants;
   const manifest: any = Constants.manifest;
-  const manifest2: any = (Constants as any).manifest2;
+  const manifest2: any = constants.manifest2;
+  const expoConfig: any = Constants.expoConfig;
 
-  return (
-    Constants.expoConfig?.hostUri ||
-    manifest?.hostUri ||
-    manifest?.debuggerHost ||
-    manifest2?.extra?.expoGo?.debuggerHost ||
-    null
-  );
+  return [
+    expoConfig?.hostUri,
+    constants.linkingUri,
+    constants.debuggerHost,
+    manifest?.hostUri,
+    manifest?.debuggerHost,
+    manifest2?.extra?.expoGo?.debuggerHost,
+    manifest2?.extra?.expoClient?.hostUri,
+  ].find((value) => typeof value === 'string' && value.trim().length > 0) ?? null;
 };
 
 const getPackagerHostUrl = () => {
   const hostUri = getDebuggerHost();
   if (!hostUri) return null;
 
-  const host = hostUri.split(':')[0];
-  if (!host || isLoopbackUrl(host)) return null;
+  const host = extractHostname(hostUri);
+  if (!host || isLoopbackHost(host)) return null;
 
   return `http://${host}:8000/api/v1`;
 };
 
 const getDefaultBaseUrl = () => {
   const explicitUrl = getExplicitBaseUrl();
+  const explicitHost = extractHostname(explicitUrl);
+
+  if (__DEV__ && Platform.OS !== 'web') {
+    const packagerUrl = getPackagerHostUrl();
+    if (packagerUrl && (!explicitUrl || isLoopbackUrl(explicitUrl) || isAndroidEmulatorHost(explicitHost))) {
+      return packagerUrl;
+    }
+  }
 
   // If explicit non-loopback env URL is set, always use it (e.g. Railway production)
   if (explicitUrl && !isLoopbackUrl(explicitUrl)) return normalizeBaseUrl(explicitUrl);
@@ -52,7 +97,7 @@ const getDefaultBaseUrl = () => {
 
   // For physical devices (Android & iOS), auto-detect the dev machine IP
   // from the Metro bundler connection — no hardcoded IPs needed
-  const packagerUrl = getPackagerHostUrl();
+  const packagerUrl = Platform.OS === 'web' ? null : getPackagerHostUrl();
   if (packagerUrl) return packagerUrl;
 
   // Emulator fallbacks
@@ -90,7 +135,13 @@ apiClient.interceptors.request.use(
 
 // Response interceptor — handle 401 and token refresh
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const method = response.config?.method?.toLowerCase();
+    if (method && method !== 'get') {
+      clearApiCache();
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 

@@ -2,6 +2,7 @@
  * Users & Profile API service
  */
 import apiClient from './client';
+import { getCached, makeCacheKey } from './cache';
 import { UserProfile } from '../store/authStore';
 
 export interface DashboardData {
@@ -40,8 +41,10 @@ export interface UpdateProfilePayload {
 
 export const usersAPI = {
   getMe: async (): Promise<UserProfile> => {
-    const { data } = await apiClient.get('/users/me');
-    return data;
+    return getCached('users:me', async () => {
+      const { data } = await apiClient.get('/users/me');
+      return data;
+    }, 60_000);
   },
 
   updateProfile: async (payload: UpdateProfilePayload): Promise<UserProfile> => {
@@ -50,13 +53,17 @@ export const usersAPI = {
   },
 
   getDashboard: async (): Promise<DashboardData> => {
-    const { data } = await apiClient.get('/users/me/dashboard');
-    return data;
+    return getCached('users:dashboard', async () => {
+      const { data } = await apiClient.get('/users/me/dashboard');
+      return data;
+    }, 30_000);
   },
 
   getStreaks: async () => {
-    const { data } = await apiClient.get('/users/me/streaks');
-    return data;
+    return getCached('users:streaks', async () => {
+      const { data } = await apiClient.get('/users/me/streaks');
+      return data;
+    }, 30_000);
   },
 
   changePassword: async (currentPassword: string, newPassword: string) => {
@@ -88,11 +95,17 @@ export interface LeaderboardResponse {
 
 export const leaderboardAPI = {
   get: async (period: string = 'weekly', limit: number = 50): Promise<LeaderboardResponse> => {
-    const { data } = await apiClient.get('/leaderboard', { params: { period, limit } });
-    return data;
+    const params = { period, limit };
+    return getCached(makeCacheKey('leaderboard:list', params), async () => {
+      const { data } = await apiClient.get('/leaderboard', { params });
+      return data;
+    }, 30_000);
   },
   getMyRank: async (period: string = 'weekly') => {
-    const { data } = await apiClient.get('/leaderboard/me', { params: { period } });
-    return data;
+    const params = { period };
+    return getCached(makeCacheKey('leaderboard:me', params), async () => {
+      const { data } = await apiClient.get('/leaderboard/me', { params });
+      return data;
+    }, 30_000);
   },
 };
