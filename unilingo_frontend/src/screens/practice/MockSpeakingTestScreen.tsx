@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, CameraView } from 'expo-camera';
 import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
+import { usePreventRemove } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import AppBackground from '../../components/common/AppBackground';
 import AnimatedMascot, { AnimatedMascotState } from '../../components/common/AnimatedMascot';
@@ -58,6 +59,7 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
   const [isExaminerSpeaking, setIsExaminerSpeaking] = useState(false);
+  const [allowRemove, setAllowRemove] = useState(false);
 
   const recordedAnswersRef = useRef<RecordedMockAnswer[]>([]);
   const activeQuestionRef = useRef<ActiveQuestion | null>(null);
@@ -269,7 +271,7 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
 
   const mascotState: AnimatedMascotState =
     phase === 'recording' ? 'speaking' : phase === 'completed' ? 'happy' : 'idle';
-  const cameraFrameHeight = Math.max(280, Math.round(windowHeight * 0.5));
+  const cameraFrameHeight = Math.max(220, Math.round(windowHeight * 0.38));
 
   useEffect(() => {
     if (!cameraEnabled) {
@@ -287,20 +289,6 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
       resetTimer(currentLimit);
     }
   }, [currentLimit, phase, resetTimer]);
-
-  useEffect(() => {
-    if (phase !== 'ready' || !testData || isTranscribing) return;
-
-    const questionKey = `${part}-${questionIndex}`;
-    if (spokenQuestionKeyRef.current === questionKey) return;
-    spokenQuestionKeyRef.current = questionKey;
-
-    const timeout = setTimeout(() => {
-      speakExaminerPrompt(part, questionIndex, true).catch(() => {});
-    }, 250);
-
-    return () => clearTimeout(timeout);
-  }, [isTranscribing, part, phase, questionIndex, speakExaminerPrompt, testData]);
 
   const appendRecordedAnswer = useCallback((answer: RecordedMockAnswer) => {
     const next = [...recordedAnswersRef.current, answer];
@@ -382,6 +370,38 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
     });
   }, [part, questionIndex, getQuestion, getLimit, recorderError, showError, startRecording, startTimer, stopCurrentRecording, stopExaminerAudio]);
 
+  useEffect(() => {
+    if (phase !== 'ready' || !testData || isTranscribing || isRecording) return;
+
+    const questionKey = `${part}-${questionIndex}`;
+    if (spokenQuestionKeyRef.current === questionKey) return;
+    spokenQuestionKeyRef.current = questionKey;
+
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      const shouldIncludeIntro =
+        (part === 1 && questionIndex === 0) ||
+        (part === 3 && questionIndex === 0);
+
+      speakExaminerPrompt(part, questionIndex, shouldIncludeIntro)
+        .then(() => {
+          if (!cancelled && screenActiveRef.current) {
+            startQuestionRecording(part, questionIndex);
+          }
+        })
+        .catch(() => {
+          if (!cancelled && screenActiveRef.current) {
+            startQuestionRecording(part, questionIndex);
+          }
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [isRecording, isTranscribing, part, phase, questionIndex, speakExaminerPrompt, startQuestionRecording, testData]);
+
   const startPart2Preparation = useCallback(async () => {
     if (!testData) return;
     stopTimer();
@@ -401,10 +421,13 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
   const finishTest = useCallback(() => {
     stopTimer();
     stopExaminerAudio();
-    navigation.replace('MockTestResult', {
-      recordedAnswers: recordedAnswersRef.current,
-      title: testTitle,
-    });
+    setAllowRemove(true);
+    setTimeout(() => {
+      navigation.replace('MockTestResult', {
+        recordedAnswers: recordedAnswersRef.current,
+        title: testTitle,
+      });
+    }, 0);
   }, [navigation, stopExaminerAudio, stopTimer, testTitle]);
 
   const handleNext = useCallback(() => {
@@ -440,6 +463,11 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
     }
   }, [finishTest, testData, part, phase, questionIndex, resetTimer, startPart2Preparation]);
 
+  const handleManualStopRecording = useCallback(() => {
+    autoAdvancePendingRef.current = true;
+    stopCurrentRecording();
+  }, [stopCurrentRecording]);
+
   useEffect(() => {
     if (phase !== 'completed' || isTranscribing || !autoAdvancePendingRef.current) return;
 
@@ -456,19 +484,39 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
       'End Mock Test?',
       'Are you sure you want to end this mock test?',
       async () => {
-        await stopExaminerAudio();
         stopTimer();
+        await stopExaminerAudio();
         if (isRecording) {
           await stopCurrentRecording();
         }
-        navigation.replace('MockTestResult', {
-          recordedAnswers: recordedAnswersRef.current,
-          title: testTitle,
-        });
+        setAllowRemove(true);
+        setTimeout(() => {
+          navigation.replace('MockTestResult', {
+            recordedAnswers: recordedAnswersRef.current,
+            title: testTitle,
+          });
+        }, 0);
       },
-      { confirmText: 'End Test', cancelText: 'Continue' }
+      { confirmText: 'End Test', cancelText: 'Continue', destructive: true }
     );
   }, [isRecording, navigation, showConfirm, stopCurrentRecording, stopExaminerAudio, stopTimer, testTitle]);
+
+  usePreventRemove(!allowRemove, ({ data }) => {
+    showConfirm(
+      'End Mock Test?',
+      'Do you want to end this mock test and leave the screen?',
+      async () => {
+        stopTimer();
+        await stopExaminerAudio();
+        if (isRecording) {
+          await stopCurrentRecording();
+        }
+        setAllowRemove(true);
+        setTimeout(() => navigation.dispatch(data.action), 0);
+      },
+      { confirmText: 'End Test', cancelText: 'Continue', destructive: true }
+    );
+  });
 
   useEffect(() => {
     return () => {
@@ -503,6 +551,7 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
               </Text>
             </View>
           )}
+          <AppModal config={modal} onDismiss={hideModal} />
         </SafeAreaView>
       </AppBackground>
     );
@@ -546,6 +595,42 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
         </View>
 
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={[styles.questionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
+            <View style={styles.questionHeader}>
+              <Text style={[Typography.caption, { color: colors.accent }]}>
+                {part === 2 ? 'Cue Card Task' : 'Current Question'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.listenButton, { backgroundColor: colors.accentBg }]}
+                onPress={() => speakExaminerPrompt(part, questionIndex, false)}
+                disabled={phase === 'recording'}
+              >
+                <Ionicons
+                  name={isExaminerSpeaking ? 'volume-high' : 'volume-medium-outline'}
+                  size={18}
+                  color={phase === 'recording' ? colors.textMuted : colors.accent}
+                />
+              </TouchableOpacity>
+            </View>
+            <Text style={[Typography.h4, styles.questionText, { color: colors.textPrimary }]}>
+              {currentQuestion}
+            </Text>
+
+            {isPart2 && (
+              <View style={[styles.cueBox, { backgroundColor: colors.accentBg }]}>
+                <Text style={[Typography.bodyMedium, { color: colors.textPrimary }]}>You should say:</Text>
+                {testData.part2.points.map((point) => (
+                  <View key={point} style={styles.cuePoint}>
+                    <Text style={[Typography.bodySm, { color: colors.textPrimary }]}>• {point}</Text>
+                  </View>
+                ))}
+                <Text style={[Typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
+                  Preparation: {testData.part2.preparationTime}s • Speaking: {testData.part2.speakingTime}s
+                </Text>
+              </View>
+            )}
+          </View>
+
           {cameraEnabled && (
             <View style={[styles.cameraCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
               {cameraGranted ? (
@@ -617,48 +702,9 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
                     ? 'Audio saved and transcript ready'
                     : phase === 'preparing'
                       ? 'Prepare your answer. Recording starts after the timer.'
-                      : 'Recording status: idle'}
+                      : 'Recording will start automatically'}
               </Text>
             </View>
-          </View>
-
-          <View style={[styles.questionCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
-            <View style={styles.questionHeader}>
-              <Text style={[Typography.caption, { color: colors.accent, flex: 1 }]}>
-                {part === 2 ? 'Cue Card Task' : 'Current Question'}
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.replayButton,
-                  { backgroundColor: colors.bgSecondary, opacity: phase !== 'recording' && !isTranscribing ? 1 : 0.45 },
-                ]}
-                disabled={phase === 'recording' || isTranscribing}
-                onPress={() => speakExaminerPrompt(part, questionIndex, false).catch(() => {})}
-              >
-                <Ionicons
-                  name={isExaminerSpeaking ? 'volume-high' : 'volume-medium-outline'}
-                  size={18}
-                  color={isExaminerSpeaking ? colors.accent : colors.textSecondary}
-                />
-              </TouchableOpacity>
-            </View>
-            <Text style={[Typography.h4, styles.questionText, { color: colors.textPrimary }]}>
-              {currentQuestion}
-            </Text>
-
-            {isPart2 && (
-              <View style={[styles.cueBox, { backgroundColor: colors.accentBg }]}>
-                <Text style={[Typography.bodyMedium, { color: colors.textPrimary }]}>You should say:</Text>
-                {testData.part2.points.map((point) => (
-                  <View key={point} style={styles.cuePoint}>
-                    <Text style={[Typography.bodySm, { color: colors.textPrimary }]}>• {point}</Text>
-                  </View>
-                ))}
-                <Text style={[Typography.caption, { color: colors.textSecondary, marginTop: 4 }]}>
-                  Preparation: {testData.part2.preparationTime}s • Speaking: {testData.part2.speakingTime}s
-                </Text>
-              </View>
-            )}
           </View>
 
           {recorderError && (
@@ -680,18 +726,6 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
           )}
 
           <View style={styles.actions}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              disabled={phase !== 'ready' || isTranscribing || isExaminerSpeaking}
-              onPress={() => startQuestionRecording()}
-              style={{ opacity: phase === 'ready' && !isTranscribing && !isExaminerSpeaking ? 1 : 0.5 }}
-            >
-              <LinearGradient colors={Gradients.primary} style={styles.primaryButton}>
-                <Ionicons name="mic" size={18} color="#1F2937" />
-                <Text style={styles.primaryButtonText}>Start Recording</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
             <View style={styles.actionRow}>
               <TouchableOpacity
                 style={[
@@ -699,7 +733,7 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
                   { backgroundColor: colors.bgCard, borderColor: colors.border, opacity: phase === 'recording' && !isTranscribing ? 1 : 0.5 },
                 ]}
                 disabled={phase !== 'recording' || isTranscribing}
-                onPress={stopCurrentRecording}
+                onPress={handleManualStopRecording}
               >
                 <Ionicons name="stop" size={18} color={colors.rose} />
                 <Text style={[styles.secondaryButtonText, { color: colors.textPrimary }]}>Stop Recording</Text>
@@ -842,9 +876,10 @@ const styles = StyleSheet.create({
   questionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  replayButton: {
+  listenButton: {
     width: 36,
     height: 36,
     borderRadius: 18,

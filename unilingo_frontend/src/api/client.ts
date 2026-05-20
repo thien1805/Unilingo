@@ -61,14 +61,12 @@ const getDefaultBaseUrl = () => {
   return explicitUrl || DEFAULT_API_URL;
 };
 
-const BASE_URL = getDefaultBaseUrl();
-
 if (__DEV__) {
-  console.log(`[API] BASE_URL=${BASE_URL}`);
+  console.log(`[API] BASE_URL=${getDefaultBaseUrl()}`);
 }
 
 const apiClient = axios.create({
-  baseURL: BASE_URL,
+  baseURL: getDefaultBaseUrl(),
   timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
@@ -78,6 +76,9 @@ const apiClient = axios.create({
 // Request interceptor — attach JWT token
 apiClient.interceptors.request.use(
   (config) => {
+    const baseURL = getDefaultBaseUrl();
+    config.baseURL = baseURL;
+
     const token = useAuthStore.getState().accessToken;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -99,13 +100,15 @@ apiClient.interceptors.response.use(
       const refreshToken = useAuthStore.getState().refreshToken;
       if (refreshToken) {
         try {
-          const response = await axios.post(`${BASE_URL}/auth/refresh`, {
+          const baseURL = getDefaultBaseUrl();
+          const response = await axios.post(`${baseURL}/auth/refresh`, {
             refresh_token: refreshToken,
           });
 
           const { access_token, refresh_token } = response.data;
           useAuthStore.getState().setTokens(access_token, refresh_token);
 
+          originalRequest.baseURL = baseURL;
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
           return apiClient(originalRequest);
         } catch (refreshError) {
@@ -122,4 +125,4 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
-export { BASE_URL };
+export { getDefaultBaseUrl as getApiBaseUrl };
