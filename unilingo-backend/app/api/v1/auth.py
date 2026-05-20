@@ -1,8 +1,6 @@
 """
 Authentication API routes
 """
-import os
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,11 +25,6 @@ from sqlalchemy import select
 from app.models.user import User
 
 settings = get_settings()
-
-
-def _is_development_environment() -> bool:
-    env_value = getattr(settings, "ENVIRONMENT", None) or os.getenv("APP_ENV")
-    return str(env_value).lower() == "development"
 
 
 def _google_oauth_client_ids() -> list[str]:
@@ -105,10 +98,7 @@ async def register_send_otp(request: SendOTPRequest, db: AsyncSession = Depends(
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """Register a new user with email, password, and OTP."""
-    # local development only, do not use in production
-    if _is_development_environment() and request.otp == "000000":
-        pass
-    elif not verify_otp(request.email, request.otp, prefix="register"):
+    if not verify_otp(request.email, request.otp, prefix="register"):
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
         
     user = await register_user(

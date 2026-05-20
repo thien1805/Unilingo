@@ -65,6 +65,7 @@ export default function HomeScreen({ navigation }: any) {
   const [selectedBlogCategory, setSelectedBlogCategory] = useState('all');
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const streakModalShownRef = useRef(false);
+  const lastLoadAtRef = useRef(0);
 
   const checkStreakModal = (currentUserData: any) => {
     // Show onboarding modal if user hasn't set a goal target
@@ -74,7 +75,13 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const loadData = useCallback(async (showInitialLoader = false) => {
+  const loadData = useCallback(async (showInitialLoader = false, force = false) => {
+    const now = Date.now();
+    if (!force && now - lastLoadAtRef.current < 10_000) {
+      return;
+    }
+    lastLoadAtRef.current = now;
+
     const revealTimer = showInitialLoader ? setTimeout(() => setLoading(false), 1200) : null;
 
     try {
@@ -110,7 +117,7 @@ export default function HomeScreen({ navigation }: any) {
     }
   }, [setUser]);
 
-  useEffect(() => { loadData(true); }, [loadData]);
+  useEffect(() => { loadData(true, true); }, [loadData]);
 
   useFocusEffect(
     useCallback(() => {
@@ -146,8 +153,6 @@ export default function HomeScreen({ navigation }: any) {
 
   // Initials for avatar
   const initials = userName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  const latestForecast = forecastBlogs[0];
-
   const getGreeting = () => {
     const hr = new Date().getHours();
     if (hr < 12) return 'Good morning! ';
@@ -196,7 +201,7 @@ export default function HomeScreen({ navigation }: any) {
           refreshControl={
             <RefreshControl
               refreshing={loading}
-              onRefresh={() => loadData(true)}
+              onRefresh={() => loadData(true, true)}
               tintColor={colors.accent}
               colors={[colors.accent]}
             />
@@ -523,16 +528,6 @@ function timeAgo(dateStr: string): string {
   const diffDay = Math.floor(diffHr / 24);
   if (diffDay < 7) return diffDay === 1 ? 'Yesterday' : `${diffDay} days ago`;
   return date.toLocaleDateString();
-}
-
-function getForecastSkill(blog: BlogPostSummary) {
-  const content = [
-    ...(blog.tags || []),
-    blog.title,
-    blog.excerpt || '',
-  ].join(' ').toLowerCase();
-
-  return FORECAST_SKILLS.find(skill => content.includes(skill.key))?.key;
 }
 
 const styles = StyleSheet.create({

@@ -20,6 +20,7 @@ services:
         condition: service_healthy
     volumes:
       - ./app:/code/app
+      - ./app/uploads:/code/app/uploads
     restart: unless-stopped
 
   # ─── PostgreSQL Database ───
@@ -30,8 +31,8 @@ services:
       POSTGRES_USER: unilingo
       POSTGRES_PASSWORD: unilingo_password
       POSTGRES_DB: unilingo_db
-    # ports:
-    #   - "5434:5432"  # Not exposed, accessed via Docker internal network
+    ports:
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -84,10 +85,13 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./app:/code/app
+      - ./app/uploads:/code/app/uploads
     restart: unless-stopped
 
   # ─── Celery Beat (Scheduler) ───
@@ -101,7 +105,8 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

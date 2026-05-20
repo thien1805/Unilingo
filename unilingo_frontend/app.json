@@ -23,7 +23,7 @@
     },
     "android": {
       "package": "com.unilingo.app",
-      "googleServicesFile": "./google-services.json",
+      "usesCleartextTraffic": true,
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO"

@@ -2,6 +2,7 @@
  * Topics & Questions API service
  */
 import apiClient from './client';
+import { getCached, makeCacheKey } from './cache';
 import { MockTestData, normalizeMockTestData } from '../data/mockSpeakingTest';
 
 export interface Topic {
@@ -36,27 +37,37 @@ export const topicsAPI = {
     category?: string;
     difficulty?: string;
   }): Promise<{ items: Topic[]; total: number }> => {
-    const { data } = await apiClient.get('/topics', { params });
-    return data;
+    return getCached(makeCacheKey('topics:list', params), async () => {
+      const { data } = await apiClient.get('/topics', { params });
+      return data;
+    }, 5 * 60_000);
   },
 
   getDetail: async (topicId: string) => {
-    const { data } = await apiClient.get(`/topics/${topicId}`);
-    return data;
+    return getCached(makeCacheKey('topics:detail', { topicId }), async () => {
+      const { data } = await apiClient.get(`/topics/${topicId}`);
+      return data;
+    }, 5 * 60_000);
   },
 
   getQuestions: async (topicId: string): Promise<Question[]> => {
-    const { data } = await apiClient.get(`/topics/${topicId}/questions`);
-    return data;
+    return getCached(makeCacheKey('topics:questions', { topicId }), async () => {
+      const { data } = await apiClient.get(`/topics/${topicId}/questions`);
+      return data;
+    }, 5 * 60_000);
   },
 
   getRecommended: async (): Promise<Topic[]> => {
-    const { data } = await apiClient.get('/topics/recommended');
-    return data;
+    return getCached('topics:recommended', async () => {
+      const { data } = await apiClient.get('/topics/recommended');
+      return data;
+    }, 60_000);
   },
 
   getMockTest: async (): Promise<MockTestData> => {
-    const { data } = await apiClient.get('/topics/mock-test', { timeout: 8000 });
-    return normalizeMockTestData(data);
+    return getCached('topics:mock-test', async () => {
+      const { data } = await apiClient.get('/topics/mock-test', { timeout: 8000 });
+      return normalizeMockTestData(data);
+    }, 60_000);
   },
 };

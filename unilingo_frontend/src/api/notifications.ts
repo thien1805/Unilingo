@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { getCached, makeCacheKey } from './cache';
 
 export interface NotificationSettings {
   daily_reminder: boolean;
@@ -38,8 +39,10 @@ export interface NotificationListResponse {
 
 export const notificationsAPI = {
   getSettings: async (): Promise<NotificationSettings> => {
-    const { data } = await apiClient.get('/notifications/settings');
-    return data;
+    return getCached('notifications:settings', async () => {
+      const { data } = await apiClient.get('/notifications/settings');
+      return data;
+    }, 60_000);
   },
 
   updateSettings: async (payload: NotificationSettingsPatch): Promise<NotificationSettings> => {
@@ -53,15 +56,18 @@ export const notificationsAPI = {
   },
 
   getUnreadCount: async (): Promise<number> => {
-    const { data } = await apiClient.get('/notifications/unread-count');
-    return data.unread || 0;
+    return getCached('notifications:unread-count', async () => {
+      const { data } = await apiClient.get('/notifications/unread-count');
+      return data.unread || 0;
+    }, 20_000);
   },
 
   list: async (page = 1, perPage = 20, unreadOnly = false): Promise<NotificationListResponse> => {
-    const { data } = await apiClient.get('/notifications', {
-      params: { page, per_page: perPage, unread_only: unreadOnly },
-    });
-    return data;
+    const params = { page, per_page: perPage, unread_only: unreadOnly };
+    return getCached(makeCacheKey('notifications:list', params), async () => {
+      const { data } = await apiClient.get('/notifications', { params });
+      return data;
+    }, 20_000);
   },
 
   markRead: async (notificationId: string): Promise<UserNotification> => {
