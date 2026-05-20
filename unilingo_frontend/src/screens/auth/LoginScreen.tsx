@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
 import { authAPI } from '../../api/auth';
-import { BASE_URL } from '../../api/client';
+import { getApiBaseUrl } from '../../api/client';
 import { usersAPI } from '../../api/users';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { Typography, FontFamily } from '../../theme/typography';
@@ -83,11 +83,11 @@ export default function LoginScreen({ navigation }: any) {
     }
 
     if (error?.code === 'ECONNABORTED') {
-      return `Request timed out while connecting to ${BASE_URL}. The Railway backend may still be starting up; please try again in a moment.`;
+      return `Request timed out while connecting to ${getApiBaseUrl()}. The backend may still be starting up; please try again in a moment.`;
     }
 
     if (!error?.response && (error?.request || error?.message === 'Network Error')) {
-      return `Cannot connect to API server at ${BASE_URL}. Make sure the deployed backend is running and reachable.`;
+      return `Cannot connect to API server at ${getApiBaseUrl()}. Make sure the backend is running and reachable.`;
     }
 
     return fallback;
