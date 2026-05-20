@@ -255,7 +255,7 @@ def _run_scoring_sync(audio_url: str, question_text: str, ielts_part: str, setti
 def _transcribe_sync(audio_url: str, settings) -> str:
     """Transcribe audio using Groq Whisper model (synchronous)."""
     if not settings.GROQ_API_KEY:
-        return "[Mock] I would like to talk about a place I visited recently. It was a beautiful beach."
+        return ""
 
     import os
     if not os.path.exists(audio_url):
@@ -277,7 +277,7 @@ def _transcribe_sync(audio_url: str, settings) -> str:
         return str(transcription).strip() or "No speech could be recognized."
     except Exception as e:
         print(f"Groq STT error: {e}")
-        return f"[Transcription failed: {e}]"
+        return ""
 
 
 def _assess_pronunciation_sync(audio_url: str, settings) -> dict:

@@ -8,7 +8,9 @@ export function useMockTestTimer() {
   const [isRunning, setIsRunning] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const completeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialSecondsRef = useRef(0);
+  const remainingSecondsRef = useRef(0);
   const onCompleteRef = useRef<TimerCompleteHandler | null>(null);
 
   const stop = useCallback(() => {
@@ -16,12 +18,17 @@ export function useMockTestTimer() {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    if (completeTimeoutRef.current) {
+      clearTimeout(completeTimeoutRef.current);
+      completeTimeoutRef.current = null;
+    }
     setIsRunning(false);
   }, []);
 
   const reset = useCallback((seconds = 0) => {
     stop();
     initialSecondsRef.current = seconds;
+    remainingSecondsRef.current = seconds;
     onCompleteRef.current = null;
     setTimeLeft(seconds);
     setElapsed(0);
@@ -30,28 +37,34 @@ export function useMockTestTimer() {
   const start = useCallback((seconds: number, onComplete?: TimerCompleteHandler) => {
     stop();
     initialSecondsRef.current = seconds;
+    remainingSecondsRef.current = seconds;
     onCompleteRef.current = onComplete || null;
     setTimeLeft(seconds);
     setElapsed(0);
     setIsRunning(true);
 
     intervalRef.current = setInterval(() => {
-      setTimeLeft((current) => {
-        if (current <= 1) {
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-          }
-          setIsRunning(false);
-          setElapsed(initialSecondsRef.current);
-          onCompleteRef.current?.();
-          return 0;
-        }
+      const next = Math.max(0, remainingSecondsRef.current - 1);
+      remainingSecondsRef.current = next;
+      setTimeLeft(next);
+      setElapsed(initialSecondsRef.current - next);
 
-        const next = current - 1;
-        setElapsed(initialSecondsRef.current - next);
-        return next;
-      });
+      if (next === 0) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        setIsRunning(false);
+
+        const complete = onCompleteRef.current;
+        onCompleteRef.current = null;
+        if (complete) {
+          completeTimeoutRef.current = setTimeout(() => {
+            completeTimeoutRef.current = null;
+            complete();
+          }, 0);
+        }
+      }
     }, 1000);
   }, [stop]);
 

@@ -44,7 +44,7 @@ export default function ForecastListScreen({ route, navigation }: any) {
             {new Date(selectedForecast.created_at).toLocaleDateString()}
           </Text>
           <View style={[styles.card, { backgroundColor: colors.bgCard, borderColor: colors.border, padding: 16, marginTop: 16, marginBottom: 40 }]}>
-             <Markdown scrollEnabled={false} style={{ body: { color: colors.textPrimary, fontSize: 15, lineHeight: 24 } }}>
+             <Markdown style={{ body: { color: colors.textPrimary, fontSize: 15, lineHeight: 24 } }}>
                {selectedForecast.content}
              </Markdown>
           </View>

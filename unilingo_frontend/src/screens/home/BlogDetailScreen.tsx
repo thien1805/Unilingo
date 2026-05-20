@@ -129,7 +129,6 @@ export default function BlogDetailScreen({ route, navigation }: any) {
           {/* Markdown Content */}
           <View style={styles.markdownContainer}>
             <Markdown
-              scrollEnabled={false}
               style={{
                 body: { ...Typography.body, color: colors.textPrimary, lineHeight: 26 },
                 heading1: { ...Typography.h1, color: colors.textPrimary, marginTop: 24, marginBottom: 12 },

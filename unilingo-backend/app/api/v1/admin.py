@@ -16,6 +16,7 @@ from app.schemas.topic import (
     CreateTopicRequest, UpdateTopicRequest, TopicResponse,
     CreateQuestionRequest, UpdateQuestionRequest, QuestionResponse,
 )
+from app.config import get_settings
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -44,6 +45,59 @@ async def admin_dashboard(
         "total_topics": total_topics,
         "total_questions": total_questions,
         "total_vocabulary_saved": total_vocab_saved,
+    }
+
+
+@router.get("/system-health")
+async def admin_system_health(
+    admin: User = Depends(get_admin_user),
+):
+    """Return non-secret service configuration status for admin diagnostics."""
+    settings = get_settings()
+
+    return {
+        "environment": settings.ENVIRONMENT,
+        "debug": settings.DEBUG,
+        "api_public_url": settings.APP_PUBLIC_URL or None,
+        "services": {
+            "speech_to_text": {
+                "configured": bool(settings.GROQ_API_KEY),
+                "provider": "Groq Whisper",
+                "model": settings.GROQ_TRANSCRIPTION_MODEL,
+                "required_env": "GROQ_API_KEY",
+            },
+            "tts": {
+                "configured": bool(settings.AZURE_SPEECH_KEY),
+                "provider": "Azure Neural TTS",
+                "region": settings.AZURE_SPEECH_REGION,
+                "voice": settings.TTS_VOICE_NAME,
+                "style": settings.TTS_VOICE_STYLE or None,
+                "required_env": "AZURE_SPEECH_KEY",
+            },
+            "scoring": {
+                "configured": bool(settings.GROQ_API_KEY),
+                "provider": "Groq Chat Completions",
+                "model": settings.GROQ_SCORING_MODEL,
+                "detail_mode": settings.AI_SCORING_DETAIL_MODE,
+                "required_env": "GROQ_API_KEY",
+            },
+            "pronunciation": {
+                "configured": bool(settings.AZURE_SPEECH_KEY),
+                "provider": "Azure Speech Pronunciation Assessment",
+                "region": settings.AZURE_SPEECH_REGION,
+                "required_env": "AZURE_SPEECH_KEY",
+            },
+            "storage": {
+                "configured": settings.AUDIO_STORAGE_BACKEND == "local" or bool(settings.S3_BUCKET_NAME),
+                "provider": settings.AUDIO_STORAGE_BACKEND,
+                "bucket": settings.S3_BUCKET_NAME if settings.AUDIO_STORAGE_BACKEND == "s3" else None,
+            },
+            "inline_scoring": {
+                "configured": settings.SCORING_INLINE_ENABLED,
+                "timeout_seconds": settings.SCORING_INLINE_TIMEOUT_SECONDS,
+                "celery_fallback": settings.SCORING_CELERY_FALLBACK_ENABLED,
+            },
+        },
     }
 
 

@@ -14,6 +14,7 @@ export default function MockTestResultScreen({ navigation, route }: any) {
   const [showRecordings, setShowRecordings] = useState(false);
   const recordedAnswers: RecordedMockAnswer[] = route.params?.recordedAnswers || [];
   const testTitle = route.params?.title || 'IELTS Speaking Mock Test';
+  const transcriptCount = recordedAnswers.filter((answer) => Boolean(answer.transcript?.trim())).length;
 
   const completedParts = [1, 2, 3].map((part) => ({
     part,
@@ -30,7 +31,7 @@ export default function MockTestResultScreen({ navigation, route }: any) {
               {testTitle} Completed
             </Text>
             <Text style={[Typography.body, styles.subtitle, { color: colors.textSecondary }]}>
-              {recordedAnswers.length} audio answers were saved and converted into scripts for evaluation.
+              {recordedAnswers.length} audio answers were saved. {transcriptCount} scripts are available for review.
             </Text>
 
             <View style={[styles.scoreBox, { backgroundColor: colors.accentBg }]}>
@@ -41,7 +42,7 @@ export default function MockTestResultScreen({ navigation, route }: any) {
                   AI evaluation will be connected later
                 </Text>
                 <Text style={[Typography.caption, { color: colors.textSecondary }]}>
-                  Scripts are ready to be connected to the existing speaking evaluation pipeline.
+                  Saved audio can be scored after speech-to-text is available for every answer.
                 </Text>
               </View>
             </View>

@@ -3,6 +3,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, useW
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, CameraView } from 'expo-camera';
 import { Audio } from 'expo-av';
+import type { AVPlaybackStatus } from 'expo-av';
 import * as Speech from 'expo-speech';
 import { usePreventRemove } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,6 +35,15 @@ const formatTime = (seconds: number) => {
   const secs = seconds % 60;
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
 };
+
+const TTS_LOAD_TIMEOUT_MS = 12000;
+const getSpeechSafetyTimeout = (text: string) => Math.min(
+  90000,
+  Math.max(18000, text.length * 120 + 4000),
+);
+
+const isSystemTranscript = (value: string) =>
+  /^\s*\[(mock transcript|mock|transcription failed|error)\]/i.test(value);
 
 export default function MockSpeakingTestScreen({ navigation, route }: any) {
   const { colors } = useThemeStore();
@@ -69,15 +79,10 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
   const speechFinishRef = useRef<(() => void) | null>(null);
   const screenActiveRef = useRef(true);
   const spokenQuestionKeyRef = useRef<string | null>(null);
+  const autoPromptInFlightRef = useRef<string | null>(null);
 
   const stopExaminerAudio = useCallback(async () => {
     Speech.stop();
-
-    const finishSpeech = speechFinishRef.current;
-    if (finishSpeech) {
-      speechFinishRef.current = null;
-      finishSpeech();
-    }
 
     if (examinerSoundRef.current) {
       try {
@@ -85,6 +90,12 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
         await examinerSoundRef.current.unloadAsync();
       } catch {}
       examinerSoundRef.current = null;
+    }
+
+    const finishSpeech = speechFinishRef.current;
+    if (finishSpeech) {
+      speechFinishRef.current = null;
+      finishSpeech();
     }
 
     if (screenActiveRef.current) {
@@ -200,9 +211,6 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
       speechFinishRef.current = finish;
       setIsExaminerSpeaking(true);
 
-      // Prevent infinite hangs if both fallback and native speech fail
-      timeout = setTimeout(finish, Math.max(8000, speechText.length * 90));
-
       try {
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
@@ -210,13 +218,27 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
         });
 
         const url = practiceAPI.getTTSUrl(speechText);
-        
-        // Race network TTS with a 5s timeout to force fallback if network is bad or cleartext HTTP hangs
-        const soundPromise = Audio.Sound.createAsync({ uri: url }, { shouldPlay: true, volume: 1.0 });
-        soundPromise.catch(() => {}); // Prevent unhandled promise rejection if it fails after timeout
-        const networkTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('TTS network timeout')), 5000));
-        
-        const { sound } = await Promise.race([soundPromise, networkTimeout]) as any;
+        let didTimeout = false;
+        let loadTimeout: ReturnType<typeof setTimeout> | null = null;
+        const soundPromise = Audio.Sound.createAsync({ uri: url }, { shouldPlay: false, volume: 1.0 });
+        soundPromise
+          .then(({ sound }) => {
+            if (didTimeout) {
+              sound.unloadAsync().catch(() => {});
+            }
+          })
+          .catch(() => {});
+        const { sound } = await Promise.race([
+          soundPromise,
+          new Promise<never>((_, reject) => {
+            loadTimeout = setTimeout(() => {
+              didTimeout = true;
+              reject(new Error('TTS load timeout'));
+            }, TTS_LOAD_TIMEOUT_MS);
+          }),
+        ]).finally(() => {
+          if (loadTimeout) clearTimeout(loadTimeout);
+        });
 
         if (resolved) {
           sound.unloadAsync().catch(() => {});
@@ -224,8 +246,18 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
         }
 
         examinerSoundRef.current = sound;
+        timeout = setTimeout(async () => {
+          if (examinerSoundRef.current === sound) {
+            try {
+              await sound.stopAsync();
+              await sound.unloadAsync();
+            } catch {}
+            examinerSoundRef.current = null;
+          }
+          finish();
+        }, getSpeechSafetyTimeout(speechText));
 
-        sound.setOnPlaybackStatusUpdate((status) => {
+        sound.setOnPlaybackStatusUpdate((status: AVPlaybackStatus) => {
           if (status.isLoaded && status.didJustFinish) {
             sound.unloadAsync().catch(() => {});
             if (examinerSoundRef.current === sound) {
@@ -234,13 +266,26 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
             finish();
           }
         });
+        await sound.playAsync();
       } catch (error) {
         console.log('[MockSpeakingTest] Backend examiner TTS failed, using native speech:', error);
+        if (examinerSoundRef.current) {
+          try {
+            await examinerSoundRef.current.stopAsync();
+            await examinerSoundRef.current.unloadAsync();
+          } catch {}
+        }
         examinerSoundRef.current = null;
+        if (resolved || !screenActiveRef.current) {
+          finish();
+          return;
+        }
 
         if (timeout) clearTimeout(timeout);
-        // Tight timeout for native speech because onDone is unreliable on Android
-        timeout = setTimeout(finish, Math.max(3000, speechText.length * 75 + 1500));
+        timeout = setTimeout(() => {
+          Speech.stop();
+          finish();
+        }, getSpeechSafetyTimeout(speechText));
 
         try {
           const voices = await Speech.getAvailableVoicesAsync();
@@ -320,9 +365,14 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
       } as any);
 
       const response = await practiceAPI.transcribeAudio(formData);
-      return response.transcript?.trim() || 'No speech could be recognized.';
+      const transcript = response.transcript?.trim() || '';
+      if (!transcript || isSystemTranscript(transcript)) {
+        setTranscriptionError('Transcript is unavailable. The audio answer was still saved.');
+        return null;
+      }
+      return transcript;
     } catch {
-      setTranscriptionError('Could not transcribe this answer. The audio was still saved.');
+      setTranscriptionError('Transcript is unavailable. The audio answer was still saved.');
       return null;
     } finally {
       setIsTranscribing(false);
@@ -330,27 +380,36 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
   }, []);
 
   const stopCurrentRecording = useCallback(async () => {
-    if (isStoppingRef.current) return;
+    if (isStoppingRef.current) return false;
     isStoppingRef.current = true;
     stopTimer();
 
     const activeQuestion = activeQuestionRef.current;
     const result = await stopRecording();
 
-    if (result?.uri && activeQuestion) {
-      const transcript = await transcribeRecording(result.uri);
-      appendRecordedAnswer({
-        part: activeQuestion.part,
-        question: activeQuestion.question,
-        uri: result.uri,
-        duration: Math.min(result.duration, activeQuestion.limit),
-        transcript,
-      });
+    if (!result?.uri || !activeQuestion) {
+      activeQuestionRef.current = null;
+      autoAdvancePendingRef.current = false;
+      isStoppingRef.current = false;
+      showError('Recording Error', recorderError || 'Could not save your recording. Please try this question again.');
+      setPhase('ready');
+      return false;
     }
+
+    const transcript = await transcribeRecording(result.uri);
+    appendRecordedAnswer({
+      part: activeQuestion.part,
+      question: activeQuestion.question,
+      uri: result.uri,
+      duration: Math.min(result.duration, activeQuestion.limit),
+      transcript,
+    });
 
     activeQuestionRef.current = null;
     setPhase('completed');
-  }, [appendRecordedAnswer, stopRecording, stopTimer, transcribeRecording]);
+    isStoppingRef.current = false;
+    return true;
+  }, [appendRecordedAnswer, recorderError, showError, stopRecording, stopTimer, transcribeRecording]);
 
   const startQuestionRecording = useCallback(async (
     targetPart: MockTestPart = part,
@@ -360,12 +419,13 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
     const limit = getLimit(targetPart);
 
     isStoppingRef.current = false;
+    autoAdvancePendingRef.current = false;
     await stopExaminerAudio();
     const started = await startRecording();
     if (!started) {
       showError('Recording Error', recorderError || 'Could not start recording. Please try again.');
       setPhase('ready');
-      return;
+      return false;
     }
 
     activeQuestionRef.current = {
@@ -375,10 +435,14 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
       limit,
     };
     setPhase('recording');
-    startTimer(limit, () => {
+    startTimer(limit, async () => {
       autoAdvancePendingRef.current = true;
-      stopCurrentRecording();
+      const saved = await stopCurrentRecording();
+      if (!saved) {
+        autoAdvancePendingRef.current = false;
+      }
     });
+    return true;
   }, [part, questionIndex, getQuestion, getLimit, recorderError, showError, startRecording, startTimer, stopCurrentRecording, stopExaminerAudio]);
 
   useEffect(() => {
@@ -386,7 +450,8 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
 
     const questionKey = `${part}-${questionIndex}`;
     if (spokenQuestionKeyRef.current === questionKey) return;
-    spokenQuestionKeyRef.current = questionKey;
+    if (autoPromptInFlightRef.current === questionKey) return;
+    autoPromptInFlightRef.current = questionKey;
 
     let cancelled = false;
     const timeout = setTimeout(() => {
@@ -395,14 +460,21 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
         (part === 3 && questionIndex === 0);
 
       speakExaminerPrompt(part, questionIndex, shouldIncludeIntro)
-        .then(() => {
+        .then(async () => {
           if (!cancelled && screenActiveRef.current) {
-            startQuestionRecording(part, questionIndex);
+            const started = await startQuestionRecording(part, questionIndex);
+            spokenQuestionKeyRef.current = started ? questionKey : null;
           }
         })
-        .catch(() => {
+        .catch(async () => {
           if (!cancelled && screenActiveRef.current) {
-            startQuestionRecording(part, questionIndex);
+            const started = await startQuestionRecording(part, questionIndex);
+            spokenQuestionKeyRef.current = started ? questionKey : null;
+          }
+        })
+        .finally(() => {
+          if (autoPromptInFlightRef.current === questionKey) {
+            autoPromptInFlightRef.current = null;
           }
         });
     }, 250);
@@ -410,6 +482,9 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
     return () => {
       cancelled = true;
       clearTimeout(timeout);
+      if (autoPromptInFlightRef.current === questionKey) {
+        autoPromptInFlightRef.current = null;
+      }
     };
   }, [isRecording, isTranscribing, part, phase, questionIndex, speakExaminerPrompt, startQuestionRecording, testData]);
 
@@ -424,8 +499,11 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
     resetTimer(testData.part2.preparationTime);
     await speakExaminerPrompt(2, 0, true);
     if (!screenActiveRef.current) return;
-    startTimer(testData.part2.preparationTime, () => {
-      startQuestionRecording(2, 0);
+    startTimer(testData.part2.preparationTime, async () => {
+      const started = await startQuestionRecording(2, 0);
+      if (started) {
+        spokenQuestionKeyRef.current = '2-0';
+      }
     });
   }, [resetTimer, speakExaminerPrompt, startQuestionRecording, startTimer, stopExaminerAudio, stopTimer, testData]);
 
@@ -474,9 +552,12 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
     }
   }, [finishTest, testData, part, phase, questionIndex, resetTimer, startPart2Preparation]);
 
-  const handleManualStopRecording = useCallback(() => {
+  const handleManualStopRecording = useCallback(async () => {
     autoAdvancePendingRef.current = true;
-    stopCurrentRecording();
+    const saved = await stopCurrentRecording();
+    if (!saved) {
+      autoAdvancePendingRef.current = false;
+    }
   }, [stopCurrentRecording]);
 
   useEffect(() => {
@@ -614,7 +695,7 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
               <TouchableOpacity
                 style={[styles.listenButton, { backgroundColor: colors.accentBg }]}
                 onPress={() => speakExaminerPrompt(part, questionIndex, false)}
-                disabled={phase === 'recording'}
+                disabled={phase === 'recording' || isExaminerSpeaking || isTranscribing}
               >
                 <Ionicons
                   name={isExaminerSpeaking ? 'volume-high' : 'volume-medium-outline'}
@@ -645,7 +726,14 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
           {cameraEnabled && (
             <View style={[styles.cameraCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
               {cameraGranted ? (
-                <CameraView facing="front" mirror style={[styles.cameraPreview, { height: cameraFrameHeight }]}>
+                <CameraView
+                  active
+                  facing="front"
+                  mirror
+                  mode="picture"
+                  mute
+                  style={[styles.cameraPreview, { height: cameraFrameHeight }]}
+                >
                   <View style={styles.cameraPill}>
                     <View style={styles.cameraDot} />
                     <Text style={styles.cameraPillText}>Camera active</Text>
