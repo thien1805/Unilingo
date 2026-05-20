@@ -171,6 +171,7 @@
         <button class="tab active" data-panel="dashboard">Dashboard</button>
         <button class="tab" data-panel="notifications">Notifications</button>
         <button class="tab" data-panel="blogs">Blogs</button>
+        <button class="tab" data-panel="forecasts">Daily Forecasts</button>
         <button class="tab" data-panel="exercises">IELTS Exercises</button>
         <button class="tab" data-panel="users">Users</button>
       </nav>
@@ -312,6 +313,51 @@
         <div class="table-wrap" id="blogTable"></div>
       </section>
 
+      <section id="forecasts" class="panel hidden">
+        <div class="between">
+          <h2>Daily Forecast CMS</h2>
+          <span class="status" id="forecastStatus"></span>
+        </div>
+        <form id="forecastForm">
+          <input type="hidden" name="id" />
+          <div class="grid">
+            <div class="field">
+              <label>Title</label>
+              <input name="title" required />
+            </div>
+            <div class="field">
+              <label>Skill Category</label>
+              <select name="skill_category">
+                <option value="listening">listening</option>
+                <option value="reading">reading</option>
+                <option value="writing">writing</option>
+                <option value="speaking">speaking</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid">
+            <div class="field">
+              <label>Excerpt</label>
+              <input name="excerpt" />
+            </div>
+            <div class="field">
+              <label>Cover image URL</label>
+              <input type="url" name="cover_image_url" placeholder="https://..." />
+            </div>
+          </div>
+          <div class="field">
+            <label>Markdown content</label>
+            <textarea name="content" required></textarea>
+          </div>
+          <div class="row">
+            <button type="submit">Save forecast</button>
+            <button type="button" class="secondary" id="resetForecastBtn">New forecast</button>
+          </div>
+        </form>
+        <h3>All Forecasts</h3>
+        <div class="table-wrap" id="forecastTable"></div>
+      </section>
+
       <section id="exercises" class="panel hidden">
         <div class="between">
           <h2>IELTS Exercises CMS</h2>
@@ -426,6 +472,7 @@
       token: localStorage.getItem("unilingo_admin_token") || "",
       users: [],
       blogs: [],
+      forecasts: [],
       topics: [],
       questions: [],
     };
@@ -623,6 +670,20 @@
       ]);
     }
 
+    async function loadForecasts() {
+      const data = await api("/forecast/?per_page=100");
+      state.forecasts = data.items || [];
+      $("#forecastTable").innerHTML = table(state.forecasts, [
+        { label: "Title", render: f => `<strong>${esc(f.title)}</strong>` },
+        { label: "Skill", render: f => pill(f.skill_category) },
+        { label: "Date", render: f => new Date(f.created_at).toLocaleDateString() },
+        { label: "Actions", render: f => `
+          <button class="secondary" data-forecast-edit="${esc(f.id)}">Edit</button>
+          <button class="danger" data-forecast-delete="${esc(f.id)}">Delete</button>
+        ` },
+      ]);
+    }
+
     async function loadTopics() {
       const data = await api("/admin/topics?per_page=200");
       state.topics = data.items || [];
@@ -664,7 +725,7 @@
       }
       setStatus("#globalStatus", "Refreshing...");
       const results = await Promise.allSettled([
-        loadDashboard(), loadUsers(), loadCampaigns(), loadBlogs(), loadTopics(), loadQuestions(),
+        loadDashboard(), loadUsers(), loadCampaigns(), loadBlogs(), loadForecasts(), loadTopics(), loadQuestions(),
       ]);
       const failed = results.find(r => r.status === "rejected");
       if (failed) {
@@ -793,6 +854,33 @@
       }
     });
 
+    $("#forecastForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const data = formValues(form);
+      const id = data.id;
+      const payload = {
+        title: data.title,
+        skill_category: data.skill_category,
+        content: data.content,
+        excerpt: data.excerpt || null,
+        cover_image_url: data.cover_image_url || null,
+      };
+      try {
+        setStatus("#forecastStatus", "Saving...");
+        id
+          ? await api(`/forecast/admin/${id}`, { method: "PUT", body: JSON.stringify(payload) })
+          : await api("/forecast/admin/create", { method: "POST", body: JSON.stringify(payload) });
+        setStatus("#forecastStatus", "Forecast saved", "ok");
+        showToast("Forecast saved successfully", "success");
+        resetForm(form);
+        await loadForecasts();
+      } catch (error) {
+        setStatus("#forecastStatus", error.message, "err");
+        showToast(error.message, "error");
+      }
+    });
+
     $("#topicForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const form = event.currentTarget;
@@ -853,6 +941,7 @@
     });
 
     $("#resetBlogBtn").addEventListener("click", () => resetForm($("#blogForm")));
+    $("#resetForecastBtn").addEventListener("click", () => resetForm($("#forecastForm")));
     $("#resetTopicBtn").addEventListener("click", () => resetForm($("#topicForm")));
     $("#resetQuestionBtn").addEventListener("click", () => resetForm($("#questionForm")));
 
@@ -860,6 +949,8 @@
       const target = event.target;
       const blogEdit = target.dataset?.blogEdit;
       const blogDelete = target.dataset?.blogDelete;
+      const forecastEdit = target.dataset?.forecastEdit;
+      const forecastDelete = target.dataset?.forecastDelete;
       const topicEdit = target.dataset?.topicEdit;
       const topicDelete = target.dataset?.topicDelete;
       const questionEdit = target.dataset?.questionEdit;
@@ -882,6 +973,16 @@
           await api(`/blog/admin/${blogDelete}`, { method: "DELETE" });
           await loadBlogs();
           showToast("Blog deleted successfully", "success");
+        }
+        if (forecastEdit) {
+          const forecast = state.forecasts.find(item => item.id === forecastEdit);
+          fillForm($("#forecastForm"), forecast);
+          window.scrollTo({ top: $("#forecasts").offsetTop - 80, behavior: "smooth" });
+        }
+        if (forecastDelete && confirm("Delete this forecast?")) {
+          await api(`/forecast/admin/${forecastDelete}`, { method: "DELETE" });
+          await loadForecasts();
+          showToast("Forecast deleted successfully", "success");
         }
         if (topicEdit) {
           const topic = state.topics.find(item => item.id === topicEdit);
