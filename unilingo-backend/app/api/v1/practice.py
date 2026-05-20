@@ -1,8 +1,9 @@
 """
 Practice & Test API routes
 """
+import asyncio
 from uuid import UUID
-from fastapi import APIRouter, Depends, UploadFile, File, Query, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, UploadFile, File, Query, HTTPException, status
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -32,6 +33,41 @@ def normalize_band(value) -> float | None:
     except (TypeError, ValueError):
         return None
     return max(0.0, min(9.0, round(band * 2) / 2))
+
+
+def build_scoring_result_response(attempt: TestAttempt) -> ScoringResultResponse:
+    parts_response = []
+    for part in attempt.parts:
+        scoring = None
+        if part.scoring_result:
+            scoring = AIScoringResponse.model_validate(part.scoring_result)
+            scoring.fluency_band = normalize_band(scoring.fluency_band)
+            scoring.lexical_band = normalize_band(scoring.lexical_band)
+            scoring.grammar_band = normalize_band(scoring.grammar_band)
+            scoring.pronunciation_band = normalize_band(scoring.pronunciation_band)
+            scoring.overall_band = normalize_band(scoring.overall_band)
+        parts_response.append(PartResultResponse(
+            part_id=part.id,
+            part_number=part.part_number,
+            question_text=part.question.question_text if part.question else None,
+            has_audio=bool(part.audio_url),
+            transcript=part.transcript,
+            duration_seconds=part.duration_seconds,
+            scoring=scoring,
+        ))
+
+    return ScoringResultResponse(
+        attempt_id=attempt.id,
+        status=attempt.status,
+        overall_band=normalize_band(attempt.overall_band),
+        fluency_score=normalize_band(attempt.fluency_score),
+        lexical_score=normalize_band(attempt.lexical_score),
+        grammar_score=normalize_band(attempt.grammar_score),
+        pronunciation_score=normalize_band(attempt.pronunciation_score),
+        duration_seconds=attempt.duration_seconds,
+        xp_earned=attempt.xp_earned,
+        parts=parts_response,
+    )
 
 
 def transcribe_audio_file(audio_path: str) -> str:
@@ -356,14 +392,27 @@ Make questions diverse and authentic. Do NOT repeat similar questions."""
 @router.get("/tts")
 async def get_tts(text: str = Query(...)):
     """Generate high-quality Text-to-Speech using Azure Neural TTS."""
-    from fastapi.responses import StreamingResponse
+    from fastapi.responses import FileResponse, StreamingResponse
     from app.config import get_settings
+    from pathlib import Path
+    import hashlib
     import httpx
     import io
     
     settings = get_settings()
     if not settings.AZURE_SPEECH_KEY:
         raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Azure Speech key not configured")
+
+    cache_dir = Path(settings.TTS_CACHE_DIR)
+    if not cache_dir.is_absolute():
+        cache_dir = Path.cwd() / cache_dir
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_key = hashlib.sha256(f"{settings.AZURE_SPEECH_REGION}:en-US-JennyNeural:{text}".encode("utf-8")).hexdigest()
+    cache_path = cache_dir / f"{cache_key}.mp3"
+    cache_headers = {"Cache-Control": "public, max-age=86400"}
+
+    if cache_path.exists() and cache_path.stat().st_size > 0:
+        return FileResponse(str(cache_path), media_type="audio/mpeg", headers=cache_headers)
         
     url = f"https://{settings.AZURE_SPEECH_REGION}.tts.speech.microsoft.com/cognitiveservices/v1"
     headers = {
@@ -381,9 +430,11 @@ async def get_tts(text: str = Query(...)):
         if response.status_code != 200:
             print(f"Azure TTS Error: {response.text}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="TTS generation failed")
+
+        cache_path.write_bytes(response.content)
             
         audio_data = io.BytesIO(response.content)
-        return StreamingResponse(audio_data, media_type="audio/mpeg")
+        return StreamingResponse(audio_data, media_type="audio/mpeg", headers=cache_headers)
 
 
 
@@ -411,27 +462,39 @@ async def upload_audio(
     if attempt.status not in ("in_progress",):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Attempt is not in progress")
 
+    import aiofiles
     import os
-    import shutil
     upload_dir = os.path.join(os.getcwd(), "app", "uploads")
     os.makedirs(upload_dir, exist_ok=True)
     
     audio_filename = f"{attempt_id}_part{part_number}.m4a"
     audio_path = os.path.join(upload_dir, audio_filename)
     
-    with open(audio_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    async with aiofiles.open(audio_path, "wb") as buffer:
+        while chunk := await file.read(1024 * 1024):
+            await buffer.write(chunk)
         
     audio_url = audio_path
 
-    # Create attempt part
-    attempt_part = AttemptPart(
-        attempt_id=attempt_id,
-        question_id=question_id,
-        audio_url=audio_url,
-        part_number=part_number,
+    existing_part_result = await db.execute(
+        select(AttemptPart).where(
+            AttemptPart.attempt_id == attempt_id,
+            AttemptPart.part_number == part_number,
+        )
     )
-    db.add(attempt_part)
+    attempt_part = existing_part_result.scalar_one_or_none()
+    if attempt_part:
+        attempt_part.question_id = question_id
+        attempt_part.audio_url = audio_url
+        attempt_part.duration_seconds = None
+    else:
+        attempt_part = AttemptPart(
+            attempt_id=attempt_id,
+            question_id=question_id,
+            audio_url=audio_url,
+            part_number=part_number,
+        )
+        db.add(attempt_part)
     await db.flush()
 
     return UploadAudioResponse(
@@ -447,8 +510,8 @@ async def transcribe_audio(
     current_user: User = Depends(get_current_user),
 ):
     """Upload one mock-test answer audio file and return its transcript."""
+    import aiofiles
     import os
-    import shutil
     import uuid
 
     upload_dir = os.path.join(os.getcwd(), "app", "uploads", "mock_test_transcripts")
@@ -458,8 +521,9 @@ async def transcribe_audio(
     audio_filename = f"{safe_user_id}_{uuid.uuid4()}.m4a"
     audio_path = os.path.join(upload_dir, audio_filename)
 
-    with open(audio_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    async with aiofiles.open(audio_path, "wb") as buffer:
+        while chunk := await file.read(1024 * 1024):
+            await buffer.write(chunk)
 
     transcript = transcribe_audio_file(audio_path)
     return TranscribeAudioResponse(transcript=transcript)
@@ -468,13 +532,37 @@ async def transcribe_audio(
 @router.post("/{attempt_id}/submit", response_model=SubmitPracticeResponse)
 async def submit_practice(
     attempt_id: UUID,
+    background_tasks: BackgroundTasks,
+    wait_for_result: bool = Query(default=True),
+    timeout_seconds: int | None = Query(default=None, ge=5, le=240),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Submit a practice attempt for AI scoring."""
+    """Submit a practice attempt and, by default, wait for immediate AI scoring."""
+    from app.config import get_settings
+
+    settings = get_settings()
+
+    async def load_attempt_with_results() -> TestAttempt | None:
+        loaded = await db.execute(
+            select(TestAttempt)
+            .options(
+                selectinload(TestAttempt.parts).selectinload(AttemptPart.question),
+                selectinload(TestAttempt.parts).selectinload(AttemptPart.scoring_result),
+            )
+            .where(
+                TestAttempt.id == attempt_id,
+                TestAttempt.user_id == current_user.id,
+            )
+        )
+        return loaded.scalar_one_or_none()
+
     result = await db.execute(
         select(TestAttempt)
-        .options(selectinload(TestAttempt.parts))
+        .options(
+            selectinload(TestAttempt.parts).selectinload(AttemptPart.question),
+            selectinload(TestAttempt.parts).selectinload(AttemptPart.scoring_result),
+        )
         .where(
             TestAttempt.id == attempt_id,
             TestAttempt.user_id == current_user.id,
@@ -487,64 +575,104 @@ async def submit_practice(
     if not attempt.parts:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No audio uploaded")
 
-    # Update status to "scoring"
-    attempt.status = "scoring"
-    
-    # Calculate XP (50 for part 1, 100 for part 2, 150 for part 3)
-    xp = 50 if attempt.ielts_part == "part1" else 100 if attempt.ielts_part == "part2" else 150
-    attempt.xp_earned = xp
-    
-    # Update user XP
-    current_user.total_xp += xp
-    
-    # Update Daily Streak
-    from app.models.user import DailyStreak
-    from datetime import date, timedelta
-    today = date.today()
-    
-    streak_result = await db.execute(
-        select(DailyStreak).where(DailyStreak.user_id == current_user.id, DailyStreak.streak_date == today)
-    )
-    today_streak = streak_result.scalar_one_or_none()
-    
-    if not today_streak:
-        today_streak = DailyStreak(
-            user_id=current_user.id,
-            streak_date=today,
-            xp_earned=xp,
-            tests_completed=1,
-            study_minutes=int(attempt.duration_seconds / 60) if attempt.duration_seconds else 5
+    if attempt.status == "completed":
+        return SubmitPracticeResponse(
+            attempt_id=attempt.id,
+            status="completed",
+            message="Your practice has already been scored.",
+            result=build_scoring_result_response(attempt),
         )
-        db.add(today_streak)
-        
-        # Check if yesterday had a streak
-        yesterday = today - timedelta(days=1)
-        yesterday_streak_result = await db.execute(
-            select(DailyStreak).where(DailyStreak.user_id == current_user.id, DailyStreak.streak_date == yesterday)
+
+    should_start_scoring = attempt.status in ("in_progress", "failed")
+    if should_start_scoring:
+        attempt.status = "scoring"
+
+        # Award once at submit time so retrying submit cannot double-count XP.
+        if attempt.xp_earned == 0:
+            xp = 50 if attempt.ielts_part == "part1" else 100 if attempt.ielts_part == "part2" else 150
+            attempt.xp_earned = xp
+            current_user.total_xp += xp
+
+            from app.models.user import DailyStreak
+            from datetime import date, timedelta
+            today = date.today()
+
+            streak_result = await db.execute(
+                select(DailyStreak).where(DailyStreak.user_id == current_user.id, DailyStreak.streak_date == today)
+            )
+            today_streak = streak_result.scalar_one_or_none()
+
+            if not today_streak:
+                today_streak = DailyStreak(
+                    user_id=current_user.id,
+                    streak_date=today,
+                    xp_earned=xp,
+                    tests_completed=1,
+                    study_minutes=int(attempt.duration_seconds / 60) if attempt.duration_seconds else 5
+                )
+                db.add(today_streak)
+
+                yesterday = today - timedelta(days=1)
+                yesterday_streak_result = await db.execute(
+                    select(DailyStreak).where(DailyStreak.user_id == current_user.id, DailyStreak.streak_date == yesterday)
+                )
+                if yesterday_streak_result.scalar_one_or_none():
+                    current_user.current_streak += 1
+                else:
+                    current_user.current_streak = 1
+
+                if current_user.current_streak > current_user.longest_streak:
+                    current_user.longest_streak = current_user.current_streak
+            else:
+                today_streak.xp_earned += xp
+                today_streak.tests_completed += 1
+                if attempt.duration_seconds:
+                    today_streak.study_minutes += int(attempt.duration_seconds / 60)
+
+        await db.flush()
+        await db.commit()
+
+    if not should_start_scoring:
+        return SubmitPracticeResponse(
+            attempt_id=attempt.id,
+            status=attempt.status,
+            message="Your practice is already being scored.",
         )
-        if yesterday_streak_result.scalar_one_or_none():
-            current_user.current_streak += 1
+
+    from app.workers.scoring_tasks import score_practice_attempt, score_practice_attempt_sync
+
+    if settings.SCORING_INLINE_ENABLED:
+        if wait_for_result:
+            timeout = timeout_seconds or settings.SCORING_INLINE_TIMEOUT_SECONDS
+            try:
+                scoring_result = await asyncio.wait_for(
+                    asyncio.to_thread(score_practice_attempt_sync, str(attempt_id), True),
+                    timeout=timeout,
+                )
+                if scoring_result.get("status") == "completed":
+                    db.expire_all()
+                    completed_attempt = await load_attempt_with_results()
+                    if completed_attempt:
+                        return SubmitPracticeResponse(
+                            attempt_id=completed_attempt.id,
+                            status="completed",
+                            message="Your practice has been scored.",
+                            result=build_scoring_result_response(completed_attempt),
+                        )
+            except asyncio.TimeoutError:
+                print(f"Inline scoring still running for attempt {attempt_id}")
+            except Exception as exc:
+                print(f"Inline scoring failed for attempt {attempt_id}: {exc}")
+                background_tasks.add_task(score_practice_attempt_sync, str(attempt_id), False)
         else:
-            current_user.current_streak = 1
-            
-        if current_user.current_streak > current_user.longest_streak:
-            current_user.longest_streak = current_user.current_streak
-    else:
-        today_streak.xp_earned += xp
-        today_streak.tests_completed += 1
-        if attempt.duration_seconds:
-            today_streak.study_minutes += int(attempt.duration_seconds / 60)
-
-    await db.flush()
-
-    # Enqueue Celery task for AI scoring
-    from app.workers.scoring_tasks import score_practice_attempt
-    score_practice_attempt.delay(str(attempt_id))
+            background_tasks.add_task(score_practice_attempt_sync, str(attempt_id), False)
+    elif settings.SCORING_CELERY_FALLBACK_ENABLED:
+        score_practice_attempt.delay(str(attempt_id))
 
     return SubmitPracticeResponse(
         attempt_id=attempt.id,
         status="scoring",
-        message=f"You earned {xp} XP! Your practice is being scored by AI.",
+        message="Your practice is being scored by AI.",
     )
 
 
@@ -570,38 +698,7 @@ async def get_practice_result(
     if not attempt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attempt not found")
 
-    parts_response = []
-    for part in attempt.parts:
-        scoring = None
-        if part.scoring_result:
-            scoring = AIScoringResponse.model_validate(part.scoring_result)
-            scoring.fluency_band = normalize_band(scoring.fluency_band)
-            scoring.lexical_band = normalize_band(scoring.lexical_band)
-            scoring.grammar_band = normalize_band(scoring.grammar_band)
-            scoring.pronunciation_band = normalize_band(scoring.pronunciation_band)
-            scoring.overall_band = normalize_band(scoring.overall_band)
-        parts_response.append(PartResultResponse(
-            part_id=part.id,
-            part_number=part.part_number,
-            question_text=part.question.question_text if part.question else None,
-            has_audio=bool(part.audio_url),
-            transcript=part.transcript,
-            duration_seconds=part.duration_seconds,
-            scoring=scoring,
-        ))
-
-    return ScoringResultResponse(
-        attempt_id=attempt.id,
-        status=attempt.status,
-        overall_band=normalize_band(attempt.overall_band),
-        fluency_score=normalize_band(attempt.fluency_score),
-        lexical_score=normalize_band(attempt.lexical_score),
-        grammar_score=normalize_band(attempt.grammar_score),
-        pronunciation_score=normalize_band(attempt.pronunciation_score),
-        duration_seconds=attempt.duration_seconds,
-        xp_earned=attempt.xp_earned,
-        parts=parts_response,
-    )
+    return build_scoring_result_response(attempt)
 
 
 @router.get("/history", response_model=PracticeHistoryResponse)
@@ -667,18 +764,21 @@ async def get_practice_stats(
     )
     row = result.one()
 
-    # Per-part averages
-    part_avgs = {}
-    for part in ["part1", "part2", "part3"]:
-        part_result = await db.execute(
-            select(func.avg(TestAttempt.overall_band)).where(
-                TestAttempt.user_id == current_user.id,
-                TestAttempt.ielts_part == part,
-                TestAttempt.status == "completed",
-            )
+    part_avg_result = await db.execute(
+        select(
+            TestAttempt.ielts_part,
+            func.avg(TestAttempt.overall_band),
         )
-        avg = part_result.scalar()
-        part_avgs[part] = round(avg, 1) if avg else None
+        .where(
+            TestAttempt.user_id == current_user.id,
+            TestAttempt.status == "completed",
+        )
+        .group_by(TestAttempt.ielts_part)
+    )
+    part_avgs = {
+        part: round(avg, 1) if avg else None
+        for part, avg in part_avg_result.all()
+    }
 
     return PracticeStatsResponse(
         total_tests=row[0],

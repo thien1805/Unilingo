@@ -550,14 +550,13 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
       return;
     }
 
-    // Submit for scoring
     try {
-      await practiceAPI.submit(attemptId);
+      await practiceAPI.submit(attemptId, {
+        waitForResult: false,
+        timeoutSeconds: 5,
+      });
     } catch (e) {
-      console.log('Submit error:', e);
-      setLoadError('The practice attempt could not be submitted for AI scoring. Please retry the exam.');
-      setPhase('error');
-      return;
+      console.log('Submit delayed or failed, opening result screen for recovery:', e);
     }
 
     if (!isExamActiveRef.current) return;
@@ -577,6 +576,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
         ieltsPart: safeIeltsPart,
         topicTitle,
         duration: recordSeconds,
+        submitPending: true,
       });
     }
   };

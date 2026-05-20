@@ -47,8 +47,9 @@ class TranscribeAudioResponse(BaseModel):
 
 class SubmitPracticeResponse(BaseModel):
     attempt_id: uuid.UUID
-    status: str  # "scoring"
+    status: str  # "scoring" | "completed" | "failed"
     message: str
+    result: "ScoringResultResponse | None" = None
 
 
 class ScoringResultResponse(BaseModel):

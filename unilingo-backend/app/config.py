@@ -1,6 +1,7 @@
 """
 Unilingo Backend - Application Configuration
 """
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -16,6 +17,9 @@ class Settings(BaseSettings):
 
     # ─── Database ───
     DATABASE_URL: str = "postgresql+asyncpg://unilingo:unilingo_password@localhost:5432/unilingo_db"
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 5
+    DB_POOL_TIMEOUT: int = 30
 
     # ─── Redis ───
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -44,6 +48,12 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str = "unilingo-audio"
     S3_REGION: str = "us-east-1"
 
+    # ─── Scoring Runtime ───
+    SCORING_INLINE_ENABLED: bool = True
+    SCORING_INLINE_TIMEOUT_SECONDS: int = 150
+    SCORING_CELERY_FALLBACK_ENABLED: bool = True
+    TTS_CACHE_DIR: str = "app/cache/tts"
+
     # ─── Celery ───
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
@@ -57,6 +67,27 @@ class Settings(BaseSettings):
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = ""
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def parse_debug(cls, value):
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"release", "prod", "production", "false", "0", "no", "off"}:
+                return False
+            if normalized in {"debug", "dev", "development", "true", "1", "yes", "on"}:
+                return True
+        return value
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value):
+        if isinstance(value, str):
+            if value.startswith("postgresql://"):
+                return value.replace("postgresql://", "postgresql+asyncpg://", 1)
+            if value.startswith("postgres://"):
+                return value.replace("postgres://", "postgresql+asyncpg://", 1)
+        return value
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

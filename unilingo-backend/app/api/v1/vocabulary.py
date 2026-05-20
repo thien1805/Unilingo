@@ -56,14 +56,18 @@ async def list_vocabulary(
     result = await db.execute(query)
     notes = result.scalars().all()
 
+    tags_by_note: dict[UUID, list[str]] = {}
+    if notes:
+        tag_rows = await db.execute(
+            select(VocabularyTag.vocabulary_id, VocabularyTag.tag).where(
+                VocabularyTag.vocabulary_id.in_([note.id for note in notes])
+            )
+        )
+        for vocabulary_id, tag in tag_rows.all():
+            tags_by_note.setdefault(vocabulary_id, []).append(tag)
+
     items = []
     for note in notes:
-        # Get tags for this note
-        tags_result = await db.execute(
-            select(VocabularyTag.tag).where(VocabularyTag.vocabulary_id == note.id)
-        )
-        tags = [row[0] for row in tags_result.all()]
-
         resp = VocabularyResponse(
             id=note.id,
             word=note.word,
@@ -76,7 +80,7 @@ async def list_vocabulary(
             mastery_level=note.mastery_level,
             review_count=note.review_count,
             next_review_at=note.next_review_at,
-            tags=tags,
+            tags=tags_by_note.get(note.id, []),
             created_at=note.created_at,
         )
         items.append(resp)

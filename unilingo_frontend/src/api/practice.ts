@@ -98,6 +98,18 @@ export interface PracticeStats {
   improvement_pct: number;
 }
 
+export interface SubmitPracticeOptions {
+  waitForResult?: boolean;
+  timeoutSeconds?: number;
+}
+
+export interface SubmitPracticeResponse {
+  attempt_id: string;
+  status: string;
+  message: string;
+  result?: ScoringResult | null;
+}
+
 export const practiceAPI = {
   start: async (payload: StartPracticePayload): Promise<PracticeAttempt> => {
     const { data } = await apiClient.post('/practice/start', payload);
@@ -143,8 +155,20 @@ export const practiceAPI = {
     return data;
   },
 
-  submit: async (attemptId: string) => {
-    const { data } = await apiClient.post(`/practice/${attemptId}/submit`);
+  submit: async (attemptId: string, options: SubmitPracticeOptions = {}): Promise<SubmitPracticeResponse> => {
+    const waitForResult = options.waitForResult ?? true;
+    const timeoutSeconds = options.timeoutSeconds ?? 150;
+    const { data } = await apiClient.post(
+      `/practice/${attemptId}/submit`,
+      undefined,
+      {
+        params: {
+          wait_for_result: waitForResult,
+          timeout_seconds: timeoutSeconds,
+        },
+        timeout: (timeoutSeconds + 20) * 1000,
+      }
+    );
     return data;
   },
 

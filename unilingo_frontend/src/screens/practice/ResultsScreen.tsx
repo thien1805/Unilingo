@@ -31,6 +31,7 @@ export default function ResultsScreen({ navigation, route }: any) {
   const [resultError, setResultError] = useState<string | null>(null);
   const mountedRef = useRef(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const submitRecoveryStartedRef = useRef(false);
 
   // Dictionary Lookup State
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -269,6 +270,13 @@ export default function ResultsScreen({ navigation, route }: any) {
       return;
     }
 
+    if (data.status === 'in_progress' && !submitRecoveryStartedRef.current) {
+      submitRecoveryStartedRef.current = true;
+      practiceAPI.submit(attemptId, { waitForResult: false, timeoutSeconds: 5 }).catch((error) => {
+        console.log('[Results] Submit recovery failed:', error);
+      });
+    }
+
     setResultError(null);
     setPolling(true);
     setLoading(false);
@@ -307,7 +315,7 @@ export default function ResultsScreen({ navigation, route }: any) {
   const pollForResult = async () => {
     stopPolling();
     let retries = 0;
-    const maxRetries = 30; // Max 90 seconds
+    const maxRetries = 120; // Max 6 minutes
     pollIntervalRef.current = setInterval(async () => {
       if (!mountedRef.current) {
         stopPolling();
@@ -339,11 +347,18 @@ export default function ResultsScreen({ navigation, route }: any) {
           return;
         }
 
+        if (data.status === 'in_progress' && !submitRecoveryStartedRef.current) {
+          submitRecoveryStartedRef.current = true;
+          practiceAPI.submit(attemptId, { waitForResult: false, timeoutSeconds: 5 }).catch((error) => {
+            console.log('[Results] Submit recovery failed:', error);
+          });
+        }
+
         if (retries >= maxRetries) {
           stopPolling();
           setPolling(false);
           setLoading(false);
-          setResultError('AI scoring is taking longer than expected. Please check this attempt again from Practice History.');
+          setResultError('AI scoring is still running. Keep this screen open and tap Check again in a moment.');
         }
       } catch {
         if (retries >= maxRetries) {
@@ -421,7 +436,7 @@ export default function ResultsScreen({ navigation, route }: any) {
               AI is grading...
             </Text>
             <Text style={[Typography.bodyMedium, { color: colors.textSecondary, textAlign: 'center', lineHeight: 24 }]}>
-              Please wait a moment while our AI examiner analyzes your pronunciation, vocabulary, and grammar.
+              Please keep this screen open while our AI examiner analyzes your pronunciation, vocabulary, and grammar.
             </Text>
           </View>
           </View>
@@ -455,7 +470,7 @@ export default function ResultsScreen({ navigation, route }: any) {
                 {resultError}
               </Text>
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 24, width: '100%' }}>
-                <OutlineButton title="Retry" icon="refresh" onPress={() => navigation.goBack()} style={{ flex: 1 }} />
+                <OutlineButton title="Check again" icon="refresh" onPress={loadResult} style={{ flex: 1 }} />
                 <PrimaryButton title="Done" icon="checkmark" onPress={() => navigation.popToTop()} style={{ flex: 1 }} />
               </View>
             </View>

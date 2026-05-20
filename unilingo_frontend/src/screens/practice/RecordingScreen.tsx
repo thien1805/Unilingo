@@ -189,6 +189,7 @@ export default function RecordingScreen({ navigation, route }: any) {
 
       if (uri && attemptId) {
         // Upload audio to backend
+        let uploadCompleted = false;
         try {
           const formData = new FormData();
           formData.append('file', {
@@ -198,19 +199,23 @@ export default function RecordingScreen({ navigation, route }: any) {
           } as any);
 
           await practiceAPI.uploadAudio(attemptId, formData);
+          uploadCompleted = true;
           
-          if (!isFullTest || ieltsPart === 'part3') {
-            await practiceAPI.submit(attemptId);
-          }
+          await practiceAPI.submit(attemptId, {
+            waitForResult: false,
+            timeoutSeconds: 5,
+          });
         } catch (uploadOrSubmitError) {
           console.log('Upload/submit failed:', uploadOrSubmitError);
-          isStoppingRef.current = false;
-          Alert.alert(
-            'Could not submit recording',
-            'Your recording could not be uploaded or submitted for AI scoring. Please retry this question.',
-            [{ text: 'OK', onPress: () => navigation.goBack() }]
-          );
-          return;
+          if (!uploadCompleted) {
+            isStoppingRef.current = false;
+            Alert.alert(
+              'Could not upload recording',
+              'Your recording could not be uploaded, so this answer cannot be scored. Please retry this question.',
+              [{ text: 'OK', onPress: () => navigation.goBack() }]
+            );
+            return;
+          }
         }
       }
 
@@ -229,6 +234,7 @@ export default function RecordingScreen({ navigation, route }: any) {
           topicTitle,
           duration: seconds,
           audioUri: uri,
+          submitPending: true,
         });
       }
     } catch (error) {
