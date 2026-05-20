@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -23,6 +22,7 @@ import { useAuthStore } from '../../store/authStore';
 import { authAPI } from '../../api/auth';
 import { BASE_URL } from '../../api/client';
 import { usersAPI } from '../../api/users';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { Typography, FontFamily } from '../../theme/typography';
 
 const NAVY = '#3350B2';
@@ -65,6 +65,10 @@ export default function LoginScreen({ navigation }: any) {
     setErrorModalType('success');
     setErrorModalVisible(true);
   };
+
+  const { googleLoading, googleReady, signInWithGoogle } = useGoogleSignIn((message) => {
+    showError('Google Sign In', message);
+  });
 
   const getErrorMessage = (error: any, fallback: string) => {
     const detail = error?.response?.data?.detail;
@@ -304,12 +308,19 @@ export default function LoginScreen({ navigation }: any) {
           {/* Google Only */}
           <View style={styles.socialRow}>
             <TouchableOpacity
-              style={[styles.socialIcon, { borderColor: colors.border, backgroundColor: colors.bgCard }]}
+              style={[
+                styles.socialIcon,
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.bgCard,
+                  opacity: googleReady && !loading && !googleLoading ? 1 : 0.5,
+                },
+              ]}
               activeOpacity={0.8}
-              onPress={() => Alert.alert('Google Sign In', 'Coming soon')}
+              disabled={!googleReady || loading || googleLoading}
+              onPress={signInWithGoogle}
             >
-              {/* Google G logo using colored text */}
-              <Text style={styles.googleG}>G</Text>
+              {googleLoading ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.googleG}>G</Text>}
             </TouchableOpacity>
           </View>
         </ScrollView>

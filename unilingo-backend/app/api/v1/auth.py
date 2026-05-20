@@ -33,6 +33,57 @@ def _is_development_environment() -> bool:
     env_value = getattr(settings, "ENVIRONMENT", None) or os.getenv("APP_ENV")
     return str(env_value).lower() == "development"
 
+
+def _google_oauth_client_ids() -> list[str]:
+    return [
+        client_id.strip()
+        for client_id in (
+            settings.GOOGLE_OAUTH_WEB_CLIENT_ID,
+            settings.GOOGLE_OAUTH_IOS_CLIENT_ID,
+            settings.GOOGLE_OAUTH_ANDROID_CLIENT_ID,
+        )
+        if client_id.strip()
+    ]
+
+
+def _verify_google_id_token(token: str) -> dict:
+    client_ids = _google_oauth_client_ids()
+    if not client_ids:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Google OAuth client IDs are not configured",
+        )
+
+    try:
+        from google.auth.transport import requests as google_requests
+        from google.oauth2 import id_token as google_id_token
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Google token verifier is unavailable: {exc}",
+        ) from exc
+
+    verifier_request = google_requests.Request()
+    last_error: Exception | None = None
+    for client_id in client_ids:
+        try:
+            decoded = google_id_token.verify_oauth2_token(
+                token,
+                verifier_request,
+                client_id,
+            )
+            if decoded.get("email_verified") is False:
+                raise ValueError("Google email is not verified")
+            return decoded
+        except Exception as exc:
+            last_error = exc
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=f"Invalid Google token: {last_error}",
+    )
+
+
 @router.post("/register-send-otp", status_code=status.HTTP_200_OK)
 async def register_send_otp(request: SendOTPRequest, db: AsyncSession = Depends(get_db)):
     """Send OTP for registration."""
@@ -84,29 +135,36 @@ async def social_login_endpoint(
 ):
     """
     Login or register via Firebase social auth (Google/Apple).
-    The client sends the Firebase ID token, and the backend verifies it.
+    The client sends a Firebase ID token, or a Google ID token when provider=google.
     """
     try:
-        # Verify Firebase token
-        # In production, use firebase_admin.auth.verify_id_token(request.firebase_token)
-        # For now, we'll decode it and extract user info
-        import firebase_admin.auth as firebase_auth
-        decoded_token = firebase_auth.verify_id_token(request.firebase_token)
+        try:
+            import firebase_admin.auth as firebase_auth
+            decoded_token = firebase_auth.verify_id_token(request.firebase_token)
+            provider_uid = decoded_token["uid"]
+        except Exception:
+            if request.provider != "google":
+                raise
+            decoded_token = _verify_google_id_token(request.firebase_token)
+            provider_uid = f"google:{decoded_token['sub']}"
 
-        firebase_uid = decoded_token["uid"]
         email = decoded_token.get("email", "")
         name = decoded_token.get("name", decoded_token.get("email", "User"))
         picture = decoded_token.get("picture")
+        if not email:
+            raise ValueError("Social provider did not return an email")
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid Firebase token: {str(e)}"
+            detail=f"Invalid social token: {str(e)}"
         )
 
     user = await social_login(
         db=db,
-        firebase_uid=firebase_uid,
+        firebase_uid=provider_uid,
         email=email,
         full_name=name,
         provider=request.provider,

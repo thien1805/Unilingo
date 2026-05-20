@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     SECRET_KEY: str = "change-me-in-production"
     API_V1_PREFIX: str = "/api/v1"
+    APP_PUBLIC_URL: str = ""
 
     # ─── Database ───
     DATABASE_URL: str = "postgresql+asyncpg://unilingo:unilingo_password@localhost:5432/unilingo_db"
@@ -33,6 +34,11 @@ class Settings(BaseSettings):
     # ─── Firebase ───
     FIREBASE_SERVICE_ACCOUNT_PATH: str = "./firebase-service-account.json"
     FIREBASE_SERVICE_ACCOUNT_JSON: str = ""  # JSON string for cloud deploy (Railway)
+
+    # ─── Google OAuth ───
+    GOOGLE_OAUTH_WEB_CLIENT_ID: str = ""
+    GOOGLE_OAUTH_IOS_CLIENT_ID: str = ""
+    GOOGLE_OAUTH_ANDROID_CLIENT_ID: str = ""
 
     # ─── AI Services ───
     OPENAI_API_KEY: str = ""
@@ -61,6 +67,10 @@ class Settings(BaseSettings):
     SCORING_INLINE_TIMEOUT_SECONDS: int = 150
     SCORING_CELERY_FALLBACK_ENABLED: bool = True
     TTS_CACHE_DIR: str = "app/cache/tts"
+    TTS_VOICE_NAME: str = "en-US-AvaMultilingualNeural"
+    TTS_VOICE_STYLE: str = "chat"
+    TTS_PROSODY_RATE: str = "-3%"
+    TTS_OUTPUT_FORMAT: str = "audio-48khz-96kbitrate-mono-mp3"
 
     # ─── Celery ───
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
@@ -70,6 +80,7 @@ class Settings(BaseSettings):
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = ""
     SENDGRID_FROM_NAME: str = "Unilingo"
+    EMAIL_MASCOT_URL: str = ""
     SMTP_SERVER: str = ""
     SMTP_PORT: int = 465
     SMTP_USERNAME: str = ""

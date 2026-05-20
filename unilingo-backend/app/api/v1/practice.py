@@ -398,6 +398,7 @@ async def get_tts(text: str = Query(...)):
     import hashlib
     import httpx
     import io
+    import html
     
     settings = get_settings()
     if not settings.AZURE_SPEECH_KEY:
@@ -407,7 +408,13 @@ async def get_tts(text: str = Query(...)):
     if not cache_dir.is_absolute():
         cache_dir = Path.cwd() / cache_dir
     cache_dir.mkdir(parents=True, exist_ok=True)
-    cache_key = hashlib.sha256(f"{settings.AZURE_SPEECH_REGION}:en-US-JennyNeural:{text}".encode("utf-8")).hexdigest()
+    voice_name = settings.TTS_VOICE_NAME or "en-US-AvaMultilingualNeural"
+    voice_style = settings.TTS_VOICE_STYLE.strip()
+    prosody_rate = settings.TTS_PROSODY_RATE or "-3%"
+    output_format = settings.TTS_OUTPUT_FORMAT or "audio-48khz-96kbitrate-mono-mp3"
+    cache_key = hashlib.sha256(
+        f"{settings.AZURE_SPEECH_REGION}:{voice_name}:{voice_style}:{prosody_rate}:{output_format}:{text}".encode("utf-8")
+    ).hexdigest()
     cache_path = cache_dir / f"{cache_key}.mp3"
     cache_headers = {"Cache-Control": "public, max-age=86400"}
 
@@ -418,15 +425,27 @@ async def get_tts(text: str = Query(...)):
     headers = {
         "Ocp-Apim-Subscription-Key": settings.AZURE_SPEECH_KEY,
         "Content-Type": "application/ssml+xml",
-        "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
+        "X-Microsoft-OutputFormat": output_format,
         "User-Agent": "UnilingoBackend"
     }
     
-    # Use a highly expressive neural voice (Jenny is excellent for US English examiner)
-    ssml = f"""<speak version='1.0' xml:lang='en-US'><voice xml:lang='en-US' xml:gender='Female' name='en-US-JennyNeural'><prosody rate="-5%">{text}</prosody></voice></speak>"""
+    escaped_text = html.escape(text, quote=False)
+
+    def build_ssml(style: str | None = voice_style) -> str:
+        inner = f"""<prosody rate="{html.escape(prosody_rate)}">{escaped_text}</prosody>"""
+        if style:
+            inner = f"""<mstts:express-as style="{html.escape(style)}">{inner}</mstts:express-as>"""
+        return (
+            "<speak version='1.0' xml:lang='en-US' "
+            "xmlns:mstts='https://www.w3.org/2001/mstts'>"
+            f"<voice xml:lang='en-US' name='{html.escape(voice_name)}'>{inner}</voice>"
+            "</speak>"
+        )
     
-    async with httpx.AsyncClient() as client:
-        response = await client.post(url, headers=headers, content=ssml)
+    async with httpx.AsyncClient(timeout=12) as client:
+        response = await client.post(url, headers=headers, content=build_ssml())
+        if response.status_code != 200 and voice_style:
+            response = await client.post(url, headers=headers, content=build_ssml(None))
         if response.status_code != 200:
             print(f"Azure TTS Error: {response.text}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="TTS generation failed")

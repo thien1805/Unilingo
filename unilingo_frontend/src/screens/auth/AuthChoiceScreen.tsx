@@ -4,6 +4,7 @@
  */
 import React from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -12,12 +13,18 @@ import {
 } from 'react-native';
 import AnimatedMascot from '../../components/common/AnimatedMascot';
 import AppBackground from '../../components/common/AppBackground';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 
 type Props = {
   navigation: any;
 };
 
 export default function AuthChoiceScreen({ navigation }: Props) {
+  const [googleError, setGoogleError] = React.useState('');
+  const { googleLoading, googleReady, signInWithGoogle } = useGoogleSignIn((message) => {
+    setGoogleError(message);
+  });
+
   return (
     <AppBackground>
       <SafeAreaView style={styles.container}>
@@ -33,6 +40,23 @@ export default function AuthChoiceScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.buttonContainer}>
+          {googleError ? <Text style={styles.errorText}>{googleError}</Text> : null}
+          <TouchableOpacity
+            style={[styles.googleButton, { opacity: googleReady && !googleLoading ? 1 : 0.55 }]}
+            onPress={signInWithGoogle}
+            disabled={!googleReady || googleLoading}
+            activeOpacity={0.85}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color="#3350B2" />
+            ) : (
+              <>
+                <Text style={styles.googleG}>G</Text>
+                <Text style={styles.googleText}>Continue with Google</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.signUpButton}
             onPress={() => navigation.navigate('Register')}
@@ -114,6 +138,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingBottom: 48,
     gap: 16,
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  googleButton: {
+    height: 58,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#DDE5F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  googleG: {
+    color: '#4285F4',
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  googleText: {
+    color: '#1F2937',
+    fontSize: 16,
+    fontWeight: '700',
   },
   signUpButton: {
     height: 58,

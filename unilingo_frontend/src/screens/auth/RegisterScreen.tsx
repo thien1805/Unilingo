@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -21,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeStore } from '../../store/themeStore';
 import { useAuthStore } from '../../store/authStore';
 import { authAPI } from '../../api/auth';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 
 const NAVY = '#3350B2';
 
@@ -49,6 +49,10 @@ export default function RegisterScreen({ navigation }: any) {
     setErrorModalMessage(message);
     setErrorModalVisible(true);
   };
+
+  const { googleLoading, googleReady, signInWithGoogle } = useGoogleSignIn((message) => {
+    showError('Google Sign In', message);
+  });
 
   const getErrorMessage = (error: any, fallback: string) => {
     const detail = error?.response?.data?.detail;
@@ -243,6 +247,33 @@ export default function RegisterScreen({ navigation }: any) {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.mainBtnText}>Register</Text>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.dividerRow}>
+                <Text style={[styles.dividerText, { color: colors.textMuted }]}>or continue with</Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.googleButton,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.bgCard,
+                    opacity: googleReady && !loading && !googleLoading ? 1 : 0.5,
+                  },
+                ]}
+                activeOpacity={0.85}
+                disabled={!googleReady || loading || googleLoading}
+                onPress={signInWithGoogle}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator color={colors.accent} />
+                ) : (
+                  <>
+                    <Text style={styles.googleG}>G</Text>
+                    <Text style={[styles.googleButtonText, { color: colors.textPrimary }]}>Continue with Google</Text>
+                  </>
                 )}
               </TouchableOpacity>
             </>
@@ -469,6 +500,33 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     includeFontPadding: false,
     paddingRight: 4,
+  },
+  dividerRow: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dividerText: {
+    fontFamily: 'PlusJakartaSans-Regular',
+    fontSize: 13,
+  },
+  googleButton: {
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  googleG: {
+    fontSize: 22,
+    fontFamily: 'PlusJakartaSans-Bold',
+    color: '#4285F4',
+  },
+  googleButtonText: {
+    fontFamily: 'PlusJakartaSans-Bold',
+    fontSize: 14,
   },
   termsText: {
     fontFamily: 'PlusJakartaSans-Regular',

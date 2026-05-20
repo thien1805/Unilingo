@@ -2,6 +2,7 @@
   "expo": {
     "name": "Unilingo",
     "slug": "Unilingo",
+    "scheme": "unilingo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./uni_icon.png",
@@ -47,7 +48,8 @@
           "cameraPermission": "Allow Unilingo to use your camera during IELTS Speaking Mock Test mode.",
           "microphonePermission": "Allow Unilingo to record your voice for speaking mock tests."
         }
-      ]
+      ],
+      "expo-web-browser"
     ]
   }
 }

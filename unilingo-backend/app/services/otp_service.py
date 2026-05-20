@@ -4,6 +4,7 @@ import os
 import smtplib
 import time
 import httpx
+from html import escape
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional, Dict, Tuple
@@ -98,8 +99,30 @@ def _delete_otp(key: str) -> None:
         redis_client.delete(key)
 
 
+def _email_mascot_url() -> str:
+    configured_url = settings.EMAIL_MASCOT_URL.strip()
+    if configured_url:
+        return configured_url
+
+    public_url = settings.APP_PUBLIC_URL.strip().rstrip("/")
+    if public_url:
+        return f"{public_url}/admin-web/uni_icon.png"
+
+    return ""
+
+
 def _build_otp_email(prefix: str, otp: str) -> tuple[str, str, str]:
-    subject = f"[{prefix.upper()}] Your Unilingo Verification Code"
+    flow_title = "Reset your password" if prefix == "reset" else "Verify your email"
+    subject = f"Your Unilingo verification code: {otp}"
+    mascot_url = _email_mascot_url()
+    mascot_html = (
+        f'<img src="{escape(mascot_url)}" width="96" height="96" alt="Unilingo mascot" '
+        'style="display:block;border-radius:24px;margin:0 auto 18px;object-fit:contain;" />'
+        if mascot_url
+        else '<div style="width:96px;height:96px;border-radius:24px;background:#eff4ff;'
+             'margin:0 auto 18px;display:flex;align-items:center;justify-content:center;'
+             'font:800 42px Arial,sans-serif;color:#3350B2;">U</div>'
+    )
     text = (
         "Hello,\n\n"
         f"Your verification code is: {otp}\n\n"
@@ -107,12 +130,24 @@ def _build_otp_email(prefix: str, otp: str) -> tuple[str, str, str]:
         "Thank you,\n"
         "Unilingo Team"
     )
-    html = (
-        "<p>Hello,</p>"
-        f"<p>Your verification code is: <strong>{otp}</strong></p>"
-        "<p>This code will expire in 5 minutes.</p>"
-        "<p>Thank you,<br/>Unilingo Team</p>"
-    )
+    html = f"""<!doctype html>
+<html>
+  <body style="margin:0;background:#f4f7fb;padding:28px 14px;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:28px;padding:34px 28px;border:1px solid #e5e7eb;">
+      {mascot_html}
+      <h1 style="margin:0 0 10px;text-align:center;font-size:26px;line-height:32px;color:#1f2937;">{escape(flow_title)}</h1>
+      <p style="margin:0 auto 24px;max-width:390px;text-align:center;font-size:15px;line-height:23px;color:#64748b;">
+        Use this code to continue in Unilingo. It expires in 5 minutes.
+      </p>
+      <div style="letter-spacing:10px;text-align:center;font-size:34px;font-weight:800;color:#3350B2;background:#eff4ff;border-radius:18px;padding:18px 12px;">
+        {escape(otp)}
+      </div>
+      <p style="margin:24px 0 0;text-align:center;font-size:13px;line-height:20px;color:#94a3b8;">
+        If you did not request this code, you can safely ignore this email.
+      </p>
+    </div>
+  </body>
+</html>"""
     return subject, text, html
 
 
@@ -160,16 +195,17 @@ def _send_with_sendgrid(email: str, subject: str, text: str, html: str) -> bool:
         return False
 
 
-def _send_with_smtp(email: str, subject: str, text: str) -> bool:
+def _send_with_smtp(email: str, subject: str, text: str, html: str) -> bool:
     if not (settings.SMTP_SERVER and settings.SMTP_USERNAME and settings.SMTP_PASSWORD):
         return False
 
     try:
-        msg = MIMEMultipart()
+        msg = MIMEMultipart("alternative")
         msg['From'] = settings.SMTP_FROM_EMAIL or settings.SMTP_USERNAME
         msg['To'] = email
         msg['Subject'] = subject
         msg.attach(MIMEText(text, 'plain'))
+        msg.attach(MIMEText(html, 'html'))
 
         # Using SMTP_SSL for port 465, or SMTP with starttls for port 587
         if settings.SMTP_PORT == 465:
@@ -204,7 +240,7 @@ def generate_and_send_otp(email: str, prefix: str = "register", raise_on_email_f
     subject, text, html = _build_otp_email(prefix, otp)
     sent = _send_with_sendgrid(email_clean, subject, text, html)
     if not sent:
-        sent = _send_with_smtp(email_clean, subject, text)
+        sent = _send_with_smtp(email_clean, subject, text, html)
     if not sent:
         print("⚠️ Email provider credentials not found or sending failed; OTP is available in logs.", flush=True)
         if raise_on_email_failure:
