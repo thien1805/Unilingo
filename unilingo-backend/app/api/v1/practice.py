@@ -13,6 +13,8 @@ from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.topic import Topic, Question
 from app.models.practice import TestAttempt, AttemptPart, AIScoringResult
+from app.config import get_settings
+from app.services.storage_service import save_upload_file
 from app.schemas.practice import (
     StartPracticeRequest, StartPracticeResponse, QuestionDetail,
     UploadAudioResponse, TranscribeAudioResponse, SubmitPracticeResponse,
@@ -73,8 +75,6 @@ def build_scoring_result_response(attempt: TestAttempt) -> ScoringResultResponse
 def transcribe_audio_file(audio_path: str) -> str:
     """Transcribe a local audio file into English text for mock-test evaluation."""
     import os
-    from app.config import get_settings
-
     settings = get_settings()
     if not settings.GROQ_API_KEY:
         return "[Mock transcript] Speech-to-text is not configured yet. Add GROQ_API_KEY to enable real transcription."
@@ -462,19 +462,14 @@ async def upload_audio(
     if attempt.status not in ("in_progress",):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Attempt is not in progress")
 
-    import aiofiles
-    import os
-    upload_dir = os.path.join(os.getcwd(), "app", "uploads")
-    os.makedirs(upload_dir, exist_ok=True)
-    
+    settings = get_settings()
     audio_filename = f"{attempt_id}_part{part_number}.m4a"
-    audio_path = os.path.join(upload_dir, audio_filename)
-    
-    async with aiofiles.open(audio_path, "wb") as buffer:
-        while chunk := await file.read(1024 * 1024):
-            await buffer.write(chunk)
-        
-    audio_url = audio_path
+    audio_url = await save_upload_file(
+        file=file,
+        filename=audio_filename,
+        settings=settings,
+        subdir=str(current_user.id),
+    )
 
     existing_part_result = await db.execute(
         select(AttemptPart).where(
@@ -514,13 +509,15 @@ async def transcribe_audio(
     import os
     import uuid
 
-    upload_dir = os.path.join(os.getcwd(), "app", "uploads", "mock_test_transcripts")
+    settings = get_settings()
+    upload_dir = os.path.join(os.getcwd(), settings.LOCAL_UPLOAD_DIR, "mock_test_transcripts")
     os.makedirs(upload_dir, exist_ok=True)
 
     safe_user_id = str(current_user.id)
     audio_filename = f"{safe_user_id}_{uuid.uuid4()}.m4a"
     audio_path = os.path.join(upload_dir, audio_filename)
 
+    await file.seek(0)
     async with aiofiles.open(audio_path, "wb") as buffer:
         while chunk := await file.read(1024 * 1024):
             await buffer.write(chunk)

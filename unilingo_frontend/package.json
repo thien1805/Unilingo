@@ -6,6 +6,10 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "build:ios": "eas build -p ios --profile production",
+    "build:android": "eas build -p android --profile production",
+    "submit:ios": "eas submit -p ios --profile production",
+    "testflight": "npx testflight",
     "web": "expo start --web"
   },
   "dependencies": {

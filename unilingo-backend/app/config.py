@@ -40,13 +40,21 @@ class Settings(BaseSettings):
     AZURE_SPEECH_KEY: str = ""
     AZURE_SPEECH_REGION: str = "eastus"
     GROQ_API_KEY: str = ""
+    GROQ_TRANSCRIPTION_MODEL: str = "whisper-large-v3"
+    GROQ_SCORING_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_SCORING_MAX_TOKENS: int = 900
+    AI_SCORING_DETAIL_MODE: str = "fast"
 
     # ─── Storage (S3/MinIO) ───
+    AUDIO_STORAGE_BACKEND: str = "local"  # local | s3
+    LOCAL_UPLOAD_DIR: str = "app/uploads"
     S3_ENDPOINT_URL: str = "http://localhost:9000"
     S3_ACCESS_KEY: str = "minioadmin"
     S3_SECRET_KEY: str = "minioadmin"
     S3_BUCKET_NAME: str = "unilingo-audio"
     S3_REGION: str = "us-east-1"
+    S3_ADDRESSING_STYLE: str = "auto"  # auto | virtual | path
+    S3_AUDIO_PREFIX: str = "practice-audio"
 
     # ─── Scoring Runtime ───
     SCORING_INLINE_ENABLED: bool = True

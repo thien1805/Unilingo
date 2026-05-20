@@ -228,12 +228,14 @@ def _run_scoring_sync(audio_url: str, question_text: str, ielts_part: str, setti
     Run the scoring pipeline synchronously (no async).
     """
     from concurrent.futures import ThreadPoolExecutor
+    from app.services.storage_service import materialize_audio_file
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        transcript_future = executor.submit(_transcribe_sync, audio_url, settings)
-        pronunciation_future = executor.submit(_assess_pronunciation_sync, audio_url, settings)
-        transcript = transcript_future.result()
-        pronunciation_data = pronunciation_future.result()
+    with materialize_audio_file(audio_url, settings) as local_audio_path:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            transcript_future = executor.submit(_transcribe_sync, local_audio_path, settings)
+            pronunciation_future = executor.submit(_assess_pronunciation_sync, local_audio_path, settings)
+            transcript = transcript_future.result()
+            pronunciation_data = pronunciation_future.result()
 
     scoring_result = _score_with_llm_sync(
         transcript=transcript,
@@ -266,7 +268,7 @@ def _transcribe_sync(audio_url: str, settings) -> str:
         with open(audio_url, "rb") as file:
             transcription = client.audio.transcriptions.create(
                 file=(os.path.basename(audio_url), file.read()),
-                model="whisper-large-v3",
+                model=settings.GROQ_TRANSCRIPTION_MODEL,
                 response_format="text",
                 language="en"
             )
@@ -324,7 +326,35 @@ def _score_with_llm_sync(transcript, question_text, ielts_part, pronunciation_da
     import json
     from app.ai.scoring_service import SCORING_PROMPT_TEMPLATE
 
-    prompt = SCORING_PROMPT_TEMPLATE.format(
+    fast_prompt_template = """You are an IELTS Speaking examiner. Score this answer quickly and fairly.
+
+Context:
+- IELTS Part: {ielts_part}
+- Question: {question_text}
+- Transcript: {transcript}
+- Pronunciation data: {pronunciation_data}
+
+Return ONLY compact JSON with this exact shape:
+{{
+  "fluency_band": <float>,
+  "lexical_band": <float>,
+  "grammar_band": <float>,
+  "pronunciation_band": <float>,
+  "overall_band": <float>,
+  "feedback": {{"summary": "<one sentence>", "detailed": "<2 short sentences>"}},
+  "strengths": ["<max 2>"],
+  "weaknesses": ["<max 2>"],
+  "suggested_improvements": ["<max 2>"],
+  "sample_better_answer": {{"text": "<short improved answer>", "explanation": "<one sentence>"}},
+  "grammar_errors": [],
+  "vocabulary_suggestions": []
+}}
+Use IELTS 0.0-9.0 bands in 0.5 increments."""
+
+    detail_mode = (settings.AI_SCORING_DETAIL_MODE or "fast").strip().lower()
+    template = fast_prompt_template if detail_mode == "fast" else SCORING_PROMPT_TEMPLATE
+
+    prompt = template.format(
         ielts_part=ielts_part,
         question_text=question_text,
         transcript=transcript,
@@ -349,8 +379,10 @@ def _score_with_llm_sync(transcript, question_text, ielts_part, pronunciation_da
 
     response = client.chat.completions.create(
         messages=[{"role": "user", "content": prompt}],
-        model="llama-3.3-70b-versatile",
+        model=settings.GROQ_SCORING_MODEL,
         response_format={"type": "json_object"},
+        temperature=0.2,
+        max_tokens=settings.GROQ_SCORING_MAX_TOKENS,
     )
 
     try:
