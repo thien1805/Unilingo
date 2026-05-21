@@ -1,7 +1,7 @@
 /**
  * Practice API service
  */
-import apiClient from './client';
+import apiClient, { getApiBaseUrl } from './client';
 import { getCached, makeCacheKey } from './cache';
 
 export interface StartPracticePayload {
@@ -111,6 +111,25 @@ export interface SubmitPracticeResponse {
   result?: ScoringResult | null;
 }
 
+type ApiErrorWithDiagnostics = Error & {
+  response?: { status?: number; data?: unknown };
+  code?: string;
+  apiBaseUrl?: string;
+};
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isNetworkLikeError = (error: ApiErrorWithDiagnostics) => {
+  if (error.response) return false;
+  const message = (error.message || '').toLowerCase();
+  return (
+    message.includes('network') ||
+    message.includes('timeout') ||
+    error.code === 'ECONNABORTED' ||
+    error.code === 'ERR_NETWORK'
+  );
+};
+
 export const practiceAPI = {
   start: async (payload: StartPracticePayload): Promise<PracticeAttempt> => {
     const { data } = await apiClient.post('/practice/start', payload);
@@ -126,21 +145,47 @@ export const practiceAPI = {
     return data;
   },
 
-  uploadAudio: async (attemptId: string, audioFile: FormData, partNumber: number = 1, questionId?: string) => {
+  uploadAudio: async (
+    attemptId: string,
+    audioFile: FormData,
+    partNumber: number = 1,
+    questionId?: string,
+    questionText?: string
+  ) => {
     let url = `/practice/${attemptId}/upload-audio?part_number=${partNumber}`;
     if (questionId && !questionId.startsWith('mock')) {
       url += `&question_id=${questionId}`;
+    } else if (questionText?.trim()) {
+      url += `&question_text=${encodeURIComponent(questionText.trim())}`;
     }
-    const { data } = await apiClient.post(
-      url,
-      audioFile,
-      {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 120000, // 120s for audio upload
-        transformRequest: (data) => data, // Prevent Axios from transforming FormData
+
+    let lastError: ApiErrorWithDiagnostics | null = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const { data } = await apiClient.post(
+          url,
+          audioFile,
+          {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 120000, // 120s for audio upload
+            transformRequest: (data) => data, // Prevent Axios from transforming FormData
+          }
+        );
+        return data;
+      } catch (error: any) {
+        const uploadError = error as ApiErrorWithDiagnostics;
+        uploadError.apiBaseUrl = getApiBaseUrl();
+        lastError = uploadError;
+
+        if (!isNetworkLikeError(uploadError) || attempt === 1) {
+          throw uploadError;
+        }
+
+        await wait(700);
       }
-    );
-    return data;
+    }
+
+    throw lastError || new Error('Audio upload failed');
   },
 
   transcribeAudio: async (audioFile: FormData): Promise<{ transcript: string }> => {
@@ -197,8 +242,11 @@ export const practiceAPI = {
   },
 
   getTTSUrl: (text: string): string => {
-    // Assuming apiClient.defaults.baseURL is something like 'http://localhost:8000/api/v1'
-    const baseURL = apiClient.defaults.baseURL || 'http://localhost:8000/api/v1';
+    const baseURL = getApiBaseUrl();
     return `${baseURL}/practice/tts?text=${encodeURIComponent(text)}`;
   },
+
+  getDiagnostics: () => ({
+    baseURL: getApiBaseUrl(),
+  }),
 };

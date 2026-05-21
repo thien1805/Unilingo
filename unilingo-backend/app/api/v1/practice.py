@@ -472,6 +472,7 @@ async def upload_audio(
     file: UploadFile = File(...),
     part_number: int = Query(default=1, ge=1, le=20),
     question_id: UUID | None = None,
+    question_text: str | None = Query(default=None, max_length=1000),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -489,6 +490,24 @@ async def upload_audio(
 
     if attempt.status not in ("in_progress",):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Attempt is not in progress")
+
+    if not question_id and question_text and question_text.strip():
+        clean_question_text = question_text.strip()
+        topic_id = attempt.topic_id
+        if not topic_id:
+            topic = await get_or_create_ai_topic(db, attempt.ielts_part)
+            topic_id = topic.id
+
+        question = Question(
+            topic_id=topic_id,
+            ielts_part=attempt.ielts_part,
+            question_text=clean_question_text,
+            difficulty="medium",
+            is_active=False,
+        )
+        db.add(question)
+        await db.flush()
+        question_id = question.id
 
     settings = get_settings()
     audio_filename = f"{attempt_id}_part{part_number}.m4a"
