@@ -359,7 +359,7 @@ OPERATION_DOCS: dict[tuple[str, str], dict[str, Any]] = {
     },
     ("POST", "/api/v1/practice/{attempt_id}/upload-audio"): {
         "summary": "Upload audio ghi âm",
-        "description": "Upload file ghi âm cho attempt đang in_progress và tạo AttemptPart.",
+        "description": "Upload file ghi âm cho attempt đang in_progress và tạo AttemptPart. Hỗ trợ question_text cho mock/full-camera test không có question_id.",
     },
     ("POST", "/api/v1/practice/{attempt_id}/submit"): {
         "summary": "Submit attempt để AI scoring",

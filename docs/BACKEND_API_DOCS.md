@@ -991,8 +991,9 @@ Query params:
 
 | Param | Type | Required | Notes |
 |---|---|---:|---|
-| part_number | int | No | Default `1`, min `1`, max `3` |
+| part_number | int | No | Default `1`, min `1`, max `20` |
 | question_id | UUID | No | Gắn audio với câu hỏi cụ thể |
+| question_text | string | No | Dùng cho mock/full-camera test khi câu hỏi không có `question_id`; backend tạo question nội bộ để scoring dùng đúng prompt |
 
 Form data:
 
@@ -1005,6 +1006,7 @@ Xử lý:
 - Kiểm tra attempt thuộc current user.
 - Chỉ cho upload nếu attempt đang `in_progress`.
 - Lưu file vào `app/uploads/{attempt_id}_part{part_number}.m4a`.
+- Nếu có `question_text` mà không có `question_id`, backend tạo một inactive `Question` nội bộ và gắn vào `AttemptPart`.
 - Tạo `AttemptPart`.
 
 Response:
@@ -1060,6 +1062,12 @@ Lỗi chính:
 
 - `503`: Chưa cấu hình `GROQ_API_KEY`; frontend phải xem transcript là unavailable, không hiển thị lỗi cấu hình như lời nói của thí sinh.
 - `502`: Provider STT lỗi.
+
+Frontend integration notes:
+
+- Full mock và virtual speaking screens chỉ gọi transcript/upload khi app đang foreground và screen đang focus.
+- Nếu app chuyển background trong lúc examiner TTS đang load/phát, frontend phải stop audio và không fallback sang native `expo-speech`.
+- `GET /practice/tts` nên được build từ cùng base URL động với API client, đặc biệt khi chạy trên thiết bị thật qua Expo.
 
 ### 6.5 Submit Practice
 
