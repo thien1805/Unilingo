@@ -680,21 +680,57 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
     stopTimer();
     await stopExaminerAudio();
     if (!canUseMedia()) return;
-    spokenQuestionKeyRef.current = '2-0';
+    const questionKey = '2-0';
+    spokenQuestionKeyRef.current = questionKey;
+    autoPromptInFlightRef.current = questionKey;
     setPart(2);
     setQuestionIndex(0);
     setPhase('preparing');
     resetTimer(testData.part2.preparationTime);
-    await speakExaminerPrompt(2, 0, true);
-    if (!canUseMedia()) return;
-    startTimer(testData.part2.preparationTime, async () => {
+    try {
+      await speakExaminerPrompt(2, 0, true);
       if (!canUseMedia()) return;
-      const started = await startQuestionRecording(2, 0);
-      if (started) {
-        spokenQuestionKeyRef.current = '2-0';
+      startTimer(testData.part2.preparationTime, async () => {
+        if (!canUseMedia()) return;
+        const started = await startQuestionRecording(2, 0);
+        if (started) {
+          spokenQuestionKeyRef.current = questionKey;
+        }
+      });
+    } finally {
+      if (autoPromptInFlightRef.current === questionKey) {
+        autoPromptInFlightRef.current = null;
       }
-    });
+    }
   }, [canUseMedia, resetTimer, speakExaminerPrompt, startQuestionRecording, startTimer, stopExaminerAudio, stopTimer, testData]);
+
+  const startPart3Discussion = useCallback(async () => {
+    if (!testData || !canUseMedia()) return;
+    stopTimer();
+    await stopExaminerAudio();
+    if (!canUseMedia()) return;
+
+    const questionKey = '3-0';
+    spokenQuestionKeyRef.current = questionKey;
+    autoPromptInFlightRef.current = questionKey;
+    setPart(3);
+    setQuestionIndex(0);
+    setPhase('ready');
+    resetTimer(testData.limits.part3Question);
+
+    try {
+      await speakExaminerPrompt(3, 0, true);
+      if (!canUseMedia()) return;
+      const started = await startQuestionRecording(3, 0);
+      if (!started) {
+        autoAdvancePendingRef.current = false;
+      }
+    } finally {
+      if (autoPromptInFlightRef.current === questionKey) {
+        autoPromptInFlightRef.current = null;
+      }
+    }
+  }, [canUseMedia, resetTimer, speakExaminerPrompt, startQuestionRecording, stopExaminerAudio, stopTimer, testData]);
 
   const finishTest = useCallback(() => {
     if (isSubmittingScore) return;
@@ -759,10 +795,7 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
     }
 
     if (part === 2) {
-      setPart(3);
-      setQuestionIndex(0);
-      setPhase('ready');
-      resetTimer(testData.limits.part3Question);
+      startPart3Discussion();
       return;
     }
 
@@ -774,7 +807,7 @@ export default function MockSpeakingTestScreen({ navigation, route }: any) {
     } else {
       finishTest();
     }
-  }, [finishTest, testData, part, phase, questionIndex, resetTimer, startPart2Preparation]);
+  }, [finishTest, testData, part, phase, questionIndex, resetTimer, startPart2Preparation, startPart3Discussion]);
 
   const handleManualStopRecording = useCallback(async () => {
     autoAdvancePendingRef.current = true;

@@ -779,6 +779,16 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
   };
 
   // ──── Next Question or Finish ────
+  const getPartCompletionText = () => {
+    if (isFullTest && safeIeltsPart === 'part1') {
+      return "That is the end of Part 1. Now let's move on to Part 2.";
+    }
+    if (isFullTest && safeIeltsPart === 'part2') {
+      return "That is the end of Part 2. Now let's move on to Part 3.";
+    }
+    return FILLERS_DONE[Math.floor(Math.random() * FILLERS_DONE.length)];
+  };
+
   const handleNextOrFinish = async (uploadPromise?: Promise<void>) => {
     if (!canUseMedia()) return;
     const uploadResult = uploadPromise
@@ -789,7 +799,7 @@ export default function VirtualRoomScreen({ navigation, route }: any) {
     if (nextIdx >= questions.length) {
       // All questions done
       setPhase('transition');
-      const doneText = FILLERS_DONE[Math.floor(Math.random() * FILLERS_DONE.length)];
+      const doneText = getPartCompletionText();
       await speakAndWait(doneText);
       if (!canUseMedia()) return;
       const uploadError = await uploadResult;
