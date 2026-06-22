@@ -1,5 +1,25 @@
 # Unilingo Mobile
 
+## App Preview
+
+<table>
+  <tr>
+    <td><img src="docs/assets/mobile-slides/slide-05.png" alt="Unilingo mobile slide 5" width="420" /></td>
+  </tr>
+  <tr>
+      <td><img src="docs/assets/mobile-slides/slide-06.png" alt="Unilingo mobile slide 6" width="420" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/assets/mobile-slides/slide-07.png" alt="Unilingo mobile slide 7" width="420" /></td>
+  </tr>
+  <tr>
+   <td><img src="docs/assets/mobile-slides/slide-08.png" alt="Unilingo mobile slide 8" width="420" /></td>
+   </tr>
+  <tr>
+    <td><img src="docs/assets/mobile-slides/slide-09.png" alt="Unilingo mobile slide 9" width="420" /></td>
+  </tr>
+</table>
+
 Unilingo is an IELTS Speaking practice platform with an Expo/React Native mobile app and a FastAPI backend. The app simulates real speaking workflows: the examiner reads questions with text-to-speech, the user records spoken answers, the backend stores audio, transcribes speech, assesses pronunciation, and returns IELTS-style band scores with feedback.
 
 This root README explains how the project is structured, how to run it locally, how API links are built, which third-party services are used, and how Redis fits into OTP, scoring, and worker runtime.
